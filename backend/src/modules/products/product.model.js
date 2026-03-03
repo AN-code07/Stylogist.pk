@@ -64,6 +64,33 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
 
+    minPrice: {
+      type: Number,
+      index: true,
+    },
+
+    maxPrice: {
+      type: Number,
+    },
+
+    totalStock: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
+
+    discountPercentage: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
+
+    isDealActive: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
     totalReviews: {
       type: Number,
       default: 0,

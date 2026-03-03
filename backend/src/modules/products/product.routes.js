@@ -13,5 +13,6 @@ router.use(authMiddleware);
 router.post('/', validate(createProductSchema), catchAsync(ProductController.createProduct));
 router.get('/', catchAsync(ProductController.getAllProducts));
 router.get('/:slug', catchAsync(ProductController.getSingleProduct));
+router.get('/filters/meta', catchAsync(ProductController.getFilterMetadata));
 
 export default router;
