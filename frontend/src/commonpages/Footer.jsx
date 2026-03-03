@@ -30,7 +30,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="w-full bg-[#111111] text-white pt-16 lg:pt-24 pb-8 border-t-[6px] border-[#007074]">
+    <footer className="w-full bg-[#111111] text-white pt-10 pb-8 ">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         
         {/* Main Footer Grid */}

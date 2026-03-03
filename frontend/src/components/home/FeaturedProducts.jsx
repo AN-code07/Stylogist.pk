@@ -100,7 +100,7 @@ export default function FeaturedProducts() {
     };
 
     return (
-        <section className="w-full bg-[#F7F3F0] py-16 lg:py-24 overflow-hidden">
+        <section className="w-full bg-[#F7F3F0] py-10 overflow-hidden">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
 
                 {/* Header Section */}
@@ -119,13 +119,13 @@ export default function FeaturedProducts() {
                     <div className="flex items-center space-x-3 mt-6 md:mt-0">
                         <button
                             onClick={handlePrevPage}
-                            className="p-4 rounded-full border border-[#D0B9A7] bg-white text-[#007074] hover:bg-[#007074] hover:text-white hover:border-[#007074] transition-all duration-300 shadow-sm hover:shadow-lg"
+                            className="p-2 cursor-pointer rounded-full border border-[#D0B9A7] bg-white text-[#007074] hover:bg-[#007074] hover:text-white hover:border-[#007074] transition-all duration-300 shadow-sm hover:shadow-lg"
                         >
                             <FiChevronLeft size={22} />
                         </button>
                         <button
                             onClick={handleNextPage}
-                            className="p-4 rounded-full border border-[#D0B9A7] bg-white text-[#007074] hover:bg-[#007074] hover:text-white hover:border-[#007074] transition-all duration-300 shadow-sm hover:shadow-lg"
+                            className="p-2 cursor-pointer rounded-full border border-[#D0B9A7] bg-white text-[#007074] hover:bg-[#007074] hover:text-white hover:border-[#007074] transition-all duration-300 shadow-sm hover:shadow-lg"
                         >
                             <FiChevronRight size={22} />
                         </button>
@@ -163,7 +163,7 @@ export default function FeaturedProducts() {
                                     >
                                         <FiHeart
                                             size={20}
-                                            className={wishlist.includes(product.id) ? 'fill-[#e63946] text-[#e63946]' : 'text-gray-600 hover:text-[#e63946]'}
+                                            className={wishlist.includes(product.id) ? 'fill-[#007074] text-[#007074]' : 'text-gray-600 hover:text-[#007074]'}
                                         />
                                     </button>
 
@@ -197,8 +197,8 @@ export default function FeaturedProducts() {
                                         {product.shortDesc}
                                     </p>
 
-                                    <div className="flex items-end space-x-3 mb-6">
-                                        <span className="text-2xl font-bold text-[#007074]">
+                                    <div className="flex items-end justify-between space-x-3 mb-6">
+                                        <span className="text-lg font-bold text-[#007074]">
                                             Rs. {product.salePrice.toLocaleString()}
                                         </span>
                                         <span className="text-sm text-gray-400 line-through mb-1">
@@ -207,7 +207,7 @@ export default function FeaturedProducts() {
                                     </div>
 
                                     {/* Call to Action via Common Button */}
-                                    <ComonButton btntitle="Add to Cart" icon={<FaShoppingBag size={18} />} />
+                                    <ComonButton padding="px-4 py-2" btntitle="Add to Cart" icon={<FaShoppingBag size={18} />} />
                                 </div>
                             </div>
                         ))}
@@ -218,9 +218,9 @@ export default function FeaturedProducts() {
                 <div className="text-center mt-7">
                     <Link
                         to="/shop"
-                        className="inline-flex items-center space-x-2 text-lg text-[#007074] font-bold hover:text-[#B08463] transition-colors group"
+                        className="inline-flex items-center space-x-2 text-lg text-[#007074] font-bold hover:text-[#007074] transition-colors group"
                     >
-                        <span className="border-b-2 border-transparent group-hover:border-[#B08463]">View Entire Collection</span>
+                        <span className="border-b-2 border-transparent group-hover:border-[#007074]">View Entire Collection</span>
                         <FiChevronRight className="group-hover:translate-x-2 transition-transform" />
                     </Link>
                 </div>
