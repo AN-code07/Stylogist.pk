@@ -16,15 +16,15 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false); // Controls mobile accordion
+  const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
   const location = useLocation();
 
-  // Handle scroll effect
+  // Handle scroll effect with a slightly higher threshold to prevent accidental triggering
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 40);
+      setIsScrolled(window.scrollY > 50);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -36,22 +36,18 @@ export default function Navbar() {
     document.body.style.overflow = 'unset';
   }, [location]);
 
-  // Toggle Search Modal
-  const toggleSearch = () => {
-    setIsSearchOpen(!isSearchOpen);
-  };
+  const toggleSearch = () => setIsSearchOpen(!isSearchOpen);
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
     document.body.style.overflow = !isOpen ? 'hidden' : 'unset';
   };
 
-  // Centralized Navigation Data (with sub-categories)
   const navLinks = [
     { name: 'Home', path: '/' },
     { 
       name: 'Categories', 
-      path: '#', // Prevent routing, acts as dropdown toggle
+      path: '#',
       hasDropdown: true,
       subItems: [
         { name: 'Women', path: '/category/women' },
@@ -65,22 +61,19 @@ export default function Navbar() {
     { name: 'Hot Deals', path: '/deals', highlight: true },
   ];
 
-  // Reusable Desktop Links Component (used in both un-scrolled and scrolled states)
   const DesktopNavLinks = () => (
     <>
       {navLinks.map((link, idx) => (
-        <div key={idx} className="relative group">
+        <div key={idx} className="relative group flex items-center h-full">
           {link.hasDropdown ? (
-            // Dropdown Trigger (Categories)
-            <div className="cursor-pointer flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-gray-600 hover:text-[#007074] transition-colors py-2">
+            <div className="cursor-pointer flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider text-gray-600 hover:text-[#007074] transition-colors py-4">
               {link.name}
               <FiChevronDown size={14} className="transition-transform duration-300 group-hover:rotate-180" />
             </div>
           ) : (
-            // Standard Link
             <Link
               to={link.path}
-              className={`flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider transition-colors py-2 ${
+              className={`flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider transition-colors py-4 ${
                 link.highlight ? 'text-[#007074] hover:text-[#005a5d]' : 'text-gray-600 hover:text-[#007074]'
               }`}
             >
@@ -89,13 +82,11 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* Animated Underline */}
           <span className={`absolute bottom-0 left-0 h-0.5 transition-all duration-300 w-0 group-hover:w-full ${link.highlight ? 'bg-[#007074]' : 'bg-[#222222]'}`}></span>
 
-          {/* Desktop Dropdown Panel */}
           {link.hasDropdown && (
-            <div className="absolute left-0 top-full pt-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
-              <div className="bg-white border border-gray-100 rounded-md shadow-xl py-2 flex flex-col transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+            <div className="absolute left-0 top-full w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+              <div className="bg-white border border-gray-100 rounded-md shadow-xl py-2 flex flex-col transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 mt-1">
                 {link.subItems.map((sub, subIdx) => (
                   <Link
                     key={subIdx}
@@ -115,8 +106,7 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Top Announcement Banner */}
-      <div className="bg-[#222222] text-white py-2 px-4 text-center text-[10px] md:text-xs font-bold tracking-widest uppercase">
+      <div className="bg-[#222222] text-white py-2 px-4 text-center text-[10px] md:text-xs font-bold tracking-widest uppercase relative z-50">
         <div className="container mx-auto flex items-center justify-center space-x-6">
           <span className="flex items-center space-x-2">
             <FiTruck className="text-[#007074] text-sm" />
@@ -125,18 +115,20 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Main Navbar */}
+      {/* FIX 1: Set a strict fixed height for the nav block. 
+        h-[80px] when scrolled, h-[130px] when at the top.
+        This stops the browser from bouncing during layout calculation. 
+      */}
       <nav 
-        className={`sticky top-0 z-40 w-full bg-white transition-all duration-300 ${
-          isScrolled ? 'shadow-md py-3' : 'py-5'
+        className={`sticky top-0 z-40 w-full bg-white transition-all duration-500 ease-in-out border-b border-gray-100 ${
+          isScrolled ? 'h-[72px] shadow-md' : 'h-[120px]'
         }`}
       >
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl relative">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl h-full relative">
 
-          {/* TOP ROW */}
-          <div className="flex items-center justify-between">
+          {/* MAIN ROW: Always stays at the top of the nav container */}
+          <div className="flex items-center justify-between h-[72px]">
 
-            {/* Logo */}
             <Link to="/" className="flex items-center space-x-2 group shrink-0">
               <div className="w-9 h-9 bg-[#007074] rounded-md flex items-center justify-center transition-transform group-hover:scale-105">
                 <span className="text-white text-xl font-bold font-serif">S</span>
@@ -146,13 +138,13 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* Desktop Center Area (Swaps between Search Bar and Links) */}
-            <div className="hidden lg:flex flex-1 items-center justify-center mx-8 relative h-10">
+            {/* Desktop Center Area */}
+            <div className="hidden lg:flex flex-1 items-center justify-center mx-8 relative h-full">
 
-              {/* State 1: Big Search Bar (Visible when at top) */}
+              {/* Big Search Bar (Unscrolled State) */}
               <div
-                className={`absolute w-full max-w-lg transition-all duration-500 ease-in-out ${
-                  isScrolled ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
+                className={`absolute w-full max-w-lg transition-all duration-300 ease-in-out ${
+                  isScrolled ? 'opacity-0 invisible pointer-events-none scale-95' : 'opacity-100 visible scale-100'
                 }`}
               >
                 <div className="relative cursor-pointer" onClick={toggleSearch}>
@@ -166,10 +158,10 @@ export default function Navbar() {
                 </div>
               </div>
 
-              {/* State 2: Nav Links (Visible when scrolled) */}
+              {/* Nav Links (Scrolled State) */}
               <div
-                className={`absolute w-full flex justify-center space-x-8 transition-all duration-500 ease-in-out ${
-                  isScrolled ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
+                className={`absolute w-full h-full flex justify-center space-x-8 transition-all duration-300 ease-in-out ${
+                  isScrolled ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-4 pointer-events-none'
                 }`}
               >
                 <DesktopNavLinks />
@@ -178,49 +170,49 @@ export default function Navbar() {
             </div>
 
             {/* Right Icons */}
-            <div className="flex items-center space-x-4 md:space-x-6 shrink-0">
+            <div className="flex items-center space-x-4 md:space-x-6 shrink-0 h-full">
 
-              {/* Dynamic Search Icon (Shows on Desktop when scrolled, always shows on mobile) */}
               <button
                 onClick={toggleSearch}
-                className={`text-[#222222] hover:text-[#007074] transition-colors lg:transition-all lg:duration-300 ${
+                className={`text-[#222222] hover:text-[#007074] transition-all duration-300 flex items-center ${
                   isScrolled ? 'lg:w-auto lg:opacity-100 lg:scale-100' : 'lg:w-0 lg:opacity-0 lg:scale-0 overflow-hidden'
                 }`}
               >
                 <FiSearch size={22} />
               </button>
 
-              <Link to="/wishlist" className="relative hidden sm:block text-[#222222] hover:text-[#007074] transition-colors">
+              <Link to="/wishlist" className="relative hidden sm:flex items-center text-[#222222] hover:text-[#007074] transition-colors h-full">
                 <FiHeart size={22} />
-                <span className="absolute -top-1.5 -right-2 w-4 h-4 bg-[#222222] text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white">
+                <span className="absolute top-[20px] -right-2 w-4 h-4 bg-[#222222] text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white">
                   3
                 </span>
               </Link>
 
-              <Link to="/cart" className="relative text-[#222222] hover:text-[#007074] transition-colors">
+              <Link to="/cart" className="relative flex items-center text-[#222222] hover:text-[#007074] transition-colors h-full">
                 <FiShoppingCart size={22} />
-                <span className="absolute -top-1.5 -right-2 w-4 h-4 bg-[#007074] text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white">
+                <span className="absolute top-[20px] -right-2 w-4 h-4 bg-[#007074] text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white">
                   5
                 </span>
               </Link>
 
-              <Link to="/login" className="hidden lg:flex items-center space-x-2 text-[#222222] hover:text-[#007074] font-bold text-sm uppercase tracking-wider transition-colors pl-4 border-l border-gray-200">
+              <Link to="/login" className="hidden lg:flex items-center space-x-2 text-[#222222] hover:text-[#007074] font-bold text-sm uppercase tracking-wider transition-colors pl-4 border-l border-gray-200 h-10 mt-1">
                 <FiUser size={20} />
                 <span>Sign In</span>
               </Link>
 
-              {/* Mobile Hamburger */}
-              <button onClick={toggleMenu} className="lg:hidden text-[#222222] hover:text-[#007074]">
+              <button onClick={toggleMenu} className="lg:hidden text-[#222222] hover:text-[#007074] flex items-center h-full">
                 {isOpen ? <FiX size={26} /> : <FiMenu size={26} />}
               </button>
 
             </div>
           </div>
 
-          {/* BOTTOM ROW: Category Links (Visible only when NOT scrolled on Desktop) */}
+          {/* FIX 2: BOTTOM ROW
+            Uses absolute positioning so it doesn't push the nav height abruptly when it disappears.
+          */}
           <div
-            className={`hidden lg:flex items-center justify-center space-x-10 transition-all duration-300 ease-in-out overflow-visible ${
-              isScrolled ? 'h-0 opacity-0 mt-0 pt-0 pointer-events-none' : 'h-12 opacity-100 mt-4 pt-2 border-t border-gray-50'
+            className={`hidden lg:flex items-center justify-center space-x-10 h-[48px] absolute bottom-0 left-0 w-full transition-all duration-300 ease-in-out border-t border-gray-50 ${
+              isScrolled ? 'opacity-0 invisible translate-y-2 pointer-events-none' : 'opacity-100 visible translate-y-0'
             }`}
           >
             <DesktopNavLinks />
@@ -237,11 +229,9 @@ export default function Navbar() {
 
         <div className={`absolute top-0 left-0 w-full bg-white shadow-2xl transition-transform duration-500 ease-out ${isSearchOpen ? 'translate-y-0' : '-translate-y-full'}`}>
           <div className="container mx-auto px-4 py-8 lg:px-8 max-w-4xl relative">
-
             <button onClick={toggleSearch} className="absolute top-4 right-4 text-gray-400 hover:text-[#222222] transition-colors p-2">
               <FiX size={28} />
             </button>
-
             <div className="flex flex-col items-center mt-2">
               <div className="relative w-full max-w-2xl group">
                 <input
@@ -252,7 +242,6 @@ export default function Navbar() {
                 />
                 <FiSearch className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#007074]" size={24} />
               </div>
-
               <div className="mt-6 flex flex-wrap justify-center gap-3">
                 <span className="text-xs font-bold tracking-widest uppercase text-gray-400 py-2 mr-2">Trending:</span>
                 {['Silk Dress', 'Leather Bags', 'Watches'].map((term, i) => (
@@ -262,13 +251,12 @@ export default function Navbar() {
                 ))}
               </div>
             </div>
-
           </div>
         </div>
       </div>
 
       {/* ========================================= */}
-      {/* MOBILE MENU DRAWER (Accordion added) */}
+      {/* MOBILE MENU DRAWER */}
       {/* ========================================= */}
       <div
         className={`fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
@@ -282,7 +270,7 @@ export default function Navbar() {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="bg-[#222222] p-6 flex items-center justify-between">
+        <div className="bg-[#222222] p-6 flex items-center justify-between shrink-0">
           <Link to="/login" onClick={toggleMenu} className="flex items-center space-x-3 text-white">
             <div className="w-10 h-10 bg-[#007074] rounded-md flex items-center justify-center">
               <FiUser size={20} />
@@ -301,11 +289,9 @@ export default function Navbar() {
           <div>
             <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Navigation</h3>
             <div className="space-y-2">
-              
               {navLinks.map((link, idx) => (
                 <div key={idx} className="border-b border-gray-100 last:border-0 pb-2">
                   {link.hasDropdown ? (
-                    // Accordion Toggle for Mobile Categories
                     <>
                       <button 
                         onClick={() => setMobileCategoryOpen(!mobileCategoryOpen)}
@@ -314,7 +300,6 @@ export default function Navbar() {
                         {link.name}
                         <FiChevronDown size={18} className={`transition-transform duration-300 ${mobileCategoryOpen ? 'rotate-180 text-[#007074]' : ''}`} />
                       </button>
-                      
                       <div className={`overflow-hidden transition-all duration-300 ${mobileCategoryOpen ? 'max-h-60 mt-2' : 'max-h-0'}`}>
                         <div className="flex flex-col space-y-3 pl-4 border-l-2 border-[#007074]/20 mb-2">
                           {link.subItems.map((sub, subIdx) => (
@@ -331,7 +316,6 @@ export default function Navbar() {
                       </div>
                     </>
                   ) : (
-                    // Normal Mobile Links
                     <Link
                       to={link.path}
                       className={`flex items-center gap-2 font-bold text-sm uppercase tracking-wider transition-colors py-2 ${
@@ -345,7 +329,6 @@ export default function Navbar() {
                   )}
                 </div>
               ))}
-
             </div>
           </div>
 

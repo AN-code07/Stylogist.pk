@@ -7,6 +7,7 @@ import Login from './commonpages/Login'
 import Signup from './commonpages/Signup'
 import About from './commonpages/About'
 import Contact from './commonpages/Contact'
+import HotDeals from './commonpages/HotDeals'
 
 
 const MainLayout = () => {
@@ -34,6 +35,10 @@ const route = createBrowserRouter([
       {
         path: "/contact",
         element: <Contact  />
+      },
+      {
+        path: "/deals",
+        element: <HotDeals />
       },
     ]
   },
