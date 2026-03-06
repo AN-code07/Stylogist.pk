@@ -59,10 +59,10 @@ export default function TestimonialSlider() {
             <div className="container mx-auto px-4 max-w-7xl relative z-10">
 
                 <div className="text-center mb-12 lg:mb-16 max-w-2xl mx-auto">
-                    <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif text-[#222222] mb-4 md:mb-6">
+                    <h2 className="text-xl md:text-3xl font-semibold  font-serif text-[#222222] mb-2">
                         What People <span className='text-[#007074]'>Say</span>
                     </h2>
-                    <p className="text-gray-500 text-sm md:text-base leading-relaxed">
+                    <p className="text-gray-500 text-sm leading-relaxed">
                         Discover what our satisfied customers have to say about their experience with our premium products and AI styling services.
                     </p>
                 </div>

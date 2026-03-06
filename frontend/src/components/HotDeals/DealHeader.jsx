@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ComonButton from '../../commonpages/ComonButton';
 import { FaBolt } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 export default function DealHeader() {
     const [activeTab, setActiveTab] = useState('women');
@@ -110,8 +111,12 @@ export default function DealHeader() {
                             <p className="text-gray-400 text-sm leading-relaxed max-w-sm mx-auto md:mx-0">
                                 {currentData.desc}
                             </p>
-                            <div className='flex gap-7 justify-start'>
-                                <ComonButton padding='px-3 py-2' btntitle="Shop Now" className="mt-8" />
+                            <div className='flex gap-7 mt-3 justify-start'>
+                                <Link to='/category'>
+                                    <button className="bg-[#007074] text-white px-6 py-2 rounded-md cursor-pointer hover:bg-[#005a5a] transition-colors duration-300">
+                                        Shop Now
+                                    </button>
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -132,23 +137,68 @@ export default function DealHeader() {
                 {/* ========================================= */}
                 {/* BRAND LOGOS ROW */}
                 {/* ========================================= */}
-                <div className="pt-12 border-t border-gray-100 flex flex-wrap justify-center md:justify-between items-center gap-10 grayscale opacity-60">
-                    <span className="text-2xl font-bold font-serif italic text-[#222222]">H&M</span>
-                    <span className="text-2xl font-black tracking-tighter text-[#222222]">OBEY</span>
-                    <span className="text-2xl font-bold text-[#222222] flex items-center gap-2">
-                        <svg className="w-6 h-6 text-[#007074]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
-                        shopify
-                    </span>
-                    <span className="text-2xl font-black uppercase tracking-widest text-[#222222]">Lacoste</span>
-                    <span className="text-2xl font-bold text-red-600">Levi's</span>
-                    <span className="text-2xl font-bold text-[#222222]">amazon</span>
+                {/* Container: needs relative and overflow-hidden */}
+                <div className="pt-12 border-t border-gray-100 w-full overflow-hidden relative brand-slider-container bg-white">
+
+                    {/* --- LEFT SIDE BLUR/FADE OVERLAY --- */}
+                    {/* Note: Change 'from-white' to match your section's background color if it is not white */}
+                    <div className="absolute left-0 top-0 bottom-0 w-16 md:w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
+
+                    {/* --- RIGHT SIDE BLUR/FADE OVERLAY --- */}
+                    <div className="absolute right-0 top-0 bottom-0 w-16 md:w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+
+                    {/* The Scrolling Track (Pauses on hover via CSS) */}
+                    <div className="flex w-max animate-scroll-logos relative z-0">
+
+                        {/* --- First Set of Logos --- */}
+                        <div className="flex items-center gap-16 px-8">
+                            <span className="text-2xl font-bold font-serif italic text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">H&M</span>
+                            <span className="text-2xl font-black tracking-tighter text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">OBEY</span>
+                            <span className="text-2xl font-bold text-[#222222] flex items-center gap-2 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">
+                                {/* Keep this internal SVG as it is the Shopify logo, not part of the edge blur effect */}
+                                <svg className="w-6 h-6 text-[#007074]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                                shopify
+                            </span>
+                            <span className="text-2xl font-black uppercase tracking-widest text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">Lacoste</span>
+                            <span className="text-2xl font-bold text-red-600 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">Levi's</span>
+                            <span className="text-2xl font-bold text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">amazon</span>
+                        </div>
+
+                        {/* --- Second Set of Logos (Duplicated for a seamless infinite loop) --- */}
+                        <div className="flex items-center gap-16 px-8">
+                            <span className="text-2xl font-bold font-serif italic text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">H&M</span>
+                            <span className="text-2xl font-black tracking-tighter text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">OBEY</span>
+                            <span className="text-2xl font-bold text-[#222222] flex items-center gap-2 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">
+                                <svg className="w-6 h-6 text-[#007074]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                                shopify
+                            </span>
+                            <span className="text-2xl font-black uppercase tracking-widest text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">Lacoste</span>
+                            <span className="text-2xl font-bold text-red-600 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">Levi's</span>
+                            <span className="text-2xl font-bold text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">amazon</span>
+                        </div>
+
+                        {/* --- Third Set of Logos --- */}
+                        <div className="flex items-center gap-16 px-8">
+                            <span className="text-2xl font-bold font-serif italic text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">H&M</span>
+                            <span className="text-2xl font-black tracking-tighter text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">OBEY</span>
+                            <span className="text-2xl font-bold text-[#222222] flex items-center gap-2 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">
+                                <svg className="w-6 h-6 text-[#007074]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                                shopify
+                            </span>
+                            <span className="text-2xl font-black uppercase tracking-widest text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">Lacoste</span>
+                            <span className="text-2xl font-bold text-red-600 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">Levi's</span>
+                            <span className="text-2xl font-bold text-[#222222] grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300 cursor-pointer">amazon</span>
+                        </div>
+
+                    </div>
                 </div>
+
 
             </div>
 
             {/* Tailwind Custom Keyframes */}
             <style jsx="true">{`
-              @keyframes fadeInUp {
+            @keyframes fadeInUp {
                 0% { opacity: 0; transform: translateY(20px); }
                 100% { opacity: 1; transform: translateY(0); }
               }
@@ -161,6 +211,20 @@ export default function DealHeader() {
               }
               .animate-fade-in-scale {
                 animation: fadeInScale 0.6s ease-out forwards;
+              }
+
+              /* NEW LOGO SCROLLING ANIMATIONS */
+              @keyframes scrollLogos {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(-50%); }
+              }
+              .animate-scroll-logos {
+                animation: scrollLogos 20s linear infinite;
+              }
+              
+              /* PAUSE ON HOVER LOGIC */
+              .brand-slider-container:hover .animate-scroll-logos {
+                animation-play-state: paused;
               }
             `}</style>
         </section >

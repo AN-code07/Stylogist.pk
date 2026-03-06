@@ -6,12 +6,14 @@ import DealsOfDay from '../components/home/DealsOfDay'
 
 export default function HotDeals() {
   return (
-    <div>
-      <DealHeader/>
-      <TrendingProducts/>
-      <DealsOfDay/>
-      <NewsletterBanner/>
+    <>
+      <DealHeader />
+      <div className='w-full sm:w-[90%] mx-auto'>
+        <TrendingProducts />
+        <DealsOfDay />
+        <NewsletterBanner />
 
-    </div>
+      </div>
+    </>
   )
 }

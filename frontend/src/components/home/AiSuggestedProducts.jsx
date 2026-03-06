@@ -36,13 +36,13 @@ export default function AiSuggestedProducts() {
   };
 
   return (
-    <section className="w-full bg-white py-16 lg:py-24">
+    <section className="w-full bg-white py-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         
         {/* Section Header */}
         <div className="mb-10 flex flex-col md:flex-row items-start md:items-end justify-between">
           <div>
-            <h2 className="text-3xl md:text-5xl font-bold text-[#222222] font-serif leading-tight">
+            <h2 className="text-xl md:text-3xl font-bold text-[#222222] font-serif leading-tight">
               AI Style <span className="text-[#007074]">Analysis</span>
             </h2>
             <div className="h-1 w-16 bg-[#007074] mt-4 rounded-md"></div>
@@ -163,7 +163,7 @@ export default function AiSuggestedProducts() {
                 alt={curatedLook.accessories[0].name}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-x-0 bottom-0 p-4 bg-white/90 backdrop-blur-sm border-t border-white/50 transform translate-y-[4.5rem] group-hover:translate-y-0 transition-transform duration-500 ease-in-out">
+              <div className="absolute inset-x-0 -bottom-2 p-4 bg-white/90 backdrop-blur-sm border-t border-white/50 transform translate-y-[4.5rem] group-hover:translate-y-0 transition-transform duration-500 ease-in-out">
                 <div className="flex justify-between items-center mb-2">
                    <h3 className="text-[#222222] text-sm font-bold truncate pr-2">{curatedLook.accessories[0].name}</h3>
                    <span className="text-[#007074] text-xs font-bold whitespace-nowrap">{curatedLook.accessories[0].match}% Match</span>
@@ -182,11 +182,11 @@ export default function AiSuggestedProducts() {
               onMouseLeave={() => setHoveredProduct(null)}
             >
               <img 
-                src={curatedLook.accessories[1].image} 
+                src='https://img.freepik.com/free-photo/outdoor-fashion-portrait-elegant-young-woman-with-amazing-blonde-long-hairs-pretty-face-smiling-enjoy-sunny-day-posing-near-blue-vintage-car-modern-glamour-boho-outfit-bad-jewelry_291049-1147.jpg?ga=GA1.1.2142144714.1772005373&semt=ais_hybrid&w=740&q=80' 
                 alt={curatedLook.accessories[1].name}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-x-0 bottom-0 p-4 bg-white/90 backdrop-blur-sm border-t border-white/50 transform translate-y-[4.5rem] group-hover:translate-y-0 transition-transform duration-500 ease-in-out">
+              <div className="absolute inset-x-0 -bottom-2 p-4 bg-white/90 backdrop-blur-sm border-t border-white/50 transform translate-y-[4.5rem] group-hover:translate-y-0 transition-transform duration-500 ease-in-out">
                 <div className="flex justify-between items-center mb-2">
                    <h3 className="text-[#222222] text-sm font-bold truncate pr-2">{curatedLook.accessories[1].name}</h3>
                    <span className="text-[#007074] text-xs font-bold whitespace-nowrap">{curatedLook.accessories[1].match}% Match</span>
@@ -202,16 +202,7 @@ export default function AiSuggestedProducts() {
 
         </div>
         
-        {/* Global CTA */}
-        <div className="flex justify-end mt-8">
-          <Link
-            to="/ai-stylist/outfits"
-            className="group flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-[#007074] hover:text-[#222222] transition-colors"
-          >
-            <span>View More AI Outfits</span>
-            <FiArrowRight className="transform group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
+      
 
       </div>
     </section>

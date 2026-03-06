@@ -52,7 +52,7 @@ export default function Signup() {
               <p className="text-black text-sm mt-1">Start your personalized style journey.</p>
             </header>
 
-            <form className="space-y-10">
+            <form className="space-y-7">
               {/* Full Name */}
               <div className="relative group">
                 <FiUser className={`absolute left-0 bottom-2 transition-colors duration-300 ${focusedField === 'name' ? 'text-black' : 'text-black/40'}`} />
@@ -115,8 +115,13 @@ export default function Signup() {
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
               </div>
-
-              <ComonButton btntitle="Create Account" icon={ <FiArrowRight className="transition-transform duration-300 group-hover:translate-x-1" />}/>
+              <div className='flex items-center'>
+                <input type="checkbox" name="" id="" className="mr-2" />
+                <label htmlFor="" className="text-[12px] sm:text-sm text-[#666666]">
+                  I agree to the <Link to='/terms' className="text-[#007074] font-bold cursor-pointer hover:underline">Terms of Service</Link> and <Link to='/privacy' className="text-[#007074] font-bold cursor-pointer hover:underline">Privacy Policy</Link>
+                </label>
+              </div>
+              <ComonButton btntitle="Create Account" padding='py-2 sm:py-3' icon={ <FiArrowRight className="transition-transform duration-300 group-hover:translate-x-1" />}/>
             </form>
 
             <div className="mt-2 text-center text-sm text-[#B5A192]">

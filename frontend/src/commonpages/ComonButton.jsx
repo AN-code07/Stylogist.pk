@@ -6,7 +6,7 @@ export default function ComonButton({ btntitle, icon, padding='py-3' }) {
         <div>
             <button
                 type="submit"
-                className={`group relative w-full ${padding} mt-6 overflow-hidden rounded-md border border-[#007074] bg-[#007074] text-white font-bold transition-all duration-300 flex items-center justify-center space-x-2 z-10 
+                className={`group relative w-full ${padding} mt-6 overflow-hidden rounded-md border border-[#007074] bg-[#007074] text-white font-bold transition-all duration-300 flex items-center cursor-pointer justify-center space-x-2 z-10 
   
   /* Layer 1: The Base Fill (Instant on Hover) */
   hover:bg-[#007074] hover:text-white

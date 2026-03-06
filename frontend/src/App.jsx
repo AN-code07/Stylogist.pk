@@ -9,6 +9,8 @@ import About from './commonpages/About'
 import Contact from './commonpages/Contact'
 import HotDeals from './commonpages/HotDeals'
 import CategoryPage from './components/category/CategoryPage'
+import ForgotPassword from './commonpages/ForgotPassword'
+import TermsPrivacy from './commonpages/TermsPrivacy'
 
 
 const MainLayout = () => {
@@ -45,12 +47,26 @@ const route = createBrowserRouter([
         path: "/category",
         element: <CategoryPage />
       },
+      {
+        path: "/terms",
+        element: <TermsPrivacy />
+      },
+      {
+        path: "/privacy",
+        element: <TermsPrivacy />
+      },
+     
+
     ]
   },
 
   { path: '*', element: <h1>404 Not Found</h1> },
   { path: '/login', element: <Login /> },
-  { path: '/signup', element: <Signup /> }
+  { path: '/signup', element: <Signup /> },
+  {
+    path: "/forgot-password",
+    element: <ForgotPassword />
+  },
 ])
 export default function App() {
   return <RouterProvider router={route} />

@@ -90,7 +90,7 @@ export default function Navbar() {
               to={link.path}
               className={`flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider transition-colors py-4 ${
                 link.highlight
-                  ? 'text-[#007074] hover:text-[#005d60]'
+                  ? 'text-gray-600 hover:text-[#005d60]'
                   : 'text-gray-600 hover:text-[#007074]'
               }`}
             >
@@ -238,7 +238,7 @@ export default function Navbar() {
 
           {/* Bottom nav row only when not scrolled */}
           <div
-            className={`hidden lg:flex items-center justify-center gap-10 overflow-hidden transition-all duration-300 ${
+            className={`hidden lg:flex items-center justify-center gap-10 overflow-visible transition-all duration-300 ${
               isScrolled
                 ? 'max-h-0 opacity-0 pointer-events-none'
                 : 'max-h-[56px] opacity-100 border-t border-gray-50'

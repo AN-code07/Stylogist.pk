@@ -8,17 +8,20 @@ import CategoryHighlights from '../components/home/CategoryHighlights'
 import AiSuggestedProducts from '../components/home/AiSuggestedProducts'
 import CustomerReviews from './CustomerReviews'
 
-export default function Home() {  
+export default function Home() {
   return (
-    <div>
+    <>
       <HomeHeader />
-      <FeaturedProducts />
-      <NewArrivals />
-      <DealsOfDay/>
-      <TrendingProducts />
-      <CategoryHighlights/>
-      <AiSuggestedProducts/>
-      <CustomerReviews/>
-    </div>
+      <div className='w-full sm:w-[90%] mx-auto '>
+        <FeaturedProducts />
+        <NewArrivals />
+        {/* <DealsOfDay /> */}
+        <TrendingProducts />
+        {/* <CategoryHighlights /> */}
+        <AiSuggestedProducts />
+        <CustomerReviews />
+      </div>
+    </>
+
   )
 }

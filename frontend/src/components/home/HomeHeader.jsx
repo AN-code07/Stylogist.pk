@@ -14,7 +14,7 @@ export default function HomeHeader() {
       subtitle: 'Discover premium fashion curated just for you by our smart AI.',
       description: 'Elevate your wardrobe with our latest editorial pieces. Meticulously crafted for the modern individual who values both cutting-edge aesthetics and everyday comfort.',
       primaryCta: 'Shop New Arrivals',
-      primaryLink: '/shop',
+      primaryLink: '/category',
       secondaryCta: 'View Lookbook',
       secondaryLink: '/lookbook'
     },
@@ -25,7 +25,7 @@ export default function HomeHeader() {
       subtitle: 'Glow naturally with our top-rated, dermatologist-approved kits.',
       description: 'Transform your daily routine into a luxurious ritual. Our organic, cruelty-free formulas are designed to deeply nourish, protect, and revitalize your skin from within.',
       primaryCta: 'Explore Skincare',
-      primaryLink: '/category/skincare',
+      primaryLink: '/category',
       secondaryCta: 'Read Reviews',
       secondaryLink: '/reviews'
     },

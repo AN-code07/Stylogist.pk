@@ -14,9 +14,9 @@ export default function Footer() {
   const shopLinks = [
     { name: "Women's Collection", path: "/category/women" },
     { name: "Men's Collection", path: "/category/men" },
-    { name: "Luxury Accessories", path: "/category/accessories" },
-    { name: "Premium Footwear", path: "/category/footwear" },
-    { name: "New Arrivals", path: "/new-arrivals" },
+    { name: "Luxury Accessories", path: "/category" },
+    { name: "Premium Footwear", path: "/category" },
+    // { name: "New Arrivals", path: "/deals" },
     { name: "Hot Deals", path: "/deals" },
   ];
 
@@ -76,7 +76,7 @@ export default function Footer() {
                 <li key={index}>
                   <Link 
                     to={link.path} 
-                    className="text-gray-400 text-sm hover:text-[#007074] transition-colors inline-block transform hover:translate-x-1 duration-300"
+                    className="text-gray-400 text-sm hover:text-[#007074] inline-block transform hover:translate-x-1 transition-all ease-in-out duration-300"
                   >
                     {link.name}
                   </Link>
@@ -95,7 +95,7 @@ export default function Footer() {
                 <li key={index}>
                   <Link 
                     to={link.path} 
-                    className="text-gray-400 text-sm hover:text-[#007074] transition-colors inline-block transform hover:translate-x-1 duration-300"
+                    className="text-gray-400 text-sm hover:text-[#007074]  inline-block transform hover:translate-x-1 transition-all ease-in-out duration-300"
                   >
                     {link.name}
                   </Link>

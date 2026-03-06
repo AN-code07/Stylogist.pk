@@ -14,7 +14,7 @@ export default function DealsOfDay() {
             rating: 4.9,
             totalStock: 150,
             soldStock: 132,
-            image: "https://images.unsplash.com/photo-1584916201218-f4242ceb4809?q=80&w=1915&auto=format&fit=crop",
+            image: "https://img.freepik.com/free-photo/girl-coat_1303-4435.jpg?ga=GA1.1.2142144714.1772005373&semt=ais_hybrid&w=740&q=80",
         },
         {
             id: 502,
@@ -25,7 +25,7 @@ export default function DealsOfDay() {
             rating: 4.8,
             totalStock: 80,
             soldStock: 65,
-            image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?q=80&w=1976&auto=format&fit=crop",
+            image: "https://img.freepik.com/free-photo/friends-going-hiking-winter_23-2150198170.jpg?ga=GA1.1.2142144714.1772005373&semt=ais_hybrid&w=740&q=80",
         },
         {
             id: 503,
@@ -36,7 +36,7 @@ export default function DealsOfDay() {
             rating: 5.0,
             totalStock: 45,
             soldStock: 39,
-            image: "https://images.unsplash.com/photo-1568313337429-14e918c538a7?q=80&w=1974&auto=format&fit=crop",
+            image: "https://img.freepik.com/premium-photo/red-dress-from-red-dress-company_916191-4766.jpg?ga=GA1.1.2142144714.1772005373&semt=ais_hybrid&w=740&q=80",
         },
         {
             id: 504,
@@ -47,7 +47,7 @@ export default function DealsOfDay() {
             rating: 4.7,
             totalStock: 120,
             soldStock: 85,
-            image: "https://images.unsplash.com/photo-1638247025967-b4e38f787b76?q=80&w=1935&auto=format&fit=crop",
+            image: "https://img.freepik.com/free-photo/young-woman-white-jacket-holding-hat_1303-24750.jpg?ga=GA1.1.2142144714.1772005373&semt=ais_hybrid&w=740&q=80",
         }
     ];
 
@@ -85,38 +85,54 @@ export default function DealsOfDay() {
                 {/* HEADER & GLOBAL TIMER */}
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 border-b border-[#007074]/30 pb-8 gap-8">
                     <div>
-                        <span className="inline-flex items-center gap-2 text-[#007074] text-xs font-bold tracking-widest uppercase mb-3 bg-[#007074]/0 px-3 py-1.5 rounded-md border border-[#007074]/20">
+                        <span className="sm:inline-flex hidden  items-center gap-2 text-[#007074] text-xs font-bold tracking-widest uppercase mb-3 bg-[#007074]/0 px-3 py-1.5 rounded-md border border-[#007074]/20">
                             <FiClock className="animate-pulse" />
                             Flash Sale
                         </span>
-                        <h2 className="text-3xl md:text-5xl font-bold font-serif text-black leading-tight">
+                        <h2 className="text-xl md:text-3xl font-bold font-serif text-black leading-tight">
                             Deals of the <span className="text-[#007074]">Day</span>
                         </h2>
-                        <p className="text-gray-400 mt-3 text-sm md:text-base max-w-lg">
+                        <p className="text-gray-400 sm:mt-3 mt-4 text-sm md:text-base max-w-lg">
                             Exceptional discounts across all premium categories. These offers vanish when the timer hits zero.
                         </p>
                     </div>
 
                     {/* Sleek Global Timer */}
-                    <div className=" gap-3">
-                        <div className="text-right mr-2 hidden sm:block">
-                            <p className="text-black font-bold tracking-wider">Offer Ends In</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {[
-                                { value: hrs, label: "HRS" },
-                                { value: mins, label: "MIN" },
-                                { value: secs, label: "SEC" }
-                            ].map((unit, index) => (
-                                <div key={index} className="text-center mt-3 px-1">
-                                    <div className="bg-[#1a1a1a] border border-gray-700 w-10 h-10 flex items-center justify-center rounded-md shadow-lg">
+                    <div className="sm:flex absolute top-0 right-0   items-end gap-3">
 
-                                        <span className="text-xl md:text-2xl font-bold text-white font-mono">{unit.value}</span>
+                        {/* Desktop Timer */}
+                        <div className="hidden sm:flex flex-col items-center gap-2">
+                            <div className="text-right mr-2">
+                                <p className="text-black font-bold tracking-wider">Offer Ends In</p>
+                            </div>
+                            <div className="flex ">
+                                {[
+                                    { value: hrs, label: "HRS" },
+                                    { value: mins, label: "MIN" },
+                                    { value: secs, label: "SEC" }
+                                ].map((unit, index) => (
+                                    <div key={index} className="text-center px-1">
+                                        <div className="bg-[#1a1a1a] border border-gray-700 w-10 h-10 flex items-center justify-center rounded-md shadow-lg">
+                                            <span className="text-xl font-bold text-white font-mono">
+                                                {unit.value}
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] uppercase tracking-widest text-gray-500 mt-1.5">
+                                            {unit.label}
+                                        </span>
                                     </div>
-                                    <span className="text-[10px] uppercase tracking-widest text-gray-500 mt-1.5">{unit.label}</span>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
+
+                        {/* Mobile Timer Button */}
+                        <div className="sm:hidden">
+                            <button className="flex items-center gap-2 bg-[#007074] text-white px-4 py-2 rounded-md text-sm font-semibold shadow-md">
+                                <FiClock />
+                                {hrs}:{mins}:{secs}
+                            </button>
+                        </div>
+
                     </div>
                 </div>
 
@@ -138,8 +154,8 @@ export default function DealsOfDay() {
                                         className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700  border-b-1 border-white"
                                     />
                                     {/* Formal Discount Badge */}
-                                    <div className="absolute top-4 left-4 bg-[#007074] text-white px-3 py-1.5 rounded-md shadow-lg">
-                                        <span className="text-xs font-bold tracking-widest uppercase">Save {discount}%</span>
+                                    <div className="absolute top-4 right-4 bg-red-500 text-white h-6 w-10 rounded text-center shadow-lg">
+                                        <span className="text-xs font-bold tracking-widest uppercase"> {discount}%</span>
                                     </div>
                                 </div>
 
@@ -175,7 +191,7 @@ export default function DealsOfDay() {
                                     {/* Add to Cart Button */}
                                     <Link
                                         to={`/product/${product.id}`}
-                                        className="flex items-center justify-center gap-2 w-full bg-[#007074] border border-[#007074] text-white px-4 py-3 rounded-md hover:text-white font-bold text-sm uppercase tracking-wider  transition-all duration-300 active:scale-95"
+                                        className="flex items-center justify-center gap-2 w-full bg-[#007074] border border-[#007074] text-white px-4 hover:transform hover:scale-105 shadow-lg py-2 rounded-md hover:text-white text-sm uppercase font-semibold text-[12px]   transition-all duration-300 active:scale-95"
                                     >
                                         <FiShoppingBag />
                                         <span>Add to Cart</span>
