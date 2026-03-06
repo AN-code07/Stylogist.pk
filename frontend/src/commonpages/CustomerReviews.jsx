@@ -47,10 +47,7 @@ export default function TestimonialSlider() {
     return (
         <section className="relative w-full border-t-1 border-[#007074] bg-white py-10 overflow-hidden font-sans">
 
-            {/* ========================================= */}
-            {/* BACKGROUND GRID                           */}
-            {/* ========================================= */}
-            {/* Lowered opacity slightly so it looks elegant on a white background */}
+
             <div
                 className="absolute inset-0 opacity-[0.04] pointer-events-none"
                 style={{
@@ -61,9 +58,6 @@ export default function TestimonialSlider() {
 
             <div className="container mx-auto px-4 max-w-7xl relative z-10">
 
-                {/* ========================================= */}
-                {/* SECTION HEADER                            */}
-                {/* ========================================= */}
                 <div className="text-center mb-12 lg:mb-16 max-w-2xl mx-auto">
                     <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif text-[#222222] mb-4 md:mb-6">
                         What People <span className='text-[#007074]'>Say</span>
@@ -75,10 +69,7 @@ export default function TestimonialSlider() {
 
             </div>
 
-            {/* ========================================= */}
-            {/* INFINITE SCROLLING SLIDER                 */}
-            {/* ========================================= */}
-            {/* Edge fading mask so cards don't just awkwardly cut off at the screen edges */}
+         
             <div
                 className="relative w-full flex overflow-hidden py-4 slider-container"
                 style={{ maskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)' }}

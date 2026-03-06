@@ -83,14 +83,14 @@ export default function TrendingProducts() {
   return (
     <section className="w-full bg-[#F7F3F0] py-10">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
           <div className="relative">
             <div className="flex items-center gap-2 mb-3">
               <span className=" py-1.5 px-4 rounded-md bg-[#007074]/0 text-[#007074] text-xs font-bold tracking-widest uppercase border border-[#007074]/20 flex items-center gap-2">
-                 Most Wanted
-              <FiTrendingUp className="text-[#007074] w-4 h-4" /> 
+                Most Wanted
+                <FiTrendingUp className="text-[#007074] w-4 h-4" />
               </span>
             </div>
             <h2 className="text-3xl md:text-5xl font-bold text-[#222222] font-serif">
@@ -101,7 +101,7 @@ export default function TrendingProducts() {
 
           {/* View All Button */}
           <div className="mt-6 md:mt-0">
-             <Link
+            <Link
               to="/trending"
               className="group inline-flex items-center justify-center space-x-2 px-6 py-3 border border-[#007074] text-[#007074] font-bold rounded-md hover:bg-[#007074] hover:text-white transition-all duration-300"
             >
@@ -122,7 +122,7 @@ export default function TrendingProducts() {
             >
               {/* Product Image Section - Height exactly 200px */}
               <div className="relative h-[200px] w-full overflow-hidden bg-gray-50 flex-shrink-0">
-                
+
                 {/* TRENDING BADGE */}
                 {product.isTrending && (
                   <div className="absolute top-3 left-3 z-20 bg-[#007074] text-white text-[10px] font-bold px-3 py-1.5 rounded-md uppercase tracking-wide shadow-md flex items-center gap-1.5">
@@ -150,7 +150,7 @@ export default function TrendingProducts() {
 
                 {/* Hover Overlay Actions */}
                 <div className="absolute inset-0 bg-[#007074]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4 z-10 backdrop-blur-[1px]">
-                 
+
                 </div>
               </div>
 
@@ -169,7 +169,7 @@ export default function TrendingProducts() {
                 <h3 className="text-lg font-bold text-[#222222] mb-1 line-clamp-1 group-hover:text-[#007074] transition-colors">
                   {product.name}
                 </h3>
-                
+
                 <p className="text-sm text-gray-500 mb-4 line-clamp-1">
                   {product.shortDesc}
                 </p>
@@ -191,7 +191,7 @@ export default function TrendingProducts() {
             </div>
           ))}
         </div>
-        
+
       </div>
     </section>
   );

@@ -7,6 +7,7 @@ import {
   FiX 
 } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
+import ComonButton from '../../commonpages/ComonButton';
 
 // --- MOCK DATA ---
 const MOCK_PRODUCTS = [
@@ -261,9 +262,9 @@ export default function CategoryPage() {
           {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 lg:gap-x-6 lg:gap-y-10">
               {filteredProducts.map((product) => (
-                <Link to={`/product/${product.id}`} key={product.id} className="group cursor-pointer">
+                <div  key={product.id} className=" shadow-md shadow-gray-400 p-2 rounded-md group cursor-pointer">
                   {/* Image Container */}
-                  <div className="w-full aspect-[4/5] bg-[#F7F3F0] rounded-2xl overflow-hidden mb-4 relative">
+                  <div className="w-full h-[200px] bg-[#F7F3F0] rounded-md overflow-hidden mb-4 relative">
                     <img 
                       src={product.image} 
                       alt={product.name} 
@@ -291,7 +292,16 @@ export default function CategoryPage() {
                       </span>
                     )}
                   </div>
-                </Link>
+
+                  <div className='mt-3 flex gap-2 justify-around'>
+                     <button className="bg-[#007074] cursor-pointer text-white py-2 px-4 rounded-md hover:bg-[#005a5a] transition-colors">
+                       Add to Cart
+                     </button>
+                      <button className="border cursor-pointer border-[#007074] text-[#007074] py-2 px-4 rounded-md hover:bg-[#007074] hover:text-white transition-colors">
+                        View Details
+                      </button> 
+                  </div>
+                </div>
               ))}
             </div>
           ) : (

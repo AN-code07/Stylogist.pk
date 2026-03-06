@@ -29,7 +29,7 @@ export default function DealHeader() {
         <section className="w-full bg-white pt- pb-4 overflow-hidden font-sans">
             <div className="container mx-auto px-4 md:px-8 relative">
 
-             
+
 
                 {/* ========================================= */}
                 <div className="absolute h-42 w-[240px] md:w-[280px] top-4 left-4 md:flex hidden md:-top-6 z-40 group hover:scale-105 transition-transform duration-300">
@@ -71,7 +71,7 @@ export default function DealHeader() {
                 </div>
 
 
-                   {/* ========================================= */}
+                {/* ========================================= */}
                 {/* TILTED "HOT DEALS" POSTER BANNER          */}
                 <h1
                     key={`title-${activeTab}`}
@@ -132,7 +132,7 @@ export default function DealHeader() {
                 {/* ========================================= */}
                 {/* BRAND LOGOS ROW */}
                 {/* ========================================= */}
-                <div className="mt-24 pt-12 border-t border-gray-100 flex flex-wrap justify-center md:justify-between items-center gap-10 grayscale opacity-60">
+                <div className="pt-12 border-t border-gray-100 flex flex-wrap justify-center md:justify-between items-center gap-10 grayscale opacity-60">
                     <span className="text-2xl font-bold font-serif italic text-[#222222]">H&M</span>
                     <span className="text-2xl font-black tracking-tighter text-[#222222]">OBEY</span>
                     <span className="text-2xl font-bold text-[#222222] flex items-center gap-2">
