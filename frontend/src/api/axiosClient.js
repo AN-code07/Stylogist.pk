@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: 'http://localhost:5000/api/v1', // Your Stylogist Express backend
+  baseURL: import.meta.env.VITE_API_URL, // Your Stylogist Express backend
   headers: {
     'Content-Type': 'application/json',
   },
