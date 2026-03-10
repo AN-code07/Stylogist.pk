@@ -18,7 +18,7 @@ const app = express();
 app.use(helmet()); // Sets secure HTTP headers
 app.use(cookieParser());
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: process.env.CLIENT_URL || 'https://stylogist-pk.vercel.app',
     credentials: true
 }));
 app.use(express.json({ limit: '10kb' })); // Prevent DOS attacks via massive payloads
