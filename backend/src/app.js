@@ -33,7 +33,7 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/auth', router)
 app.use('/api/v1/users', userRoutes)
 app.use('/api/v1/addresses', addressRoutes)
-app.use('/api/products', productsRoutes)
+app.use('/api/v1/products', productsRoutes)
 app.use('/api/v1/categories', categoryRoutes)
 app.use('/api/v1/orders', orderRoutes)
 app.use("/api/v1/admin", adminRoutes);

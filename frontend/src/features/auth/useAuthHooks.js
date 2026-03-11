@@ -12,6 +12,8 @@ export const useSignup = () => {
         mutationFn: async (userData) => {
             // Backend creates the user and dispatches the OTP email
             console.log("user data", userData);
+            navigate('/verify-otp', { state: { email: userData.email, flow: 'registration' } });
+            console.log('navigate on trigger')
             const { data } = await axiosClient.post('/auth/register', userData);
             return data;
         },
@@ -19,7 +21,8 @@ export const useSignup = () => {
             // Route the user to the OTP page. 
             // We pass the email in the router state so the OTP page knows who to verify!
             toast.success(`OTP has been sent to ${variables.email}`)
-            navigate('/verify-otp', { state: { email: variables.email, flow: 'registration' } });
+            console.log('trigger on success ')
+            // navigate('/verify-otp', { state: { email: variables.email, flow: 'registration' } });
         },
         onError: (error) => {
             // In production, you'd wire this to a toast notification system (like react-hot-toast)
