@@ -65,6 +65,7 @@ export const useLogout = () => {
         mutationFn: async () => {
             // Backend clears the HTTP-Only cookie
             await axiosClient.post('/auth/logout');
+            localStorage.removeItem("user")
         },
         onSuccess: () => {
             clearAuth(); // Wipe user from Zustand

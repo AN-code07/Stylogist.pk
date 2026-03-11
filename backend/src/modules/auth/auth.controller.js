@@ -364,42 +364,79 @@ export const requestOTP = async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   try {
-    await sendEmail({
-      email: user.email,
-      subject: "Stylogist - Verify Your Identity",
+   await sendEmail({
+      email: newUser.email,
+      subject: "Stylogist - Your Verification Code",
       message: `
-  <div style="font-family: Arial, sans-serif; line-height:1.6; color:#333;">
-    
-    <p>Please verify your identity, <b>${user.name}</b></p>
+  <div style="background:#f9fafb;padding:15px;font-family:Arial,Helvetica,sans-serif">
 
-    <p>Here is your <b>Stylogist verification code:</b></p>
+  <div style="max-width:420px;margin:auto;background:#fff;border-radius:14px;border:1px solid #eee;overflow:hidden">
 
-    <div style="
-      font-size:32px;
-      font-weight:bold;
-      letter-spacing:6px;
-      margin:20px 0;
-    ">
-      ${otp}
+    <div style="height:4px;background:linear-gradient(to right,#007074,#2dd4bf,#007074)"></div>
+
+    <div style="padding:18px">
+
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="display:inline-block;width:34px;height:34px;background:#222;border-radius:8px;line-height:34px">
+          <span style="color:#fff;font-size:16px;font-weight:900;font-style:italic">S</span>
+        </div>
+
+        <p style="font-size:10px;font-weight:700;letter-spacing:3px;color:#999;margin-top:6px">
+          STYLOGIST
+        </p>
+      </div>
+
+      <div style="text-align:center">
+
+        <h2 style="font-size:18px;font-weight:800;color:#222;margin-bottom:6px">
+          Verify Your Identity
+        </h2>
+
+        <p style="color:#666;font-size:12px;line-height:1.4;margin-bottom:16px">
+          Hello <b>${user.name}</b>, use this code to verify your account.
+        </p>
+
+        <div style="background:#f3f4f6;border-radius:10px;padding:14px;margin-bottom:14px;border:1px dashed #007074">
+          <span style="font-size:28px;font-weight:900;letter-spacing:6px;color:#007074;font-family:monospace">
+            ${otp}
+          </span>
+        </div>
+
+        <p style="color:#999;font-size:10px;margin-bottom:18px">
+          Expires in 10 minutes
+        </p>
+
+      </div>
+
+      <div style="border-top:1px solid #eee;padding-top:12px">
+
+        <p style="color:#222;font-size:12px;font-weight:700;margin-bottom:3px">
+          Security Notice
+        </p>
+
+        <p style="color:#999;font-size:11px;line-height:1.4">
+          If you didn't request this code, please ignore this email.
+        </p>
+
+      </div>
+
     </div>
 
-    <p>This code is valid for <b>10 minutes</b> and can only be used once.</p>
+    <div style="background:#222;padding:12px;text-align:center">
 
-    <p>Please don't share this code with anyone. We'll never ask for it via phone or email.</p>
+      <p style="color:#fff;font-size:9px;font-weight:700;letter-spacing:1px;margin-bottom:4px">
+        Stylogist
+      </p>
 
-    <br/>
+      <p style="color:#777;font-size:9px">
+        Bahawalpur • Pakistan
+      </p>
 
-    <p>Thanks,<br/>
-    <b>The Stylogist Team</b></p>
-
-    <hr/>
-
-    <p style="font-size:12px;color:#666;">
-      You're receiving this email because a verification code was requested for your Stylogist account. 
-      If this wasn't you, please ignore this email.
-    </p>
+    </div>
 
   </div>
+
+</div>
   `,
     });
 
