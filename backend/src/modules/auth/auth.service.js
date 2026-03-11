@@ -29,7 +29,7 @@ export const createSendToken = (user, statusCode, res) => {
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 
     httpOnly: true, // Absolutely critical: prevents XSS token theft
     secure: env.nodeEnv === 'production', // Send only over HTTPS in production
-    sameSite: env.nodeEnv === 'production' ? 'strict' : 'lax' // Prevents CSRF attacks
+    sameSite: env.nodeEnv === 'production' ? 'none' : 'lax' // Prevents CSRF attacks
   };
 
   // Attach the cookie to the response layout

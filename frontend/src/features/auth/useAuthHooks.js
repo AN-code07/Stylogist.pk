@@ -68,7 +68,7 @@ export const useLogout = () => {
         },
         onSuccess: () => {
             clearAuth(); // Wipe user from Zustand
-            navigate('/login');
+            navigate('/');
         },
     });
 };

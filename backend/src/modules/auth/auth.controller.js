@@ -450,6 +450,14 @@ export const resetPassword = async (req, res, next) => {
 // ========================
 export const logout = (req, res) => {
   // 1. Overwrite JWT cookie (if using cookie) or instruct client to remove token
+  res.cookie('jwt', 'loggedout', {
+    expires: new Date(Date.now() + 10),
+    httpOnly: true,
+    secure: env.nodeEnv === 'production',
+    // THIS MUST MATCH HOW YOU CREATED IT
+    sameSite: env.nodeEnv === 'production' ? 'none' : 'lax'
+  });
+
   res.status(200).json({
     status: 'success',
     message: 'Logged out successfully'
