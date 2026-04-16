@@ -1,42 +1,31 @@
 import * as ProductService from "./product.service.js";
-import { catchAsync } from "../../utils/catchAsync.js";
 
 export const createProduct = async (req, res) => {
-  const productData = req.validated.body;
-  const product = await ProductService.createProduct(productData);
-
-  res.status(201).json({
-    success: true,
-    data: product,
-  });
+  const result = await ProductService.createProduct(req.validated.body);
+  res.status(201).json({ status: "success", message: "Product created", data: result });
 };
 
 export const getAllProducts = async (req, res) => {
-  const products = await ProductService.getAllProducts(req.query);
-  res.json({ success: true, data: products });
+  const { items, pagination } = await ProductService.getAllProducts(req.query);
+  res.status(200).json({ status: "success", results: items.length, pagination, data: items });
 };
 
-export const getSingleProduct = async (req, res) => {
-  const result = await ProductService.getSingleProduct(req.params.slug);
-  res.json({ success: true, data: result });
+export const getProductBySlug = async (req, res) => {
+  const result = await ProductService.getProductBySlug(req.params.slug);
+  res.status(200).json({ status: "success", data: result });
 };
 
-export const getFilterMetadata = async () => {
-  const brands = await Product.distinct("brand", { status: "published" });
+export const getProductById = async (req, res) => {
+  const result = await ProductService.getProductById(req.params.id);
+  res.status(200).json({ status: "success", data: result });
+};
 
-  const priceData = await Product.aggregate([
-    { $match: { status: "published" } },
-    {
-      $group: {
-        _id: null,
-        min: { $min: "$minPrice" },
-        max: { $max: "$minPrice" }
-      }
-    }
-  ]);
+export const deleteProduct = async (req, res) => {
+  await ProductService.deleteProduct(req.params.id);
+  res.status(200).json({ status: "success", message: "Product deleted" });
+};
 
-  return {
-    brands,
-    priceRange: priceData[0] || { min: 0, max: 0 }
-  };
+export const getFilterMetadata = async (_req, res) => {
+  const meta = await ProductService.getFilterMetadata();
+  res.status(200).json({ status: "success", data: meta });
 };

@@ -9,10 +9,11 @@ import { authMiddleware } from '../../middlewares/auth.middleware.js';
 import {
     registerSchema,
     loginSchema,
-    verifyOtpSchema,     // NEW
-    requestOtpSchema,    // NEW
+    verifyOtpSchema,
+    requestOtpSchema,
     forgotPasswordSchema,
-    resetPasswordSchema
+    resetPasswordSchema,
+    changePasswordSchema,
 } from './auth.validation.js';
 
 const router = Router();
@@ -50,5 +51,8 @@ router.post('/forgot-password', passwordResetLimiter, validate(forgotPasswordSch
 
 // SENIOR NOTE: Removed '/:token' from the URL. The 6-digit OTP is now passed securely in req.body.otp
 router.post('/reset-password', authMiddleware, validate(resetPasswordSchema), catchAsync(authController.resetPassword));
+
+// Change password while logged in (requires current password).
+router.post('/change-password', authMiddleware, validate(changePasswordSchema), catchAsync(authController.changePassword));
 
 export default router;

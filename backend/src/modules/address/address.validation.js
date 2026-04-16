@@ -28,3 +28,9 @@ export const updateAddressSchema = z.object({
     id: z.string().min(1, 'Address ID is required'),
   }),
 });
+
+export const addressIdParamSchema = z.object({
+  params: z.object({
+    id: z.string().min(1, 'Address ID is required'),
+  }),
+});

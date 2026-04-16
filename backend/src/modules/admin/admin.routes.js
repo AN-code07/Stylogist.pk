@@ -8,26 +8,36 @@ import { catchAsync } from '../../utils/catchAsync.js';
 
 const router = Router();
 
-// Public route: admin login
 router.post('/login', validate(adminLoginSchema), catchAsync(adminController.adminLogin));
 
-// Protected routes: all below require login
 router.use(authMiddleware);
 
-// Logout route
 router.post('/logout', catchAsync(adminController.adminLogout));
 
-// Dashboard: accessible by Staff and Super Admin
-// router.get('/dashboard', restrictTo('Staff'), catchAsync(async (req, res) => {
-//   res.json({ message: `Welcome ${req.user.role} to admin dashboard` });
-// }));
+const adminOrStaff = restrictTo('Super Admin', 'Staff');
 
-// Super Admin creates new Staff/Admin
+// Super Admin only (note: previous `'Super Admin' || "Staff"` short-circuited and
+// was equivalent to just 'Super Admin' — retained that scope intentionally here).
 router.post(
   '/create-admin',
-  restrictTo('Super Admin' || "Staff"),
+  restrictTo('Super Admin'),
   validate(createAdminSchema),
   catchAsync(adminController.createAdmin)
 );
+
+// Dashboard stats
+router.get('/stats/overview', adminOrStaff, catchAsync(adminController.getOverview));
+router.get('/stats/analytics', adminOrStaff, catchAsync(adminController.getAnalytics));
+
+// Customer management
+router.get('/customers', adminOrStaff, catchAsync(adminController.listCustomers));
+router.get('/customers/:id', adminOrStaff, catchAsync(adminController.getCustomer));
+router.patch('/customers/:id/block', adminOrStaff, catchAsync(adminController.blockCustomer));
+router.patch('/customers/:id/unblock', adminOrStaff, catchAsync(adminController.unblockCustomer));
+
+// Order management
+router.get('/orders', adminOrStaff, catchAsync(adminController.listOrders));
+router.get('/orders/:id', adminOrStaff, catchAsync(adminController.getOrder));
+router.patch('/orders/:id/status', adminOrStaff, catchAsync(adminController.updateOrderStatus));
 
 export default router;

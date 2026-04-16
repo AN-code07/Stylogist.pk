@@ -1,276 +1,275 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  FiMinus, 
-  FiPlus, 
-  FiTrash2, 
-  FiArrowRight, 
-  FiShield, 
-  FiShoppingBag,
-  FiChevronLeft,
-  FiTag,
-  FiClock
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  FiMinus, FiPlus, FiTrash2, FiArrowRight, FiShield, FiShoppingBag,
+  FiChevronLeft, FiPackage, FiHeart, FiTruck, FiChevronRight
 } from 'react-icons/fi';
+import toast from 'react-hot-toast';
+import useCartStore from '../store/useCartStore';
+import useWishlistStore from '../store/useWishlistStore';
 
-// ==========================================
-// CONSTANTS & MOCK DATA (Beauty & Wellness)
-// ==========================================
-const FREE_SHIPPING_THRESHOLD = 300;
-const STANDARD_SHIPPING_COST = 15;
-
-const INITIAL_CART = [
-  {
-    id: "cart_item_1",
-    productId: 1,
-    name: "Radiance Vitamin C Serum",
-    brand: "Glow Botanica",
-    price: 45,
-    image: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=1974&auto=format&fit=crop",
-    color: "Standard",
-    size: "30ml",
-    quantity: 1,
-    stock: 10
-  },
-  {
-    id: "cart_item_2",
-    productId: 6,
-    name: "Daily Collagen Peptides",
-    brand: "Vitality Labs",
-    price: 35,
-    image: "https://images.unsplash.com/photo-1584305574647-0cc949a2bb9f?q=80&w=2070&auto=format&fit=crop",
-    color: "Unflavored",
-    size: "500g",
-    quantity: 2,
-    stock: 3 // Low stock
-  },
-  {
-    id: "cart_item_3",
-    productId: 4,
-    name: "Organic Matcha Elixir",
-    brand: "Zenith Wellness",
-    price: 28,
-    image: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=1974&auto=format&fit=crop",
-    color: "Ceremonial Grade",
-    size: "100g",
-    quantity: 1,
-    stock: 15
-  }
-];
+const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
 export default function CartPage() {
-  // --- STATE (Simplified: No Local Storage) ---
-  const [cartItems, setCartItems] = useState(INITIAL_CART);
-  const [promoCode, setPromoCode] = useState("");
-  const [discount, setDiscount] = useState(0);
+  const navigate = useNavigate();
 
-  // --- HANDLERS ---
-  const handleQuantity = (id, type) => {
-    setCartItems(prev => prev.map(item => {
-      if (item.id === id) {
-        let newQty = item.quantity;
-        if (type === 'dec' && newQty > 1) newQty--;
-        if (type === 'inc' && newQty < item.stock) newQty++;
-        return { ...item, quantity: newQty };
-      }
-      return item;
-    }));
+  const items = useCartStore((s) => s.items);
+  const setQuantity = useCartStore((s) => s.setQuantity);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const clearCart = useCartStore((s) => s.clear);
+
+  const moveToWishlist = useWishlistStore((s) => s.add);
+
+  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const shipping = 0; // Free nationwide — matches backend order service.
+  const total = subtotal + shipping;
+  const totalCount = items.reduce((s, i) => s + i.quantity, 0);
+
+  const handleSaveForLater = (item) => {
+    moveToWishlist({
+      productId: item.productId,
+      slug: item.slug,
+      name: item.name,
+      image: item.image,
+      price: item.price,
+      originalPrice: item.originalPrice,
+    });
+    removeItem(item.productId, item.sku);
+    toast.success('Saved to wishlist');
   };
 
-  const handleRemove = (id) => setCartItems(prev => prev.filter(item => item.id !== id));
-  
-  const handleApplyPromo = () => {
-    if (promoCode.toUpperCase() === "GLOW10") {
-      setDiscount(0.10); // 10% off
-    } else {
-      alert("Try code: GLOW10");
-      setDiscount(0);
-    }
-  };
-
-  // --- CALCULATIONS ---
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const discountAmount = subtotal * discount;
-  const subtotalAfterDiscount = subtotal - discountAmount;
-  const shipping = subtotalAfterDiscount >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING_COST; 
-  const total = subtotalAfterDiscount + shipping;
-  const progressToFreeShipping = Math.min((subtotalAfterDiscount / FREE_SHIPPING_THRESHOLD) * 100, 100);
-
-  // --- ANIMATION STYLES ---
-  const customStyles = `
-    @keyframes slideIn {
-      0% { opacity: 0; transform: translateY(20px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-    .animate-stagger {
-      opacity: 0;
-      animation: slideIn 0.5s ease-out forwards;
-    }
-  `;
-
-  // --- EMPTY CART STATE ---
-  if (cartItems.length === 0) {
+  // Empty state
+  if (items.length === 0) {
     return (
-      <div className="w-full min-h-screen bg-gradient-to-br from-teal-50 via-white to-gray-100 flex items-center justify-center p-4">
-        <style>{customStyles}</style>
-        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl p-12 max-w-md w-full flex flex-col items-center text-center animate-stagger border border-white">
-          <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6 text-[#007074]/30 shadow-inner">
-            <FiShoppingBag size={44} />
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-10 max-w-md w-full text-center">
+          <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-4">
+            <FiShoppingBag size={22} />
           </div>
-          <h2 className="text-3xl font-bold font-serif mb-3 text-[#2a2a2a]">Your bag is empty</h2>
-          <p className="text-sm text-gray-500 mb-8 px-4 leading-relaxed">
-            Discover premium wellness and beauty essentials to elevate your daily routine.
+          <h2 className="text-lg font-semibold text-slate-900">Your cart is empty</h2>
+          <p className="text-sm text-slate-500 mt-1.5">
+            Browse the shop and add a few items to get started.
           </p>
-          <Link to="/shop" className="w-full bg-[#2a2a2a] text-white py-4 rounded-full font-bold hover:bg-[#007074] transition-all duration-500 shadow-lg flex items-center justify-center gap-2 transform hover:-translate-y-1">
-            Browse Essentials <FiArrowRight size={18} />
+          <Link
+            to="/category"
+            className="mt-6 inline-flex items-center justify-center gap-2 w-full bg-[#007074] text-white py-2.5 rounded-lg text-sm font-medium hover:bg-[#005a5d]"
+          >
+            Shop products <FiArrowRight size={14} />
           </Link>
         </div>
       </div>
     );
   }
 
-  // --- MAIN CART UI ---
   return (
-    <div className="w-full min-h-screen bg-[#F7F9FA] flex flex-col items-center py-8 lg:py-16 font-sans text-[#2a2a2a] px-4 relative overflow-hidden">
-      <style>{customStyles}</style>
-      
-      {/* Decorative Blobs */}
-      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-teal-200/20 rounded-full blur-[100px] -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-
-      {/* Centered Premium Container */}
-      <div className="w-full max-w-5xl bg-white rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,112,116,0.05)] border border-white overflow-hidden flex flex-col lg:flex-row z-10 animate-stagger">
-        
-        {/* LEFT SIDE: ITEMS */}
-        <div className="w-full lg:w-[60%] p-6 md:p-10 flex flex-col bg-white">
-          <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-100">
-            <div>
-              <h1 className="text-3xl font-bold font-serif text-[#2a2a2a]">Shopping Bag</h1>
-              <p className="text-xs text-gray-400 mt-1 font-bold uppercase tracking-widest">
-                <span className="text-[#007074]">{cartItems.length}</span> Essentials
-              </p>
-            </div>
-            <Link to="/shop" className="hidden md:flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-[#007074] transition-colors uppercase tracking-widest bg-gray-50 px-4 py-2 rounded-full">
-              <FiChevronLeft size={14} /> Back to Shop
-            </Link>
-          </div>
-
-          <div className="flex flex-col gap-6 overflow-y-auto max-h-[50vh] pr-4 custom-scrollbar">
-            {cartItems.map((item, idx) => (
-              <div 
-                key={item.id} 
-                className="flex items-center gap-4 group pb-6 border-b border-gray-50 last:border-0 animate-stagger"
-                style={{ animationDelay: `${idx * 100}ms` }}
-              >
-                <Link to={`/product/${item.productId}`} className="w-20 h-24 md:w-24 md:h-28 shrink-0 bg-[#F7F3F0] rounded-2xl overflow-hidden relative shadow-sm">
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover mix-blend-multiply transition-transform duration-500 group-hover:scale-110" />
-                  {item.stock <= 5 && (
-                    <div className="absolute bottom-0 left-0 w-full bg-rose-50 text-rose-600 text-[8px] font-bold text-center py-1 uppercase">
-                      Low Stock
-                    </div>
-                  )}
-                </Link>
-                
-                <div className="flex flex-col flex-1 py-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-[9px] font-bold text-[#007074] uppercase tracking-widest mb-1">{item.brand}</p>
-                      <h3 className="font-bold text-sm md:text-base text-[#2a2a2a] line-clamp-1">{item.name}</h3>
-                      <p className="text-[10px] text-gray-500 mt-1">{item.color} • {item.size}</p>
-                    </div>
-                    <span className="font-bold text-[#2a2a2a] text-sm">${(item.price * item.quantity).toFixed(2)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center gap-2 bg-gray-50 rounded-full p-1 border border-gray-100 shadow-inner">
-                      <button 
-                        onClick={() => handleQuantity(item.id, 'dec')} 
-                        disabled={item.quantity <= 1}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${item.quantity <= 1 ? 'text-gray-300' : 'bg-white text-rose-500 shadow-sm hover:bg-rose-50'}`}
-                      >
-                        <FiMinus size={12} />
-                      </button>
-                      <span className="font-bold text-xs w-4 text-center">{item.quantity}</span>
-                      <button 
-                        onClick={() => handleQuantity(item.id, 'inc')} 
-                        disabled={item.quantity >= item.stock}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${item.quantity >= item.stock ? 'text-gray-300' : 'bg-white text-[#007074] shadow-sm hover:bg-teal-50'}`}
-                      >
-                        <FiPlus size={12} />
-                      </button>
-                    </div>
-                    <button onClick={() => handleRemove(item.id)} className="text-[10px] font-bold text-gray-400 hover:text-rose-500 uppercase tracking-widest flex items-center gap-1.5 transition-colors">
-                      <FiTrash2 size={14} /> Remove
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-16">
+      {/* Breadcrumb */}
+      <div className="max-w-6xl mx-auto px-4 md:px-8 pt-6">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Link to="/" className="hover:text-[#007074]">Home</Link>
+          <FiChevronRight size={11} />
+          <span className="text-slate-900 font-medium">Cart</span>
         </div>
+      </div>
 
-        {/* RIGHT SIDE: SUMMARY */}
-        <div className="w-full lg:w-[40%] p-6 md:p-10 bg-gradient-to-br from-gray-50 to-[#F7F9FA] border-t lg:border-t-0 lg:border-l border-gray-100 flex flex-col justify-between">
+      <div className="max-w-6xl mx-auto px-4 md:px-8 mt-4">
+        <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
           <div>
-            <h2 className="text-xl font-bold font-serif text-[#2a2a2a] mb-6">Order Summary</h2>
-            <div className="mb-8">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <FiTag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                  <input 
-                    type="text" value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
-                    placeholder="GLOW10" 
-                    className="w-full bg-white border border-gray-200 rounded-xl py-3 pl-9 pr-3 text-xs focus:ring-1 focus:ring-[#007074] outline-none shadow-sm transition-all"
-                  />
-                </div>
-                <button onClick={handleApplyPromo} className="bg-[#2a2a2a] text-white px-5 rounded-xl text-xs font-bold hover:bg-[#007074] transition-all shadow-md">
-                  Apply
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4 text-sm bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-8">
-              <div className="flex justify-between text-gray-500">
-                <span>Subtotal</span>
-                <span className="font-bold text-[#2a2a2a]">${subtotal.toFixed(2)}</span>
-              </div>
-              {discount > 0 && (
-                <div className="flex justify-between text-teal-600 font-medium italic">
-                  <span>Special Discount (10%)</span>
-                  <span>-${discountAmount.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-gray-500 items-center">
-                <span>Estimated Shipping</span>
-                {shipping === 0 ? <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-md uppercase tracking-widest border border-teal-100">Free</span> : <span className="font-bold text-[#2a2a2a]">${shipping.toFixed(2)}</span>}
-              </div>
-              {shipping > 0 && (
-                <div className="pt-2">
-                  <div className="flex justify-between text-[10px] mb-2 text-gray-400 font-bold uppercase tracking-widest">
-                    <span>Add ${(FREE_SHIPPING_THRESHOLD - subtotalAfterDiscount).toFixed(2)} for free shipping</span>
-                  </div>
-                  <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-[#007074] to-teal-400 rounded-full transition-all duration-700" style={{ width: `${progressToFreeShipping}%` }}></div>
-                  </div>
-                </div>
-              )}
-              <div className="border-t border-gray-50 pt-4 flex justify-between items-end">
-                <span className="font-bold text-lg">Total</span>
-                <span className="font-bold text-[#007074] text-3xl font-serif">${total.toFixed(2)}</span>
-              </div>
-            </div>
+            <h1 className="text-2xl font-semibold text-slate-900">Your cart</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              {totalCount} {totalCount === 1 ? 'item' : 'items'} ready to ship
+            </p>
           </div>
 
-          <div>
-            <Link to="/checkout" className="w-full bg-gradient-to-r from-[#2a2a2a] to-gray-800 text-white py-4 rounded-full text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:from-[#007074] hover:to-teal-500 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 shadow-lg">
-              Proceed to Checkout <FiArrowRight size={18} />
-            </Link>
-            <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest">
-              <FiShield size={14} className="text-[#007074]" />
-              <span>Verified <strong>COD</strong> Checkout</span>
+          <Link
+            to="/category"
+            className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 self-start md:self-auto"
+          >
+            <FiChevronLeft size={14} /> Continue shopping
+          </Link>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* LEFT — items list */}
+          <section className="lg:col-span-7 space-y-3">
+            {items.map((it) => (
+              <CartLine
+                key={`${it.productId}-${it.sku}`}
+                item={it}
+                onDec={() => setQuantity(it.productId, it.sku, Math.max(1, it.quantity - 1))}
+                onInc={() => setQuantity(it.productId, it.sku, it.quantity + 1)}
+                onRemove={() => {
+                  removeItem(it.productId, it.sku);
+                  toast.success('Removed from cart');
+                }}
+                onSave={() => handleSaveForLater(it)}
+              />
+            ))}
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => {
+                  clearCart();
+                  toast.success('Cart cleared');
+                }}
+                className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-600"
+              >
+                <FiTrash2 size={13} /> Clear cart
+              </button>
             </div>
-          </div>
+          </section>
+
+          {/* RIGHT — summary */}
+          <aside className="lg:col-span-5 lg:sticky lg:top-6">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <div className="flex items-center gap-2 pb-4 border-b border-slate-100">
+                <span className="w-8 h-8 rounded-md bg-[#007074]/10 text-[#007074] flex items-center justify-center">
+                  <FiPackage size={15} />
+                </span>
+                <h2 className="text-base font-semibold">Order summary</h2>
+              </div>
+
+              <dl className="space-y-2.5 text-sm py-5">
+                <SummaryRow label={`Subtotal (${totalCount} items)`} value={fmtPKR(subtotal)} />
+                <SummaryRow
+                  label="Shipping"
+                  value={<span className="text-emerald-700 font-medium">FREE</span>}
+                />
+                <div className="h-px bg-slate-100 my-2" />
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-sm font-medium text-slate-900">Total</span>
+                  <span className="text-xl font-semibold text-[#007074] tabular-nums">{fmtPKR(total)}</span>
+                </div>
+              </dl>
+
+              <button
+                onClick={() => navigate('/checkout')}
+                className="w-full bg-[#007074] text-white py-3 rounded-lg text-sm font-semibold hover:bg-[#005a5d] inline-flex items-center justify-center gap-2"
+              >
+                <FiTruck size={14} /> Checkout with COD
+              </button>
+
+              <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+                <FiShield size={11} /> Pay on delivery · no card needed
+              </div>
+            </div>
+
+            {/* Trust row */}
+            <ul className="mt-3 space-y-2">
+              <TrustRow icon={<FiTruck size={14} />} title="Free nationwide delivery" />
+              <TrustRow icon={<FiShield size={14} />} title="Cash on Delivery" />
+              <TrustRow icon={<FiPackage size={14} />} title="7-day easy returns" />
+            </ul>
+          </aside>
         </div>
       </div>
     </div>
+  );
+}
+
+/* ------------- subcomponents ------------- */
+
+function CartLine({ item, onDec, onInc, onRemove, onSave }) {
+  const subtotal = item.price * item.quantity;
+  const productHref = item.slug ? `/product/${item.slug}` : '/category';
+
+  return (
+    <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex gap-4">
+      <Link
+        to={productHref}
+        className="w-24 h-24 bg-slate-100 rounded-md overflow-hidden flex-shrink-0"
+      >
+        {item.image ? (
+          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-300">
+            <FiPackage size={20} />
+          </div>
+        )}
+      </Link>
+
+      <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Link
+              to={productHref}
+              className="text-sm font-medium text-slate-900 hover:text-[#007074] truncate block"
+            >
+              {item.name}
+            </Link>
+            <div className="text-[11px] text-slate-400 font-mono mt-0.5">{item.sku}</div>
+            {(item.color || item.size) && (
+              <div className="text-xs text-slate-500 mt-0.5 capitalize">
+                {[item.color, item.size].filter(Boolean).join(' · ')}
+              </div>
+            )}
+          </div>
+          <div className="text-right flex-shrink-0">
+            <div className="text-sm font-semibold text-slate-900 tabular-nums">{fmtPKR(subtotal)}</div>
+            {item.quantity > 1 && (
+              <div className="text-[11px] text-slate-400 mt-0.5 tabular-nums">
+                {fmtPKR(item.price)} each
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-auto pt-3 flex items-center justify-between gap-3">
+          <div className="inline-flex items-center border border-slate-200 rounded-md">
+            <button
+              onClick={onDec}
+              disabled={item.quantity <= 1}
+              className="w-8 h-8 inline-flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <FiMinus size={13} />
+            </button>
+            <span className="w-8 text-center text-xs font-medium tabular-nums">{item.quantity}</span>
+            <button
+              onClick={onInc}
+              className="w-8 h-8 inline-flex items-center justify-center text-slate-500 hover:bg-slate-50"
+            >
+              <FiPlus size={13} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onSave}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-[#007074]"
+              title="Move to wishlist"
+            >
+              <FiHeart size={13} /> Save
+            </button>
+            <button
+              onClick={onRemove}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-red-600"
+              title="Remove"
+            >
+              <FiTrash2 size={13} /> Remove
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function SummaryRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between text-slate-600">
+      <dt>{label}</dt>
+      <dd className="text-slate-900 tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+function TrustRow({ icon, title }) {
+  return (
+    <li className="bg-white rounded-lg border border-slate-200 px-4 py-2.5 flex items-center gap-3 text-sm text-slate-700">
+      <span className="w-7 h-7 rounded-md bg-slate-50 text-[#007074] flex items-center justify-center">
+        {icon}
+      </span>
+      {title}
+    </li>
   );
 }

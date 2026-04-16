@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { 
-  FiGrid, FiBox, FiShoppingBag, FiUsers, FiSettings, 
-  FiLogOut, FiMessageSquare, FiBarChart2, FiMenu, FiX 
+import {
+  FiGrid, FiBox, FiShoppingBag, FiUsers, FiSettings,
+  FiLogOut, FiMessageSquare, FiBarChart2, FiMenu, FiX, FiTag, FiFolder
 } from 'react-icons/fi';
 
 export default function Sidebar() {
@@ -13,7 +13,8 @@ export default function Sidebar() {
     { name: 'Overview', path: '/admin/overview', icon: <FiGrid /> },
     { name: 'Analytics', path: '/admin/analytics', icon: <FiBarChart2 /> },
     { name: 'Products', path: '/admin/products', icon: <FiBox /> },
-    { name: 'Categories', path: '/admin/categories', icon: <FiBox /> },
+    { name: 'Categories', path: '/admin/categories', icon: <FiFolder /> },
+    { name: 'Brands', path: '/admin/brands', icon: <FiTag /> },
     { name: 'Orders', path: '/admin/orders', icon: <FiShoppingBag /> },
     { name: 'Customers', path: '/admin/users', icon: <FiUsers /> },
     { name: 'Reviews', path: '/admin/reviews', icon: <FiMessageSquare /> },
@@ -66,21 +67,21 @@ export default function Sidebar() {
           </button>
         </div>
 
-        {/* NAV LINKS: Closes the menu automatically when a link is clicked on mobile */}
-        <nav className="flex-1 px-4 py-6 space-y-3 md:space-y-3.5 overflow-y-auto no-scrollbar">
+        {/* NAV LINKS — no vertical scroll. Items are tightened so all fit on standard heights. */}
+        <nav className="flex-1 px-3 py-4 space-y-1">
           {links.map((link) => (
             <NavLink
               key={link.name}
               to={link.path}
               onClick={() => setIsOpen(false)}
               className={({ isActive }) => `
-                flex items-center gap-3 px-4 py-2 rounded-md text-xs  uppercase tracking-widest transition-all
-                ${isActive 
-                  ? 'bg-[#007074] text-white shadow-xl shadow-[#007074]/20' 
+                flex items-center gap-3 px-3 py-2 rounded-md text-xs uppercase tracking-widest transition-all
+                ${isActive
+                  ? 'bg-[#007074] text-white shadow-lg shadow-[#007074]/20'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'}
               `}
             >
-              <span className="text-lg">{link.icon}</span>
+              <span className="text-base">{link.icon}</span>
               {link.name}
             </NavLink>
           ))}

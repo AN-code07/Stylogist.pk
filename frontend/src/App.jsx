@@ -25,6 +25,7 @@ import UserControl from './AdminDashboard/pages/UserControl'
 import ReviewManage from './AdminDashboard/pages/ReviewManage'
 import RevenueAnalytics from './AdminDashboard/pages/RevenueAnalytics'
 import CategoryManage from './AdminDashboard/pages/CategoryManage'
+import BrandManage from './AdminDashboard/pages/BrandManage'
 import AdminSettings from './AdminDashboard/pages/AdminSettings'
 import ScrollToTop from './commonpages/ScrollToTop'
 import EnterOTP from './commonpages/OTPpage'
@@ -77,7 +78,7 @@ const route = createBrowserRouter([
 
 
       {
-        path: "/single-product",
+        path: "/product/:slug",
         element: <ProductDetailsPage />
       },
       {
@@ -114,6 +115,7 @@ const route = createBrowserRouter([
       { path: "analytics", element: <RevenueAnalytics /> },
       { path: "products", element: <ProductManage /> },
       { path: "categories", element: <CategoryManage /> },
+      { path: "brands", element: <BrandManage /> },
       { path: "orders", element: <OrderLogs /> },
       { path: "users", element: <UserControl /> },
       { path: "reviews", element: <ReviewManage /> },

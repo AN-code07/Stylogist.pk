@@ -1,307 +1,174 @@
 import React, { useState } from 'react';
-import { 
-  FiTrendingUp, FiArrowUpRight, FiArrowDownRight, 
-  FiPieChart, FiMoreHorizontal, FiShoppingBag, FiBox, FiActivity
+import {
+  FiTrendingUp, FiArrowUpRight, FiArrowDownRight, FiPieChart,
+  FiShoppingBag, FiBox, FiActivity, FiAlertCircle, FiRefreshCw
 } from 'react-icons/fi';
+import { useAnalytics } from '../../features/admin/useAdminHooks';
+
+const TIMEFRAMES = [
+  { id: '7D', label: '7 days' },
+  { id: '30D', label: '30 days' },
+  { id: '3M', label: '3 months' },
+  { id: '1Y', label: '1 year' },
+];
+
+const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
+const fmtCompact = (n) => {
+  if (n == null) return 'Rs 0';
+  if (n >= 1_000_000) return `Rs ${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `Rs ${(n / 1_000).toFixed(1)}K`;
+  return `Rs ${Math.round(n)}`;
+};
 
 export default function RevenueAnalytics() {
   const [timeframe, setTimeframe] = useState('30D');
+  const { data, isLoading, isError, refetch, isFetching } = useAnalytics(timeframe);
 
-  // SVG Area Chart Data (Stylogist Revenue - PKR)
-  const areaPoints = [
-    { x: 0, y: 80, label: 'Jan', value: 'Rs. 420K' },
-    { x: 16.6, y: 50, label: 'Feb', value: 'Rs. 680K' },
-    { x: 33.3, y: 70, label: 'Mar', value: 'Rs. 510K' },
-    { x: 50, y: 30, label: 'Apr', value: 'Rs. 890K' },
-    { x: 66.6, y: 45, label: 'May', value: 'Rs. 750K' },
-    { x: 83.3, y: 20, label: 'Jun', value: 'Rs. 1.2M' },
-    { x: 100, y: 10, label: 'Jul', value: 'Rs. 1.4M' },
-  ];
-
-  // Bar Chart Data (Weekly Logistics & COD Dispatches)
-  const barData = [
-    { day: 'Mon', orders: 124, height: '60%' },
-    { day: 'Tue', orders: 145, height: '75%' },
-    { day: 'Wed', orders: 98, height: '40%' },
-    { day: 'Thu', orders: 210, height: '100%' },
-    { day: 'Fri', orders: 180, height: '85%' },
-    { day: 'Sat', orders: 155, height: '70%' },
-    { day: 'Sun', orders: 190, height: '90%' },
-  ];
-
-  // --- PRODUCTION-LEVEL CSS ANIMATIONS ---
-  const customStyles = `
-    @keyframes slideUpFade {
-      0% { opacity: 0; transform: translateY(30px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes revealRight {
-      0% { clip-path: inset(0 100% 0 0); opacity: 0.5; }
-      100% { clip-path: inset(0 0 0 0); opacity: 1; }
-    }
-    @keyframes barGrowUp {
-      0% { transform: scaleY(0); opacity: 0; }
-      100% { transform: scaleY(1); opacity: 1; }
-    }
-    @keyframes barGrowRight {
-      0% { transform: scaleX(0); opacity: 0; }
-      100% { transform: scaleX(1); opacity: 1; }
-    }
-    @keyframes spinIn {
-      0% { transform: rotate(-90deg) scale(0.8); opacity: 0; }
-      100% { transform: rotate(0deg) scale(1); opacity: 1; }
-    }
-    @keyframes shine {
-      0% { left: -100%; }
-      100% { left: 200%; }
-    }
-    
-    .animate-cascade { opacity: 0; animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    .animate-reveal { animation: revealRight 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    .animate-spin-in { opacity: 0; animation: spinIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    
-    .origin-bottom { transform-origin: bottom; }
-    .origin-left { transform-origin: left; }
-  `;
+  const summary = data?.summary;
 
   return (
-    <div className="space-y-8 pb-10">
-      <style>{customStyles}</style>
-
-      {/* 1. HEADER & CONTROLS (0ms delay) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 animate-cascade" style={{ animationDelay: '0ms' }}>
+    <div className="space-y-6 pb-10">
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Financial Intelligence</h1>
-          <p className="text-slate-500  md:text-sm font-medium uppercase tracking-[0.2em] text-[10px] mt-1">
-            Comprehensive Store Analytics
-          </p>
+          <h1 className="text-2xl font-semibold text-slate-900">Analytics</h1>
+          <p className="text-sm text-slate-500 mt-1">Revenue, orders, and category performance.</p>
         </div>
-        <div className="flex items-center justify-around overflow-x-auto gap-2 bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-           {['7D', '30D', '3M', '1Y'].map(tf => (
-             <button 
-               key={tf}
-               onClick={() => setTimeframe(tf)}
-               className={`px-5 py-2 md:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
-                 timeframe === tf 
-                 ? 'bg-[#007074] text-white shadow-[0_5px_15px_rgba(0,112,116,0.3)] scale-105' 
-                 : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'
-               }`}
-             >
-               {tf}
-             </button>
-           ))}
+        <div className="flex items-center gap-3">
+          <div className="inline-flex bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
+            {TIMEFRAMES.map((tf) => (
+              <button
+                key={tf.id}
+                onClick={() => setTimeframe(tf.id)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  timeframe === tf.id
+                    ? 'bg-[#007074] text-white'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+            title="Refresh"
+          >
+            <FiRefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+          </button>
         </div>
-      </div>
+      </header>
 
-      {/* 2. TIER 1: EXPANDED METRICS GRID (Staggered 100ms - 400ms) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        <div className="animate-cascade" style={{ animationDelay: '100ms' }}>
-           <MetricCard title="Gross Revenue" value="Rs. 1.42M" growth="+14.5%" isUp={true} icon={<FiTrendingUp />} />
-        </div>
-        <div className="animate-cascade" style={{ animationDelay: '200ms' }}>
-           <MetricCard title="Total Orders" value="3,248" growth="+12.2%" isUp={true} icon={<FiShoppingBag />} />
-        </div>
-        <div className="animate-cascade" style={{ animationDelay: '300ms' }}>
-           <MetricCard title="Net Profit (Est)" value="Rs. 480K" growth="+8.2%" isUp={true} icon={<FiActivity />} />
-        </div>
-        <div className="animate-cascade" style={{ animationDelay: '400ms' }}>
-           <MetricCard title="Return Rate" value="2.4%" growth="-1.1%" isUp={false} icon={<FiBox />} inverseColors />
-        </div>
-      </div>
+      {isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : (
+        <>
+          {/* Metrics */}
+          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <MetricCard
+              title="Gross revenue"
+              value={fmtPKR(summary?.grossRevenue)}
+              growth={summary?.revenueGrowth}
+              isGrowthGood
+              icon={<FiTrendingUp />}
+              loading={isLoading}
+            />
+            <MetricCard
+              title="Total orders"
+              value={(summary?.totalOrders ?? 0).toLocaleString()}
+              growth={summary?.ordersGrowth}
+              isGrowthGood
+              icon={<FiShoppingBag />}
+              loading={isLoading}
+            />
+            <MetricCard
+              title="Est. net profit"
+              value={fmtPKR(summary?.estimatedProfit)}
+              growth={summary?.profitGrowth}
+              isGrowthGood
+              icon={<FiActivity />}
+              hint="Approximated at 35% of gross"
+              loading={isLoading}
+            />
+            <MetricCard
+              title="Return rate"
+              value={summary ? `${summary.returnRate}%` : '—'}
+              icon={<FiBox />}
+              hint="Share of orders returned"
+              loading={isLoading}
+            />
+          </section>
 
-      {/* 3. TIER 2: MACRO VIEW (Area Chart + Donut Chart) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        
-        {/* SVG AREA CHART (Revenue) - Delay 500ms */}
-        <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] relative overflow-hidden group animate-cascade hover:shadow-[0_30px_60px_-20px_rgba(0,112,116,0.1)] transition-all duration-500" style={{ animationDelay: '500ms' }}>
-           <ChartHeader title="Revenue Flow" subtitle="Trailing 6 Months" icon={<FiTrendingUp />} />
-           
-           <div className="relative w-full h-72 mt-8">
-              {/* Grid Lines */}
-              <div className="absolute inset-0 flex flex-col justify-between pt-4 pb-8">
-                {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="w-full h-[1px] bg-slate-100/50 border-b border-dashed border-slate-200" />
-                ))}
-              </div>
-
-              {/* SVG Area with Reveal Animation */}
-              <svg className="absolute inset-0 w-full h-full overflow-visible animate-reveal" preserveAspectRatio="none" viewBox="0 0 100 100">
-                <defs>
-                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#007074" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#007074" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-                <path 
-                  d="M0,80 C8,80 8,50 16.6,50 C25,50 25,70 33.3,70 C41,70 41,30 50,30 C58,30 58,45 66.6,45 C75,45 75,20 83.3,20 C91,20 95,10 100,10 L100,100 L0,100 Z" 
-                  fill="url(#chartGradient)" 
-                />
-                <path 
-                  d="M0,80 C8,80 8,50 16.6,50 C25,50 25,70 33.3,70 C41,70 41,30 50,30 C58,30 58,45 66.6,45 C75,45 75,20 83.3,20 C91,20 95,10 100,10" 
-                  fill="none" stroke="#007074" strokeWidth="3" strokeLinecap="round"
-                  className="drop-shadow-[0_8px_12px_rgba(0,112,116,0.4)]"
-                />
-                {/* Data Points */}
-                {areaPoints.map((pt, i) => (
-                  <circle 
-                    key={i} cx={`${pt.x}`} cy={`${pt.y}`} r="2" 
-                    className="fill-white stroke-[#007074] stroke-[1.5px] transition-all duration-300 hover:r-4 hover:stroke-[2px]" 
-                  />
-                ))}
-              </svg>
-
-              {/* Tooltips & X-Axis */}
-              {areaPoints.map((pt, i) => (
-                <div key={`tt-${i}`} className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 group/tt cursor-pointer flex justify-center animate-cascade" style={{ left: `${pt.x}%`, top: `${pt.y}%`, animationDelay: `${600 + (i*100)}ms` }}>
-                  <div className="opacity-0 group-hover/tt:opacity-100 absolute bottom-full mb-2 bg-slate-900 text-white text-[10px] font-black tracking-widest px-3 py-1.5 rounded-lg whitespace-nowrap transition-all duration-300 translate-y-2 group-hover/tt:translate-y-0 shadow-xl z-20">
-                    {pt.value}
-                  </div>
-                </div>
-              ))}
-              <div className="absolute bottom-0 w-full flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest translate-y-6">
-                {areaPoints.map((pt, i) => <span key={`label-${i}`}>{pt.label}</span>)}
-              </div>
-           </div>
-        </div>
-
-        {/* CSS DONUT CHART (Market Share) - Delay 600ms */}
-        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] animate-cascade hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.1)] transition-all duration-500" style={{ animationDelay: '600ms' }}>
-           <ChartHeader title="Market Share" subtitle="Sales by Category" icon={<FiPieChart />} />
-           
-           <div className="relative w-full aspect-square mt-6 flex items-center justify-center">
-              {/* Center Text */}
-              <div className="absolute flex flex-col items-center justify-center text-center z-10">
-                 <span className="text-3xl font-serif font-black text-slate-900">8.4k</span>
-                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Items</span>
-              </div>
-              
-              {/* SVG Donut with Spin-In Animation */}
-              <div className="w-full h-full animate-spin-in drop-shadow-2xl" style={{ animationDelay: '800ms' }}>
-                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                   {/* Women's Fashion (45%) */}
-                   <circle strokeDasharray="45 100" strokeDashoffset="0" cx="18" cy="18" r="15.915" fill="transparent" stroke="#007074" strokeWidth="4" className="hover:stroke-[5px] transition-all duration-300 cursor-pointer" />
-                   {/* Accessories (30%) */}
-                   <circle strokeDasharray="30 100" strokeDashoffset="-45" cx="18" cy="18" r="15.915" fill="transparent" stroke="#14b8a6" strokeWidth="4" className="hover:stroke-[5px] transition-all duration-300 cursor-pointer" />
-                   {/* Men's Collection (25%) */}
-                   <circle strokeDasharray="25 100" strokeDashoffset="-75" cx="18" cy="18" r="15.915" fill="transparent" stroke="#1e293b" strokeWidth="4" className="hover:stroke-[5px] transition-all duration-300 cursor-pointer" />
-                </svg>
-              </div>
-           </div>
-
-           {/* Legend */}
-           <div className="mt-8 space-y-3">
-              <LegendRow color="bg-[#007074]" label="Women's Fashion" value="45%" delay="700ms" />
-              <LegendRow color="bg-teal-400" label="Accessories" value="30%" delay="800ms" />
-              <LegendRow color="bg-slate-800" label="Men's Collection" value="25%" delay="900ms" />
-           </div>
-        </div>
-      </div>
-
-      {/* 4. TIER 3: MICRO VIEW (Bar Chart + Volume Leaders) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-         
-         {/* BAR CHART (Order Logistics) - Delay 700ms */}
-         <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] animate-cascade hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.1)] transition-all duration-500" style={{ animationDelay: '700ms' }}>
-            <ChartHeader title="Order Logistics" subtitle="Daily Dispatch Volume" icon={<FiBox />} />
-            
-            <div className="h-64 w-full flex items-end justify-between gap-2 sm:gap-4 mt-8 pt-4 border-b border-slate-100 relative">
-               {/* Y-Axis Grid Lines */}
-               <div className="absolute inset-0 flex flex-col justify-between pb-2 pointer-events-none">
-                  {[1, 2, 3].map(i => <div key={i} className="w-full h-[1px] border-b border-dashed border-slate-100" />)}
-               </div>
-
-               {barData.map((data, i) => (
-                 <div key={i} className="relative flex flex-col items-center flex-1 h-full justify-end group cursor-pointer z-10">
-                    <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-slate-900 text-white text-[10px] font-black tracking-widest px-3 py-1.5 rounded-lg whitespace-nowrap transition-all duration-300 shadow-xl translate-y-2 group-hover:translate-y-0">
-                      {data.orders} Orders
-                    </div>
-                    {/* Animated Growing Bar */}
-                    <div 
-                      className="w-full max-w-[40px] bg-gradient-to-t from-teal-50 to-[#007074] rounded-t-xl transition-all duration-300 group-hover:brightness-110 group-hover:shadow-[0_0_20px_rgba(0,112,116,0.3)] origin-bottom" 
-                      style={{ 
-                        height: data.height,
-                        animation: `barGrowUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards`,
-                        animationDelay: `${900 + (i * 100)}ms` 
-                      }} 
-                    />
-                    <span className="absolute -bottom-8 text-[9px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-900 transition-colors">{data.day}</span>
-                 </div>
-               ))}
+          {/* Revenue line chart + Category donut */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+              <ChartHeader
+                title="Revenue over time"
+                subtitle={`Revenue from confirmed + delivered orders · ${TIMEFRAMES.find((t) => t.id === timeframe)?.label}`}
+                icon={<FiTrendingUp size={14} />}
+              />
+              <RevenueLineChart series={data?.revenueSeries} loading={isLoading} />
             </div>
-         </div>
 
-         {/* TOP SELLING PRODUCTS - Delay 800ms */}
-         <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.05)] animate-cascade hover:shadow-[0_30px_60px_-20px_rgba(0,0,0,0.1)] transition-all duration-500" style={{ animationDelay: '800ms' }}>
-           <ChartHeader title="Volume Leaders" subtitle="Highest Converting Assets" />
-           <div className="space-y-7 mt-6">
-              {[
-                { name: "Silk Satin Slip Dress", sales: "142 Units", revenue: "Rs. 1.8M", percent: 90, color: "from-[#007074] to-teal-400" },
-                { name: "Onyx Chronograph", sales: "98 Units", revenue: "Rs. 2.4M", percent: 75, color: "from-slate-800 to-slate-600" },
-                { name: "Velvet Midnight Wrap", sales: "76 Units", revenue: "Rs. 0.9M", percent: 55, color: "from-rose-500 to-rose-400" },
-                { name: "Radiance C Serum", sales: "210 Units", revenue: "Rs. 0.6M", percent: 40, color: "from-amber-500 to-amber-300" },
-              ].map((item, i) => (
-                <div key={i} className="group cursor-pointer">
-                   <div className="flex justify-between items-end mb-2">
-                      <div className="transform transition-transform duration-300 group-hover:translate-x-1">
-                        <p className="text-xs font-bold text-slate-800 group-hover:text-[#007074] transition-colors">{item.name}</p>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{item.sales}</p>
-                      </div>
-                      <p className="text-[11px] font-black text-slate-900 tracking-tighter transform transition-transform duration-300 group-hover:-translate-x-1">{item.revenue}</p>
-                   </div>
-                   <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden shadow-inner relative">
-                      {/* Animated Growing Width */}
-                      <div 
-                        className={`absolute top-0 left-0 h-full bg-gradient-to-r ${item.color} rounded-full origin-left`} 
-                        style={{ 
-                          width: `${item.percent}%`,
-                          animation: `barGrowRight 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards`,
-                          animationDelay: `${1000 + (i * 150)}ms`
-                        }} 
-                      />
-                   </div>
-                </div>
-              ))}
-           </div>
-        </div>
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+              <ChartHeader title="Category mix" subtitle="Share of units sold" icon={<FiPieChart size={14} />} />
+              <CategoryDonut categories={data?.categoryShare} loading={isLoading} />
+            </div>
+          </div>
 
-      </div>
+          {/* Daily orders bar + Top products */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+              <ChartHeader title="Orders volume" subtitle="Per bucket (day / week / month based on range)" icon={<FiBox size={14} />} />
+              <OrdersBarChart series={data?.revenueSeries} loading={isLoading} />
+            </div>
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+              <ChartHeader title="Top products" subtitle="By units sold" />
+              <TopProducts items={data?.topProducts} loading={isLoading} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-// --- SUB COMPONENTS ---
+/* ------------ Subcomponents ------------ */
 
-function MetricCard({ title, value, growth, isUp, icon, inverseColors }) {
+function MetricCard({ title, value, growth, isGrowthGood, icon, hint, loading }) {
+  const hasGrowth = growth != null && !Number.isNaN(growth);
+  const goingUp = (growth ?? 0) >= 0;
+  const growthGood = isGrowthGood ? goingUp : !goingUp;
+
   return (
-    <div className={`p-8 rounded-[2.5rem] border transition-all duration-500 group relative overflow-hidden cursor-pointer transform hover:-translate-y-1 ${
-      inverseColors ? 'bg-slate-900 border-slate-800 text-white shadow-xl hover:shadow-2xl' : 'bg-white border-slate-100 shadow-[0_15px_40px_-15px_rgba(0,0,0,0.05)] hover:shadow-[0_25px_50px_-15px_rgba(0,112,116,0.15)] hover:border-teal-100'
-    }`}>
-      {/* Shine Hover Effect */}
-      <div className="absolute top-0 -inset-full h-full w-1/2 z-0 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-[shine_1s_ease-in-out]" />
-
-      <div className={`absolute -top-4 -right-4 p-4 transition-all duration-500 rotate-12 group-hover:rotate-0 group-hover:scale-110 ${inverseColors ? 'text-white opacity-[0.05] group-hover:opacity-10' : 'text-[#007074] opacity-[0.03] group-hover:opacity-10'}`}>
-        {React.cloneElement(icon, { size: 120 })}
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+      <div className="flex items-start justify-between gap-3">
+        <span className="w-9 h-9 rounded-lg bg-slate-50 text-slate-500 flex items-center justify-center">
+          {React.cloneElement(icon, { size: 16 })}
+        </span>
+        {hasGrowth && (
+          <span
+            className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${
+              growthGood
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                : 'bg-rose-50 text-rose-700 border-rose-100'
+            }`}
+          >
+            {goingUp ? <FiArrowUpRight size={11} /> : <FiArrowDownRight size={11} />}
+            {Math.abs(growth)}%
+          </span>
+        )}
       </div>
-      
-      <div className="relative z-10">
-        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-2 flex items-center gap-2 ${inverseColors ? 'text-slate-400' : 'text-slate-400'}`}>
-          {title}
-        </p>
-        <h2 className={`text-2xl md:text-3xl font-serif md:font-black tracking-tight mb-4 transition-colors duration-300 ${inverseColors ? 'text-white group-hover:text-teal-300' : 'text-slate-900 group-hover:text-[#007074]'}`}>
-          {value}
-        </h2>
-        
-        <div className="flex items-center gap-2">
-          <div className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all duration-300 ${
-            isUp 
-            ? 'bg-green-500/10 text-green-500 border border-green-500/20 group-hover:bg-green-500 group-hover:text-white' 
-            : 'bg-red-500/10 text-red-500 border border-red-500/20 group-hover:bg-red-500 group-hover:text-white'
-          }`}>
-            {isUp ? <FiArrowUpRight size={14} /> : <FiArrowDownRight size={14} />} 
-            {growth}
-          </div>
-          <span className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${inverseColors ? 'text-slate-500' : 'text-slate-300'}`}>vs last month</span>
-        </div>
+      <div className="mt-4">
+        {loading ? (
+          <div className="h-7 w-28 bg-slate-100 rounded animate-pulse" />
+        ) : (
+          <div className="text-2xl font-semibold text-slate-900 tabular-nums">{value}</div>
+        )}
+        <div className="text-xs text-slate-500 mt-1">{title}</div>
+        {hint && <div className="text-[11px] text-slate-400 mt-1">{hint}</div>}
       </div>
     </div>
   );
@@ -309,33 +176,267 @@ function MetricCard({ title, value, growth, isUp, icon, inverseColors }) {
 
 function ChartHeader({ title, subtitle, icon }) {
   return (
-    <div className="flex justify-between items-center relative z-10 border-b border-slate-50 pb-4">
-      <div className="flex items-center gap-3">
+    <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+      <div className="flex items-center gap-2">
         {icon && (
-          <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 shadow-inner">
+          <span className="w-7 h-7 rounded-md bg-[#007074]/10 text-[#007074] flex items-center justify-center">
             {icon}
-          </div>
+          </span>
         )}
         <div>
-          <h3 className="text-sm font-black uppercase tracking-[0.2em] text-slate-900">{title}</h3>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{subtitle}</p>
+          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
         </div>
       </div>
-      <button className="p-2 text-slate-400 hover:text-[#007074] hover:bg-teal-50 transition-colors rounded-xl active:scale-95">
-        <FiMoreHorizontal size={20} />
+    </div>
+  );
+}
+
+function RevenueLineChart({ series, loading }) {
+  if (loading) return <div className="h-64 mt-5 bg-slate-50 rounded-lg animate-pulse" />;
+  if (!series?.length) return <EmptyChart message="No revenue in this range yet." />;
+
+  const { path, areaPath, points, maxY, ticks } = buildChartGeometry(series);
+
+  return (
+    <div className="mt-5">
+      <div className="relative h-64">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full overflow-visible">
+          <defs>
+            <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#007074" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#007074" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* Grid lines */}
+          {ticks.map((t) => (
+            <line key={t.y} x1="0" x2="100" y1={t.y} y2={t.y} stroke="#f1f5f9" strokeWidth="0.25" />
+          ))}
+          <path d={areaPath} fill="url(#revFill)" />
+          <path d={path} fill="none" stroke="#007074" strokeWidth="1.2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {points.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r="1.4" fill="#fff" stroke="#007074" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
+          ))}
+        </svg>
+        {/* Y-axis labels */}
+        <div className="absolute inset-y-0 left-0 flex flex-col justify-between text-[10px] text-slate-400 font-medium py-1 -ml-1">
+          {ticks.slice().reverse().map((t) => (
+            <span key={t.y}>{fmtCompact(t.value)}</span>
+          ))}
+        </div>
+        {/* Hover tooltips */}
+        {points.map((p, i) => (
+          <div
+            key={`tt-${i}`}
+            className="absolute group"
+            style={{ left: `${p.x}%`, top: `${p.y}%`, width: 16, height: 16, transform: 'translate(-50%, -50%)' }}
+          >
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[11px] px-2 py-1 rounded whitespace-nowrap shadow">
+              <div className="font-semibold">{fmtPKR(series[i].amount)}</div>
+              <div className="text-slate-300 text-[10px]">{series[i].label} · {series[i].orders} orders</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* X-axis */}
+      <div className="grid mt-2 text-[10px] text-slate-400 font-medium" style={{ gridTemplateColumns: `repeat(${series.length}, minmax(0, 1fr))` }}>
+        {series.map((s, i) => (
+          <span key={i} className="text-center">
+            {/* Only show every Nth label so it stays readable */}
+            {shouldLabel(i, series.length) ? s.label : ''}
+          </span>
+        ))}
+      </div>
+      <div className="mt-4 text-xs text-slate-400 ml-14" style={{ paddingLeft: 0 }}>
+        Max: <span className="text-slate-600 font-medium">{fmtPKR(maxY)}</span>
+      </div>
+    </div>
+  );
+}
+
+function OrdersBarChart({ series, loading }) {
+  if (loading) return <div className="h-56 mt-5 bg-slate-50 rounded-lg animate-pulse" />;
+  if (!series?.length) return <EmptyChart message="No orders in this range yet." />;
+
+  const max = Math.max(1, ...series.map((s) => s.orders));
+  return (
+    <div className="mt-5">
+      <div className="h-56 flex items-end gap-1.5">
+        {series.map((s, i) => {
+          const h = (s.orders / max) * 100;
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+              <div className="opacity-0 group-hover:opacity-100 absolute -top-6 bg-slate-900 text-white text-[10px] px-2 py-0.5 rounded whitespace-nowrap z-10">
+                {s.orders} orders
+              </div>
+              <div
+                className="w-full max-w-[28px] rounded-t-md bg-slate-100 group-hover:bg-[#007074] transition-colors"
+                style={{ height: `${Math.max(h, 3)}%` }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="grid mt-2 text-[10px] text-slate-400 font-medium" style={{ gridTemplateColumns: `repeat(${series.length}, minmax(0, 1fr))` }}>
+        {series.map((s, i) => (
+          <span key={i} className="text-center">{shouldLabel(i, series.length) ? s.label : ''}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const DONUT_COLORS = ['#007074', '#14b8a6', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ef4444', '#64748b'];
+
+function CategoryDonut({ categories, loading }) {
+  if (loading) return <div className="aspect-square mt-6 bg-slate-50 rounded-full animate-pulse max-w-[220px] mx-auto" />;
+  if (!categories?.length) return <EmptyChart message="No sales to split by category." />;
+
+  const total = categories.reduce((sum, c) => sum + c.units, 0) || 1;
+  // Build donut segments using dash offsets on a circumference-normalized radius.
+  const R = 15.915; // r chosen so circumference ≈ 100
+  let cumulative = 0;
+
+  const segments = categories.slice(0, 7).map((c, i) => {
+    const value = (c.units / total) * 100;
+    const seg = { ...c, value, offset: -cumulative, color: DONUT_COLORS[i % DONUT_COLORS.length] };
+    cumulative += value;
+    return seg;
+  });
+
+  return (
+    <div className="mt-5">
+      <div className="relative aspect-square max-w-[220px] mx-auto flex items-center justify-center">
+        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+          <circle cx="18" cy="18" r={R} fill="transparent" stroke="#f1f5f9" strokeWidth="4" />
+          {segments.map((s, i) => (
+            <circle
+              key={i}
+              cx="18" cy="18" r={R}
+              fill="transparent"
+              stroke={s.color}
+              strokeWidth="4"
+              strokeDasharray={`${s.value.toFixed(2)} 100`}
+              strokeDashoffset={s.offset.toFixed(2)}
+            />
+          ))}
+        </svg>
+        <div className="absolute text-center">
+          <div className="text-2xl font-semibold text-slate-900 tabular-nums">{total.toLocaleString()}</div>
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider">units</div>
+        </div>
+      </div>
+      <ul className="mt-6 space-y-2">
+        {segments.map((s) => (
+          <li key={s.name} className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+              <span className="text-slate-700 truncate">{s.name}</span>
+            </span>
+            <span className="text-slate-500 tabular-nums ml-2">{s.percentage}%</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function TopProducts({ items, loading }) {
+  if (loading) {
+    return (
+      <div className="mt-5 space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-10 bg-slate-50 rounded animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+  if (!items?.length) return <EmptyChart message="No products sold yet." />;
+
+  const max = Math.max(1, ...items.map((i) => i.units));
+  return (
+    <div className="mt-5 space-y-4">
+      {items.map((p, i) => (
+        <div key={p._id || i}>
+          <div className="flex items-baseline justify-between mb-1.5">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-slate-900 truncate">{p.name}</div>
+              <div className="text-[11px] text-slate-400">{p.units} units</div>
+            </div>
+            <div className="text-sm text-slate-700 font-medium tabular-nums ml-3 flex-shrink-0">{fmtPKR(p.revenue)}</div>
+          </div>
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#007074] rounded-full transition-all"
+              style={{ width: `${(p.units / max) * 100}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyChart({ message }) {
+  return (
+    <div className="h-48 mt-5 flex items-center justify-center text-sm text-slate-400">
+      {message}
+    </div>
+  );
+}
+
+function ErrorState({ onRetry }) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-10 text-center">
+      <FiAlertCircle className="mx-auto text-red-500 mb-3" size={28} />
+      <h3 className="text-sm font-semibold text-slate-900">Couldn't load analytics</h3>
+      <p className="text-sm text-slate-500 mt-1">Check that the backend is running and you're signed in as an admin.</p>
+      <button
+        onClick={() => onRetry()}
+        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d]"
+      >
+        <FiRefreshCw size={14} /> Try again
       </button>
     </div>
   );
 }
 
-function LegendRow({ color, label, value, delay }) {
-  return (
-    <div className="flex items-center justify-between group cursor-pointer p-2 hover:bg-slate-50 rounded-xl transition-colors animate-cascade" style={{ animationDelay: delay }}>
-      <div className="flex items-center gap-3 transform transition-transform duration-300 group-hover:translate-x-1">
-        <div className={`w-3 h-3 rounded-full ${color} shadow-inner transition-transform duration-300 group-hover:scale-125`} />
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 group-hover:text-[#007074] transition-colors">{label}</span>
-      </div>
-      <span className="text-sm font-bold text-slate-900 transform transition-transform duration-300 group-hover:-translate-x-1">{value}</span>
-    </div>
-  );
+/* ------------ helpers ------------ */
+
+// Decide which x-axis labels to render so long ranges don't overlap.
+function shouldLabel(i, length) {
+  if (length <= 10) return true;
+  if (length <= 30) return i === 0 || i === length - 1 || i % 5 === 0;
+  return i === 0 || i === length - 1 || i % Math.ceil(length / 8) === 0;
+}
+
+// Plain function (no hooks) — called after an early-return in RevenueLineChart,
+// so using useMemo here would violate the Rules of Hooks. Cheap to recompute.
+function buildChartGeometry(series) {
+  const maxY = Math.max(...series.map((s) => s.amount), 1);
+  const stepX = series.length > 1 ? 100 / (series.length - 1) : 0;
+
+  const points = series.map((s, i) => ({
+    x: i * stepX,
+    y: 100 - (s.amount / maxY) * 90 - 5, // leave 5% margin top/bottom
+    value: s.amount,
+  }));
+
+  const path = points
+    .map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`))
+    .join(' ');
+
+  const areaPath =
+    points.length > 0
+      ? `${points
+          .map((p, i) => (i === 0 ? `M${p.x},${p.y}` : `L${p.x},${p.y}`))
+          .join(' ')} L100,100 L0,100 Z`
+      : '';
+
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((pct) => ({
+    y: 100 - pct * 90 - 5,
+    value: pct * maxY,
+  }));
+
+  return { path, areaPath, points, maxY, ticks };
 }

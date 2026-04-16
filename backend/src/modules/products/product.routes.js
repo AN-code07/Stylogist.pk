@@ -1,18 +1,27 @@
-    import { Router } from 'express';
-    import * as ProductController from './product.controller.js';
-    import { validate } from '../../middlewares/validate.middleware.js';
-    import { createProductSchema } from './product.validation.js';
-    import { catchAsync } from '../../utils/catchAsync.js';
-    import { authMiddleware } from '../../middlewares/auth.middleware.js';
+import { Router } from "express";
+import * as ProductController from "./product.controller.js";
+import { authMiddleware } from "../../middlewares/auth.middleware.js";
+import { restrictTo } from "../../middlewares/role.middleware.js";
+import { validate } from "../../middlewares/validate.middleware.js";
+import { catchAsync } from "../../utils/catchAsync.js";
+import {
+  createProductSchema,
+  productSlugParamSchema,
+  productIdParamSchema,
+} from "./product.validation.js";
 
-    const router = Router();
+const router = Router();
 
-    // All routes protected for now
-    router.use(authMiddleware);
+const adminOnly = [authMiddleware, restrictTo("Super Admin", "Staff")];
 
-    router.post('/', validate(createProductSchema), catchAsync(ProductController.createProduct));
-    router.get('/', catchAsync(ProductController.getAllProducts));
-    router.get('/:slug', catchAsync(ProductController.getSingleProduct));
-    router.get('/filters/meta', catchAsync(ProductController.getFilterMetadata));
+// Static-prefixed routes before dynamic param routes so Express does not
+// mis-route `/filters/meta` into the `:slug` handler.
+router.get("/filters/meta", catchAsync(ProductController.getFilterMetadata));
+router.get("/", catchAsync(ProductController.getAllProducts));
+router.get("/id/:id", validate(productIdParamSchema), catchAsync(ProductController.getProductById));
+router.get("/:slug", validate(productSlugParamSchema), catchAsync(ProductController.getProductBySlug));
 
-    export default router;
+router.post("/", ...adminOnly, validate(createProductSchema), catchAsync(ProductController.createProduct));
+router.delete("/:id", ...adminOnly, validate(productIdParamSchema), catchAsync(ProductController.deleteProduct));
+
+export default router;

@@ -1,319 +1,664 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  FiUser, FiShoppingBag, FiHeart, FiMapPin, FiSettings, FiLogOut,
-  FiPackage, FiPlus, FiEdit2, FiTrash2, FiShield, FiBell, FiChevronRight,
-  FiCheckCircle, FiStar, FiRefreshCw, FiCreditCard
+  FiUser, FiShoppingBag, FiMapPin, FiSettings, FiLogOut, FiPackage,
+  FiPlus, FiEdit2, FiTrash2, FiShield, FiCheckCircle, FiClock, FiTruck,
+  FiXCircle, FiLoader, FiSave, FiAlertCircle, FiChevronRight, FiLock, FiEye, FiEyeOff
 } from 'react-icons/fi';
-import { Navigate, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import {
+  useMe,
+  useUpdateProfile,
+  useChangePassword,
+} from '../features/user/useUserHooks';
+import {
+  useAddresses,
+  useAddAddress,
+  useUpdateAddress,
+  useDeleteAddress,
+} from '../features/addresses/useAddressHooks';
+import { useMyOrders } from '../features/orders/useOrderHooks';
+import { useLogout } from '../features/auth/useAuthHooks';
+
+const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
+const fmtDate = (iso) =>
+  iso
+    ? new Date(iso).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
+    : '—';
+
+const MENU = [
+  { id: 'profile', label: 'My profile', icon: <FiUser /> },
+  { id: 'orders', label: 'Orders', icon: <FiShoppingBag /> },
+  { id: 'addresses', label: 'Addresses', icon: <FiMapPin /> },
+  { id: 'settings', label: 'Security', icon: <FiSettings /> },
+];
 
 export default function UserProfile() {
-  const [activeTab, setActiveTab] = useState('profile');
+  const [tab, setTab] = useState('profile');
+  const navigate = useNavigate();
+  const logoutMut = useLogout();
 
-  // --- Mock Data ---
-  const user = {
-    name: "Javeria Khan",
-    email: "javeria@stylogist.pk",
-    phone: "+92 300 1234567",
-    joined: "Feb 2026",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=1974&auto=format&fit=crop"
-  };
+  const { data: user, isLoading: loadingMe, isError: meError } = useMe();
 
-  const wishlistItems = [
-    { id: 101, name: "Silk Satin Slip Dress", price: "12,999", img: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=400" },
-    { id: 102, name: "Onyx Chronograph Watch", price: "24,500", img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=400" }
-  ];
+  // Redirect if not authenticated (cookie check failed).
+  useEffect(() => {
+    if (meError) navigate('/login');
+  }, [meError, navigate]);
 
-  const addresses = [
-    { id: 1, type: "Home", detail: "House #12, Block B, Satellite Town", city: "Bahawalpur", isDefault: true },
-    { id: 2, type: "Office", detail: "Digital Hub, 3rd Floor, Commercial Area", city: "Lahore", isDefault: false }
-  ];
-
-  const menuItems = [
-    { id: 'profile', label: 'Identity', icon: <FiUser /> },
-    { id: 'orders', label: 'Order History', icon: <FiShoppingBag /> },
-    { id: 'wishlist', label: 'My Wishlist', icon: <FiHeart /> },
-    { id: 'addresses', label: 'Saved Addresses', icon: <FiMapPin /> },
-    { id: 'settings', label: 'Account Settings', icon: <FiSettings /> },
-  ];
-
-  const navigate = useNavigate()
-
-  const handleLogout = () => {
-
-    localStorage.setItem("user", "")
-    navigate("/")
-  }
+  if (meError) return null;
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6] py-10 px-4 sm:px-6 lg:px-8 font-sans text-slate-900">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8 font-sans text-slate-900">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <ProfileHeader user={user} loading={loadingMe} />
 
-        {/* 1. DASHBOARD HEADER PLATE */}
-        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#007074]/5 rounded-bl-[5rem] pointer-events-none" />
-
-          <div className="flex items-center gap-5 relative z-10">
-            <div className="relative">
-              <img src={user.avatar} className="w-20 h-20 rounded-[1.5rem] object-cover border-4 border-white shadow-xl" alt="Avatar" />
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#007074] rounded-full border-2 border-white flex items-center justify-center shadow-lg">
-                <FiCheckCircle className="text-white w-3.5 h-3.5" />
-              </div>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">{user.name}</h1>
-              <p className="text-[10px] font-black text-[#007074] uppercase tracking-[0.3em]">Platinum Client • Est. 2026</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-3xl border border-slate-100">
-            <div className="text-right hidden sm:block">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Available Credits</p>
-              <p className="text-lg font-bold text-slate-900">Rs. 4,500</p>
-            </div>
-            <div className="w-12 h-12 rounded-2xl bg-[#007074] flex items-center justify-center text-white shadow-lg shadow-[#007074]/20">
-              <FiStar size={22} fill="currentColor" className="text-teal-200" />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-          {/* 2. SIDEBAR NAVIGATION */}
-          <aside className="lg:col-span-3 space-y-4">
-            <div className="bg-white rounded-[2.5rem] p-3 shadow-sm border border-slate-100 sticky top-24">
-              {menuItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-xs font-bold uppercase tracking-[0.15em] transition-all duration-500 ${activeTab === item.id
-                    ? 'bg-[#007074] text-white shadow-xl shadow-[#007074]/10 scale-[1.02]'
-                    : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Sidebar */}
+          <aside className="lg:col-span-3">
+            <div className="bg-white rounded-xl border border-slate-200 p-2 shadow-sm lg:sticky lg:top-6">
+              <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
+                {MENU.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setTab(m.id)}
+                    className={`flex-1 lg:w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+                      tab === m.id
+                        ? 'bg-[#007074] text-white'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
-                >
-                  <span className={`text-lg ${activeTab === item.id ? 'text-teal-200' : 'text-[#007074]'}`}>{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
-              <div className="my-4 h-[1px] bg-slate-50 mx-4" />
-              <button onClick={handleLogout} className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-red-400 hover:bg-red-50 transition-all">
-                <FiLogOut className="text-lg" /> Terminate Session
+                  >
+                    <span className="text-base">{m.icon}</span>
+                    <span>{m.label}</span>
+                  </button>
+                ))}
+              </nav>
+              <div className="my-2 h-px bg-slate-100 hidden lg:block" />
+              <button
+                onClick={() => logoutMut.mutate()}
+                disabled={logoutMut.isPending}
+                className="hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+              >
+                <FiLogOut size={16} /> Sign out
               </button>
             </div>
           </aside>
 
-          {/* 3. DYNAMIC CONTENT AREA */}
-          <main className="lg:col-span-9 min-h-[600px]">
-
-            {/* CONTENT: IDENTITY (PROFILE) */}
-            {activeTab === 'profile' && (
-              <div className="animate-[slideUp_0.5s_ease-out] space-y-8">
-                {/* Micro Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { label: 'Orders', val: '12', icon: <FiPackage />, color: 'bg-blue-50 text-blue-600' },
-                    { label: 'Spend', val: '84k', icon: <FiCreditCard />, color: 'bg-teal-50 text-[#007074]' },
-                    { label: 'In Wish', val: '08', icon: <FiHeart />, color: 'bg-pink-50 text-pink-600' },
-                    { label: 'Returns', val: '01', icon: <FiRefreshCw />, color: 'bg-orange-50 text-orange-600' },
-                  ].map((stat, i) => (
-                    <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                      <div className={`w-10 h-10 rounded-xl ${stat.color} flex items-center justify-center mb-4 text-xl`}>
-                        {stat.icon}
-                      </div>
-                      <p className="text-2xl font-bold text-slate-900 tracking-tight">{stat.val}</p>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{stat.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-bl-full -z-0 opacity-50" />
-                  <div className="flex items-center justify-between mb-10 relative z-10">
-                    <h3 className="text-xl font-bold tracking-tight">Identity Details</h3>
-                    <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#007074] hover:bg-teal-50 px-4 py-2 rounded-full transition-all">
-                      <FiEdit2 /> Update Profile
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10 relative z-10">
-                    {[
-                      { label: "Display Name", val: user.name },
-                      { label: "Email Address", val: user.email },
-                      { label: "Phone Connection", val: user.phone },
-                      { label: "Default Currency", val: "PKR - Rupees" }
-                    ].map((item, i) => (
-                      <div key={i} className="space-y-1 group">
-                        <label className="text-[9px] font-black uppercase tracking-[0.25em] text-slate-400 group-hover:text-[#007074] transition-colors">{item.label}</label>
-                        <p className="text-sm font-bold text-slate-900 py-3 border-b border-slate-50">{item.val}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* CONTENT: WISHLIST */}
-            {activeTab === 'wishlist' && (
-              <div className="animate-[slideUp_0.5s_ease-out] bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100">
-                <div className="flex justify-between items-end mb-10">
-                  <div>
-                    <h3 className="text-2xl font-bold tracking-tight">My Wishlist</h3>
-                    <p className="text-slate-400 text-sm mt-1 uppercase tracking-widest text-[10px] font-bold">Neural Curation Storage</p>
-                  </div>
-                  <span className="text-[10px] font-black text-[#007074] bg-teal-50 px-4 py-1.5 rounded-full uppercase tracking-widest">{wishlistItems.length} Products</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {wishlistItems.map(item => (
-                    <div key={item.id} className="group flex items-center gap-5 p-4 rounded-3xl border border-slate-50 hover:border-[#007074]/30 hover:bg-slate-50/50 transition-all duration-500">
-                      <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
-                        <img src={item.img} className="w-full h-full object-cover mix-blend-multiply group-hover:scale-110 transition-transform duration-700" alt={item.name} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-sm text-slate-800 truncate">{item.name}</h4>
-                        <p className="text-[#007074] font-black text-xs mt-2">Rs. {item.price}</p>
-                      </div>
-                      <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                        <button title="Remove" className="p-2.5 bg-white rounded-xl shadow-md text-red-400 hover:bg-red-50 active:scale-90 transition-all"><FiTrash2 size={16} /></button>
-                        <button title="Move to Cart" className="p-2.5 bg-[#007074] rounded-xl shadow-lg text-white hover:bg-[#005a5d] active:scale-90 transition-all"><FiShoppingBag size={16} /></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* CONTENT: ADDRESSES */}
-            {activeTab === 'addresses' && (
-              <div className="animate-[slideUp_0.5s_ease-out] bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100">
-                <div className="flex justify-between items-center mb-10">
-                  <h3 className="text-2xl font-bold tracking-tight">Shipping Directory</h3>
-                  <button className="flex items-center gap-2 bg-[#007074] text-white px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-[#005a5d] shadow-lg shadow-[#007074]/10 transition-all">
-                    <FiPlus /> Register New Address
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 gap-5">
-                  {addresses.map(addr => (
-                    <div key={addr.id} className="group flex items-center justify-between p-8 rounded-[2rem] bg-slate-50 border border-transparent hover:border-[#007074]/20 hover:bg-white transition-all duration-500 shadow-sm hover:shadow-xl">
-                      <div className="flex items-center gap-6">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${addr.isDefault ? 'bg-[#007074] text-white' : 'bg-white text-slate-400'}`}>
-                          <FiMapPin size={24} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <p className="text-[10px] font-black text-[#007074] uppercase tracking-[0.2em]">{addr.type}</p>
-                            {addr.isDefault && <span className="bg-teal-100 text-[#007074] text-[8px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest">Primary</span>}
-                          </div>
-                          <p className="text-sm font-bold text-slate-800 mt-2">{addr.detail}</p>
-                          <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">{addr.city}, Pakistan</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button className="p-3 text-slate-400 hover:text-slate-900 transition-colors"><FiEdit2 size={18} /></button>
-                        <button className="p-3 text-red-300 hover:text-red-500 transition-colors"><FiTrash2 size={18} /></button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* CONTENT: ACCOUNT SETTINGS */}
-            {activeTab === 'settings' && (
-              <div className="animate-[slideUp_0.5s_ease-out] space-y-6">
-                <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100">
-                  <h3 className="text-2xl font-bold tracking-tight mb-10">Security Architecture</h3>
-
-                  <div className="space-y-8">
-                    {/* Credential Reset */}
-                    <div className="p-8 rounded-[2rem] bg-slate-50/50 border border-slate-100">
-                      <div className="flex items-center gap-3 mb-8">
-                        <FiShield className="text-[#007074] text-xl" />
-                        <h4 className="font-bold text-slate-800">Password Encryption</h4>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Current Password</label>
-                          <input type="password" placeholder="••••••••" className="w-full bg-white border border-slate-200 rounded-xl py-4 px-6 text-sm outline-none focus:ring-4 focus:ring-[#007074]/5 focus:border-[#007074] transition-all" />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">New Secure Password</label>
-                          <input type="password" placeholder="••••••••" className="w-full bg-white border border-slate-200 rounded-xl py-4 px-6 text-sm outline-none focus:ring-4 focus:ring-[#007074]/5 focus:border-[#007074] transition-all" />
-                        </div>
-                      </div>
-                      <button className="mt-8 bg-slate-900 text-white px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-[#007074] transition-all active:scale-95">Verify & Update</button>
-                    </div>
-
-                    {/* Notification Preferences */}
-                    <div className="flex items-center justify-between p-8 rounded-[2rem] bg-teal-50/20 border border-teal-50">
-                      <div className="flex items-center gap-5">
-                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#007074] shadow-sm"><FiBell size={22} /></div>
-                        <div>
-                          <h4 className="font-bold text-slate-800">Neural Notifications</h4>
-                          <p className="text-xs text-slate-400 font-medium">Alerts for curated drops & order status.</p>
-                        </div>
-                      </div>
-                      <div className="w-14 h-7 bg-[#007074] rounded-full relative cursor-pointer shadow-inner transition-all">
-                        <div className="absolute right-1 top-1 w-5 h-5 bg-white rounded-full shadow-lg" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Account Termination */}
-                <div className="bg-red-50/50 border border-red-100 rounded-[2rem] p-8 flex items-center justify-between">
-                  <div>
-                    <h4 className="text-red-600 font-bold text-sm">Terminate Profile</h4>
-                    <p className="text-xs text-red-400 font-medium">Permanently erase your identity and order history.</p>
-                  </div>
-                  <button className="px-6 py-2 border-2 border-red-200 text-red-500 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">Request Deletion</button>
-                </div>
-              </div>
-            )}
-
-            {/* CONTENT: ORDERS (Summary View) */}
-            {activeTab === 'orders' && (
-              <div className="animate-[slideUp_0.5s_ease-out] bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100">
-                <h3 className="text-2xl font-bold tracking-tight mb-10">Order Registry</h3>
-                <div className="space-y-5">
-                  {[1, 2].map((order) => (
-                    <div key={order} className="group flex flex-col md:flex-row md:items-center justify-between p-8 rounded-[2rem] bg-slate-50 border border-transparent hover:border-[#007074]/20 hover:bg-white hover:shadow-xl transition-all duration-500">
-                      <div className="flex items-center gap-6">
-                        <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-[#007074] shadow-sm group-hover:scale-110 transition-transform">
-                          <FiPackage size={24} />
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-900">#STYL-99210{order}</p>
-                          <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">Processed: Mar 0{order}, 2026</p>
-                        </div>
-                      </div>
-                      <div className="mt-6 md:mt-0 flex items-center justify-between md:justify-end gap-10">
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-slate-900">Rs. 12,499</p>
-                          <span className="inline-flex items-center gap-1.5 text-[9px] font-black px-3 py-1 rounded-full bg-teal-100 text-[#007074] uppercase tracking-tighter mt-1">
-                            <div className="w-1 h-1 rounded-full bg-[#007074] animate-pulse" /> Delivered
-                          </span>
-                        </div>
-                        <div className="w-10 h-10 rounded-full border border-slate-100 flex items-center justify-center text-slate-300 group-hover:text-[#007074] group-hover:bg-teal-50 transition-all">
-                          <FiChevronRight size={20} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
+          {/* Content */}
+          <main className="lg:col-span-9">
+            {tab === 'profile' && <ProfileTab user={user} loading={loadingMe} />}
+            {tab === 'orders' && <OrdersTab />}
+            {tab === 'addresses' && <AddressesTab />}
+            {tab === 'settings' && <SecurityTab />}
           </main>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* 4. ANIMATION KEYFRAMES */}
-      <style jsx="true">{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+/* ---------- Header ---------- */
+
+function ProfileHeader({ user, loading }) {
+  const initials = (user?.name || '?')
+    .split(' ')
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  const { data: orders } = useMyOrders({ limit: 1 });
+  const summary = orders?.summary;
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
+      <div className="flex items-center gap-4 min-w-0">
+        {loading ? (
+          <div className="w-16 h-16 rounded-full bg-slate-100 animate-pulse" />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-[#007074]/10 text-[#007074] flex items-center justify-center text-xl font-semibold flex-shrink-0">
+            {initials}
+          </div>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold text-slate-900 truncate">
+            {loading ? 'Loading…' : user?.name || 'Customer'}
+          </h1>
+          <p className="text-xs text-slate-500 mt-0.5 truncate">
+            {loading ? '' : user?.email}
+            {user?.createdAt && (
+              <>
+                {' · '}Member since {fmtDate(user.createdAt)}
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:flex md:gap-3">
+        <MiniStat label="Orders" value={summary?.totalOrders ?? 0} />
+        <MiniStat label="Lifetime spend" value={fmtPKR(summary?.totalSpend ?? 0)} />
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }) {
+  return (
+    <div className="bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-center min-w-[110px]">
+      <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">{label}</div>
+      <div className="text-base font-semibold text-slate-900 mt-0.5 tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+/* ---------- Profile tab ---------- */
+
+function ProfileTab({ user, loading }) {
+  const updateMut = useUpdateProfile();
+  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setForm({ name: user.name || '', email: user.email || '', phone: user.phone || '' });
+      setDirty(false);
+    }
+  }, [user?._id, user?.name, user?.email, user?.phone]);
+
+  const change = (k) => (e) => {
+    setForm((f) => ({ ...f, [k]: e.target.value }));
+    setDirty(true);
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!dirty) return;
+
+    const payload = {};
+    if (form.name !== user?.name) payload.name = form.name.trim();
+    if (form.email !== user?.email) payload.email = form.email.trim().toLowerCase();
+    if (form.phone !== user?.phone) payload.phone = form.phone.trim();
+
+    if (!Object.keys(payload).length) return toast('Nothing to update');
+
+    try {
+      await updateMut.mutateAsync(payload);
+      setDirty(false);
+    } catch { /* hook toast */ }
+  };
+
+  return (
+    <form onSubmit={submit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+        <h2 className="text-base font-semibold text-slate-900">Personal details</h2>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-10 bg-slate-50 rounded animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Full name">
+            <input value={form.name} onChange={change('name')} className={inputCls} />
+          </Field>
+          <Field label="Email">
+            <input type="email" value={form.email} onChange={change('email')} className={inputCls} />
+          </Field>
+          <Field label="Phone">
+            <input value={form.phone} onChange={change('phone')} className={inputCls} />
+          </Field>
+          <Field label="Role">
+            <input value={user?.role || ''} disabled className={inputCls + ' bg-slate-50 text-slate-500 cursor-not-allowed'} />
+          </Field>
+        </div>
+      )}
+
+      <div className="pt-4 border-t border-slate-100 flex justify-end">
+        <button
+          type="submit"
+          disabled={!dirty || updateMut.isPending || loading}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d] disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {updateMut.isPending ? <FiLoader className="animate-spin" size={14} /> : <FiSave size={14} />}
+          Save changes
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/* ---------- Orders tab ---------- */
+
+function OrdersTab() {
+  const [status, setStatus] = useState('all');
+  const { data, isLoading, isError } = useMyOrders({ status, limit: 20 });
+  const items = data?.items ?? [];
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-6 py-5 border-b border-slate-100">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">My orders</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Track your purchases and delivery status.
+          </p>
+        </div>
+        <div className="inline-flex bg-slate-50 border border-slate-200 rounded-md p-0.5 w-max">
+          {['all', 'pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatus(s)}
+              className={`px-2.5 py-1 rounded text-xs font-medium capitalize transition-colors ${
+                status === s ? 'bg-[#007074] text-white' : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-6">
+        {isError ? (
+          <EmptyState icon={<FiAlertCircle />} title="Couldn't load orders" />
+        ) : isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-20 bg-slate-50 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<FiPackage />}
+            title={status === 'all' ? 'No orders yet' : `No ${status} orders`}
+            body={
+              <Link
+                to="/category"
+                className="inline-block mt-3 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d]"
+              >
+                Browse products
+              </Link>
+            }
+          />
+        ) : (
+          <ul className="space-y-3">
+            {items.map((o) => (
+              <OrderRow key={o._id} order={o} />
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OrderRow({ order }) {
+  return (
+    <li className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 hover:bg-slate-50 transition-colors">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-md bg-[#007074]/10 text-[#007074] flex items-center justify-center flex-shrink-0">
+            <FiPackage size={16} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-slate-900">
+              #{String(order._id).slice(-6).toUpperCase()}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {fmtDate(order.createdAt)} · {order.items?.length || 0} item
+              {order.items?.length === 1 ? '' : 's'}
+            </div>
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-sm font-semibold text-slate-900 tabular-nums">
+            {fmtPKR(order.totalAmount)}
+          </div>
+          <StatusBadge status={order.status} />
+        </div>
+      </div>
+      {order.items?.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 truncate">
+          {order.items.map((i) => i.name).join(' · ')}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    pending: { cls: 'bg-amber-50 text-amber-700 border-amber-100', icon: <FiClock size={10} /> },
+    confirmed: { cls: 'bg-blue-50 text-blue-700 border-blue-100', icon: <FiCheckCircle size={10} /> },
+    shipped: { cls: 'bg-violet-50 text-violet-700 border-violet-100', icon: <FiTruck size={10} /> },
+    delivered: { cls: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: <FiCheckCircle size={10} /> },
+    cancelled: { cls: 'bg-slate-100 text-slate-500 border-slate-200', icon: <FiXCircle size={10} /> },
+    returned: { cls: 'bg-rose-50 text-rose-700 border-rose-100', icon: <FiXCircle size={10} /> },
+  };
+  const s = map[status] || map.pending;
+  return (
+    <span className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border capitalize ${s.cls}`}>
+      {s.icon}
+      {status}
+    </span>
+  );
+}
+
+/* ---------- Addresses tab ---------- */
+
+function AddressesTab() {
+  const { data: addresses = [], isLoading, isError } = useAddresses();
+  const addMut = useAddAddress();
+  const updateMut = useUpdateAddress();
+  const deleteMut = useDeleteAddress();
+
+  const [editing, setEditing] = useState(null); // null = not editing, 'new' = new, {...} = edit
+  const [form, setForm] = useState(emptyForm());
+
+  const startAdd = () => { setEditing('new'); setForm(emptyForm()); };
+  const startEdit = (a) => { setEditing(a); setForm(a); };
+  const cancel = () => { setEditing(null); setForm(emptyForm()); };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editing === 'new') await addMut.mutateAsync(form);
+      else await updateMut.mutateAsync({ id: editing._id, payload: form });
+      cancel();
+    } catch { /* hook toast */ }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm('Delete this address?')) return;
+    try {
+      await deleteMut.mutateAsync(id);
+    } catch { /* hook toast */ }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+        <div>
+          <h2 className="text-base font-semibold text-slate-900">Saved addresses</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Manage your delivery locations.</p>
+        </div>
+        {!editing && (
+          <button
+            onClick={startAdd}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#007074] text-white rounded-md text-xs font-medium hover:bg-[#005a5d]"
+          >
+            <FiPlus size={13} /> Add address
+          </button>
+        )}
+      </div>
+
+      <div className="p-6">
+        {editing ? (
+          <AddressForm
+            form={form}
+            setForm={setForm}
+            onSubmit={submit}
+            onCancel={cancel}
+            submitting={addMut.isPending || updateMut.isPending}
+            isNew={editing === 'new'}
+          />
+        ) : isError ? (
+          <EmptyState icon={<FiAlertCircle />} title="Couldn't load addresses" />
+        ) : isLoading ? (
+          <div className="space-y-2">
+            <div className="h-20 bg-slate-50 rounded-lg animate-pulse" />
+            <div className="h-20 bg-slate-50 rounded-lg animate-pulse" />
+          </div>
+        ) : addresses.length === 0 ? (
+          <EmptyState icon={<FiMapPin />} title="No addresses yet" body="Add one so checkout goes faster next time." />
+        ) : (
+          <ul className="space-y-3">
+            {addresses.map((a) => (
+              <li key={a._id} className="border border-slate-200 rounded-lg p-4 flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-md flex items-center justify-center flex-shrink-0 ${
+                  a.isDefault ? 'bg-[#007074] text-white' : 'bg-slate-50 text-slate-500'
+                }`}>
+                  <FiMapPin size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-900">{a.label}</span>
+                    {a.isDefault && (
+                      <span className="text-[10px] font-medium text-[#007074] bg-[#007074]/10 px-1.5 py-0.5 rounded">
+                        Default
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-600 mt-1 leading-relaxed">
+                    {[a.addressLine1, a.addressLine2, a.city, a.state, a.postalCode, a.country]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </div>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => startEdit(a)}
+                    className="w-8 h-8 rounded-md text-slate-400 hover:text-[#007074] hover:bg-slate-50 inline-flex items-center justify-center"
+                  >
+                    <FiEdit2 size={14} />
+                  </button>
+                  <button
+                    onClick={() => remove(a._id)}
+                    disabled={deleteMut.isPending}
+                    className="w-8 h-8 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex items-center justify-center disabled:opacity-50"
+                  >
+                    <FiTrash2 size={14} />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AddressForm({ form, setForm, onSubmit, onCancel, submitting, isNew }) {
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <h3 className="text-sm font-semibold text-slate-900">{isNew ? 'New address' : 'Edit address'}</h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="Label"><input className={inputCls} value={form.label} onChange={set('label')} /></Field>
+        <Field label="City"><input className={inputCls} value={form.city} onChange={set('city')} /></Field>
+      </div>
+      <Field label="Address line 1">
+        <input className={inputCls} value={form.addressLine1} onChange={set('addressLine1')} />
+      </Field>
+      <Field label="Address line 2 (optional)">
+        <input className={inputCls} value={form.addressLine2 || ''} onChange={set('addressLine2')} />
+      </Field>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Field label="Province">
+          <select className={inputCls} value={form.state} onChange={set('state')}>
+            {['Punjab', 'Sindh', 'KPK', 'Balochistan', 'Islamabad Capital', 'Gilgit-Baltistan', 'AJK'].map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Postal code"><input className={inputCls} value={form.postalCode} onChange={set('postalCode')} /></Field>
+        <Field label="Country"><input className={inputCls} value={form.country} onChange={set('country')} /></Field>
+      </div>
+
+      <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          checked={!!form.isDefault}
+          onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+          className="w-4 h-4 accent-[#007074]"
+        />
+        Set as default
+      </label>
+
+      <div className="flex gap-2 pt-2">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d] disabled:opacity-60"
+        >
+          {submitting && <FiLoader className="animate-spin" size={14} />}
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function emptyForm() {
+  return {
+    label: 'Home',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: 'Punjab',
+    postalCode: '',
+    country: 'Pakistan',
+    isDefault: false,
+  };
+}
+
+/* ---------- Security tab ---------- */
+
+function SecurityTab() {
+  const changeMut = useChangePassword();
+  const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirm: '' });
+  const [show, setShow] = useState({ current: false, next: false, confirm: false });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.currentPassword || !form.newPassword) return toast.error('Fill in all fields');
+    if (form.newPassword.length < 8) return toast.error('New password must be at least 8 characters');
+    if (form.newPassword !== form.confirm) return toast.error('Passwords do not match');
+    try {
+      await changeMut.mutateAsync({
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
+      });
+      setForm({ currentPassword: '', newPassword: '', confirm: '' });
+    } catch { /* hook toast */ }
+  };
+
+  return (
+    <form onSubmit={submit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5 max-w-xl">
+      <div className="flex items-center gap-2 pb-4 border-b border-slate-100">
+        <FiShield className="text-[#007074]" size={16} />
+        <h2 className="text-base font-semibold text-slate-900">Change password</h2>
+      </div>
+      <p className="text-xs text-slate-500 -mt-2">
+        At least 8 characters, one uppercase, one number.
+      </p>
+
+      <PasswordRow
+        label="Current password"
+        value={form.currentPassword}
+        onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+        visible={show.current}
+        onToggle={() => setShow((s) => ({ ...s, current: !s.current }))}
+      />
+      <PasswordRow
+        label="New password"
+        value={form.newPassword}
+        onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+        visible={show.next}
+        onToggle={() => setShow((s) => ({ ...s, next: !s.next }))}
+      />
+      <PasswordRow
+        label="Confirm new password"
+        value={form.confirm}
+        onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+        visible={show.confirm}
+        onToggle={() => setShow((s) => ({ ...s, confirm: !s.confirm }))}
+        hint={form.confirm && form.confirm !== form.newPassword ? 'Passwords do not match' : undefined}
+      />
+
+      <div className="pt-3 border-t border-slate-100 flex justify-end">
+        <button
+          type="submit"
+          disabled={changeMut.isPending}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d] disabled:opacity-60"
+        >
+          {changeMut.isPending ? <FiLoader className="animate-spin" size={14} /> : <FiShield size={14} />}
+          Update password
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PasswordRow({ label, value, onChange, visible, onToggle, hint }) {
+  return (
+    <Field label={label} hint={hint} hintTone={hint ? 'error' : undefined}>
+      <div className="relative">
+        <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+        <input
+          type={visible ? 'text' : 'password'}
+          value={value}
+          onChange={onChange}
+          placeholder="••••••••"
+          className={inputCls + ' pl-9 pr-10'}
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          tabIndex={-1}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-6 h-6 inline-flex items-center justify-center"
+        >
+          {visible ? <FiEyeOff size={14} /> : <FiEye size={14} />}
+        </button>
+      </div>
+    </Field>
+  );
+}
+
+/* ---------- shared ---------- */
+
+function Field({ label, hint, hintTone, children }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-medium text-slate-600 mb-1 inline-block">{label}</span>
+      {children}
+      {hint && (
+        <span className={`text-[11px] mt-1 block ${hintTone === 'error' ? 'text-red-600' : 'text-slate-400'}`}>
+          {hint}
+        </span>
+      )}
+    </label>
+  );
+}
+
+const inputCls =
+  'w-full bg-white border border-slate-200 rounded-lg py-2.5 px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074] transition-colors';
+
+function EmptyState({ icon, title, body }) {
+  return (
+    <div className="py-12 text-center">
+      <div className="w-12 h-12 rounded-full bg-slate-50 text-slate-300 mx-auto flex items-center justify-center mb-3">
+        {React.cloneElement(icon, { size: 22 })}
+      </div>
+      <p className="text-sm font-medium text-slate-900">{title}</p>
+      {typeof body === 'string' ? (
+        <p className="text-sm text-slate-500 mt-1">{body}</p>
+      ) : (
+        body
+      )}
     </div>
   );
 }

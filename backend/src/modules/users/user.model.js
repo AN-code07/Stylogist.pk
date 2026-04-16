@@ -12,18 +12,27 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  isBlocked: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
   otp: String,
   otpExpires: Date,
   passwordResetToken: String,
   passwordResetExpires: Date,
+  passwordChangedAt: Date,
 }, { timestamps: true });
 
-// Composition: Pre-save hook to hash password
 userSchema.pre('save', async function () {
-  // Only run this function if password was actually modified
   if (!this.isModified('password')) return;
 
-  // Hash the password with cost of 12 (highly secure, optimal for 2026 hardware)
+  // Stamp passwordChangedAt on updates (not initial create) so authMiddleware
+  // can invalidate tokens issued before the change. -1s guards against clock skew.
+  if (!this.isNew) {
+    this.passwordChangedAt = Date.now() - 1000;
+  }
+
   this.password = await bcrypt.hash(this.password, 12);
 });
 

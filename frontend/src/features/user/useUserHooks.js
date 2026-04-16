@@ -1,10 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axiosClient from '../../api/axiosClient';
 import useAuthStore from '../../store/useAuthStore';
 import toast from 'react-hot-toast';
 
+const ME_KEY = ['user', 'me'];
+
+// Legacy named export kept because existing callers import it as `getLoginUser`.
 export const getLoginUser = () => {
-    // Bring in Zustand actions to sync global state with the backend
     const setAuth = useAuthStore((state) => state.setAuth);
     const clearAuth = useAuthStore((state) => state.clearAuth);
 
@@ -12,34 +14,73 @@ export const getLoginUser = () => {
         queryKey: ["user"],
         queryFn: async () => {
             try {
-                // 1. Fetch the data
                 const { data } = await axiosClient.get("/users/me");
-
-                console.log("login user data", data);
-
-
-                // Account for standard MERN response structures
                 const user = data.data?.user || data.user;
-
-                // 2. Sync backend truth with Zustand frontend state
                 setAuth(user);
-
-                // 3. MUST RETURN for React Query caching
                 return user;
-
             } catch (error) {
-                // 4. Handle invalid/expired cookie securely
-                clearAuth(); // Wipe Zustand state
-
-                // Only toast if it's a true authentication error (401)
+                clearAuth();
                 if (error.response?.status === 401) {
                     toast.error("Session expired. Please log in again.");
                 }
-
-                throw error; // Alert React Query that the fetch failed
+                throw error;
             }
         },
-        retry: false, // Do not retry auth checks. If it fails, they are logged out.
-        refetchOnWindowFocus: true, // It's good practice to re-verify the session if they leave the tab and come back
+        retry: false,
+        refetchOnWindowFocus: true,
+    });
+};
+
+// Modern hook — consumes /users/me and keeps the zustand store in sync.
+export const useMe = () => {
+    const setAuth = useAuthStore((s) => s.setAuth);
+
+    return useQuery({
+        queryKey: ME_KEY,
+        queryFn: async () => {
+            const { data } = await axiosClient.get('/users/me');
+            const user = data.data?.user || data.user;
+            setAuth(user);
+            return user;
+        },
+        retry: false,
+    });
+};
+
+export const useUpdateProfile = () => {
+    const qc = useQueryClient();
+    const setAuth = useAuthStore((s) => s.setAuth);
+
+    return useMutation({
+        mutationFn: async (payload) => {
+            const { data } = await axiosClient.patch('/users/me', payload);
+            return data.data?.user || data.user;
+        },
+        onSuccess: (user) => {
+            setAuth(user);
+            qc.setQueryData(ME_KEY, user);
+            toast.success('Profile updated');
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.message || 'Failed to update profile');
+        },
+    });
+};
+
+export const useChangePassword = () => {
+    return useMutation({
+        mutationFn: async ({ currentPassword, newPassword }) => {
+            const { data } = await axiosClient.post('/auth/change-password', {
+                currentPassword,
+                newPassword,
+            });
+            return data;
+        },
+        onSuccess: () => {
+            toast.success('Password changed');
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.message || 'Failed to change password');
+        },
     });
 };

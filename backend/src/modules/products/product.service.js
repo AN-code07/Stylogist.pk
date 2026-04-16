@@ -1,65 +1,104 @@
 import { Product } from "./product.model.js";
 import { Variant } from "./variant.model.js";
 import { ProductMedia } from "./media.model.js";
+import { Category } from "../categories/category.model.js";
+import { Brand } from "../brands/brand.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { isValidObjectId } from "mongoose";
 import { getDescendantCategoryIds } from "../categories/category.service.js";
-import slugify from "slugify";
+import { generateUniqueSlug } from "../../utils/slug.js";
+import { generateVariantSku } from "../../utils/sku.js";
+
+// Derive aggregate pricing/stock fields from the variant list in one pass.
+const aggregateFromVariants = (variants) => {
+  if (!variants?.length) {
+    return { minPrice: 0, maxPrice: 0, totalStock: 0, discountPercentage: 0 };
+  }
+  const prices = variants.map((v) => v.salePrice);
+  const stocks = variants.map((v) => v.stock || 0);
+  const discounts = variants.map((v) => v.discountPercentage || 0);
+  return {
+    minPrice: Math.min(...prices),
+    maxPrice: Math.max(...prices),
+    totalStock: stocks.reduce((a, b) => a + b, 0),
+    discountPercentage: Math.max(...discounts),
+  };
+};
 
 export const createProduct = async (payload) => {
-  const { variants, media, category, brand, name, slug, ...productData } = payload;
+  const { variants, media = [], category, brand, subCategory, name, slug, ...rest } = payload;
 
-  // Validate category and brand
-  if (!isValidObjectId(category)) throw new ApiError(400, "Invalid category ID");
-  if (brand && !isValidObjectId(brand)) throw new ApiError(400, "Invalid brand ID");
+  if (!isValidObjectId(category)) throw new ApiError(400, "Invalid category id");
+  const categoryDoc = await Category.findById(category);
+  if (!categoryDoc) throw new ApiError(404, "Category not found");
 
-  productData.category = category;
-  productData.brand = brand;
-
-  // Generate slug if not provided
-  let productSlug = slug || slugify(name, { lower: true, strict: true });
-
-  // Ensure uniqueness
-  let counter = 1;
-  while (await Product.findOne({ slug: productSlug })) {
-    productSlug = `${slugify(name, { lower: true, strict: true })}-${counter}`;
-    counter++;
+  let brandDoc = null;
+  if (brand) {
+    if (!isValidObjectId(brand)) throw new ApiError(400, "Invalid brand id");
+    brandDoc = await Brand.findById(brand);
+    if (!brandDoc) throw new ApiError(404, "Brand not found");
   }
 
-  productData.slug = productSlug;
-
-  // Create product
-  const product = await Product.create({ name, ...productData });
-
-  // Create variants
-  if (variants?.length) {
-    const variantDocs = variants.map((v) => ({ ...v, product: product._id }));
-    await Variant.insertMany(variantDocs);
+  if (subCategory) {
+    if (!isValidObjectId(subCategory)) throw new ApiError(400, "Invalid sub-category id");
+    const subCatDoc = await Category.findById(subCategory);
+    if (!subCatDoc) throw new ApiError(404, "Sub-category not found");
   }
 
-  // Compute aggregated fields
-  if (variants?.length) {
-    const prices = variants.map(v => v.salePrice);
-    const stocks = variants.map(v => v.stock);
+  const productSlug = slug
+    ? await generateUniqueSlug(Product, slug)
+    : await generateUniqueSlug(Product, name);
 
-    await Product.findByIdAndUpdate(product._id, {
-      minPrice: Math.min(...prices),
-      maxPrice: Math.max(...prices),
-      totalStock: stocks.reduce((a, b) => a + b, 0),
-      discountPercentage: Math.max(...variants.map(v => v.discountPercentage || 0))
-    });
+  const aggregates = aggregateFromVariants(variants);
+
+  const product = await Product.create({
+    ...rest,
+    name,
+    slug: productSlug,
+    category,
+    subCategory: subCategory || undefined,
+    brand: brand || undefined,
+    ...aggregates,
+  });
+
+  // Fill in missing SKUs from the product context so admins don't have to
+  // hand-roll codes. The unique index on Variant.sku will still catch true dupes.
+  const variantDocs = variants.map((v) => {
+    const sku =
+      v.sku?.trim() ||
+      generateVariantSku({
+        brandName: brandDoc?.name,
+        categoryName: categoryDoc.name,
+        productSlug,
+        attrs: [v.color, v.size].filter(Boolean),
+      });
+    return { ...v, sku, product: product._id };
+  });
+
+  try {
+    await Variant.insertMany(variantDocs, { ordered: true });
+  } catch (err) {
+    // Roll back the product if variants fail — otherwise we'd leave an orphan.
+    await Product.findByIdAndDelete(product._id);
+    if (err?.code === 11000) {
+      throw new ApiError(409, "Duplicate variant SKU. Please provide unique SKUs or let the system generate them.");
+    }
+    throw err;
   }
 
-  // Create media
-  if (media?.length) {
-    const mediaDocs = media.map((m) => ({ ...m, product: product._id }));
+  if (media.length) {
+    const mediaDocs = media.map((m, idx) => ({
+      ...m,
+      position: m.position ?? idx,
+      product: product._id,
+    }));
     await ProductMedia.insertMany(mediaDocs);
   }
 
-  return product;
+  return getProductById(product._id);
 };
 
-export const getAllProducts = async (query) => {
+export const getAllProducts = async (query = {}) => {
   const {
     category,
     brand,
@@ -72,10 +111,19 @@ export const getAllProducts = async (query) => {
     sort,
     page = 1,
     limit = 12,
-    search
+    search,
+    status,
   } = query;
 
-  const filter = { status: "published" };
+  const filter = {};
+  // `status=all` (typically from the admin UI) means "don't filter by status".
+  // Anything else unrecognized falls through to the safe default so the
+  // storefront can't accidentally leak drafts.
+  if (status === "draft" || status === "published") {
+    filter.status = status;
+  } else if (status !== "all") {
+    filter.status = "published";
+  }
 
   if (category) {
     const categoryIds = await getDescendantCategoryIds(category);
@@ -95,45 +143,101 @@ export const getAllProducts = async (query) => {
   if (deal === "true") filter.isDealActive = true;
 
   let mongoQuery = Product.find(filter);
+  if (search) mongoQuery = mongoQuery.find({ $text: { $search: search } });
 
-  // Search
-  if (search) {
-    mongoQuery = mongoQuery.find({ $text: { $search: search } });
-  }
-
-  // Sorting
   const sortMap = {
     priceLow: { minPrice: 1 },
     priceHigh: { minPrice: -1 },
     newest: { createdAt: -1 },
     rating: { averageRating: -1 },
-    bestSelling: { totalSales: -1 }
+    bestSelling: { totalSales: -1 },
   };
+  mongoQuery = mongoQuery.sort(sort && sortMap[sort] ? sortMap[sort] : { createdAt: -1 });
 
-  if (sort && sortMap[sort]) {
-    mongoQuery = mongoQuery.sort(sortMap[sort]);
-  } else {
-    mongoQuery = mongoQuery.sort({ createdAt: -1 });
+  const pageNum = Math.max(Number(page), 1);
+  const pageSize = Math.min(Math.max(Number(limit), 1), 100);
+
+  const [items, total] = await Promise.all([
+    mongoQuery
+      .skip((pageNum - 1) * pageSize)
+      .limit(pageSize)
+      .populate("category", "name slug")
+      .populate("brand", "name slug logo")
+      .lean(),
+    Product.countDocuments(filter),
+  ]);
+
+  // Product media lives in a separate collection. Attach the first image per
+  // product so list views (category page, admin table) don't have to fan out
+  // an extra request per card.
+  if (items.length) {
+    const ids = items.map((p) => p._id);
+    const mediaRows = await ProductMedia.aggregate([
+      { $match: { product: { $in: ids }, type: "image" } },
+      { $sort: { position: 1, createdAt: 1 } },
+      { $group: { _id: "$product", url: { $first: "$url" } } },
+    ]);
+    const byProduct = new Map(mediaRows.map((m) => [m._id.toString(), m.url]));
+    items.forEach((p) => {
+      p.image = byProduct.get(p._id.toString()) || null;
+    });
   }
 
-  const products = await mongoQuery
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
-
-  return products;
+  return {
+    items,
+    pagination: { page: pageNum, limit: pageSize, total, pages: Math.ceil(total / pageSize) },
+  };
 };
 
-export const getSingleProduct = async (slug) => {
-  const product = await Product.findOne({ slug, status: "published" }).populate("category")
-    .populate("brand");
+export const getProductById = async (id) => {
+  const product = await Product.findById(id)
+    .populate("category", "name slug")
+    .populate("brand", "name slug logo")
+    .lean();
+  if (!product) throw new ApiError(404, "Product not found");
+  const [variants, media] = await Promise.all([
+    Variant.find({ product: product._id }).lean(),
+    ProductMedia.find({ product: product._id }).sort({ position: 1 }).lean(),
+  ]);
+  return { product, variants, media };
+};
 
-  console.log("im product......", product);
+export const getProductBySlug = async (slug) => {
+  const product = await Product.findOne({ slug })
+    .populate("category", "name slug")
+    .populate("brand", "name slug logo")
+    .lean();
+  if (!product) throw new ApiError(404, "Product not found");
+  const [variants, media] = await Promise.all([
+    Variant.find({ product: product._id }).lean(),
+    ProductMedia.find({ product: product._id }).sort({ position: 1 }).lean(),
+  ]);
+  return { product, variants, media };
+};
 
-
+export const deleteProduct = async (id) => {
+  const product = await Product.findById(id);
   if (!product) throw new ApiError(404, "Product not found");
 
-  const variants = await Variant.find({ product: product._id });
-  const media = await ProductMedia.find({ product: product._id }).sort({ position: 1 });
+  await Promise.all([
+    Variant.deleteMany({ product: id }),
+    ProductMedia.deleteMany({ product: id }),
+    Product.findByIdAndDelete(id),
+  ]);
+  return { id };
+};
 
-  return { product, variants, media };
+export const getFilterMetadata = async () => {
+  const [brands, priceAgg] = await Promise.all([
+    Product.distinct("brand", { status: "published" }),
+    Product.aggregate([
+      { $match: { status: "published" } },
+      { $group: { _id: null, min: { $min: "$minPrice" }, max: { $max: "$maxPrice" } } },
+    ]),
+  ]);
+
+  return {
+    brands,
+    priceRange: priceAgg[0] || { min: 0, max: 0 },
+  };
 };

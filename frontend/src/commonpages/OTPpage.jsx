@@ -77,21 +77,23 @@ export default function EnterOTP() {
     const otpValue = otp.join("");
     if (otpValue.length < 6) return;
 
-    // 3. Dynamic logic based on flow
-    if (flow === 'registration') {
-      verifyOTP({ email, otp: otpValue });
-      // Note: On success, the hook handles the redirect to '/'
+    if (!email) {
+      toast.error("Missing email context. Please restart the flow.");
+      navigate(flow === 'reset' ? '/forgot-password' : '/signup');
+      return;
     }
-    else if (flow === 'reset') {
-      // For reset, we don't log them in yet, we just verify the code
-      // and move them to the final password reset form
-      verifyOTP({ email, otp: otpValue }, {
-        onSuccess: (data) => {
-          // If reset flow, move to password change page with the email/otp context
-          navigate('/reset-password', { state: { email, otp: otpValue } });
+
+    verifyOTP({ email, otp: otpValue }, {
+      onSuccess: () => {
+        if (flow === 'reset') {
+          toast.success("Code verified. Set your new password.");
+          navigate('/reset-password', { state: { email } });
+        } else {
+          toast.success("Account verified! Please sign in.");
+          navigate('/login');
         }
-      });
-    }
+      }
+    });
   };
 
   const handleResend = () => {

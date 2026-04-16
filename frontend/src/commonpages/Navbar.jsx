@@ -1,113 +1,138 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  FiMenu, FiX, FiSearch, FiHeart, FiShoppingCart, FiUser, FiChevronDown, FiZap, FiTruck, FiLogOut, FiSettings, FiPackage
+  FiMenu, FiX, FiSearch, FiHeart, FiShoppingCart, FiUser, FiChevronDown,
+  FiTruck, FiLogOut, FiPackage, FiLoader, FiGrid
 } from 'react-icons/fi';
+
+import useAuthStore from '../store/useAuthStore';
+import useCartStore from '../store/useCartStore';
+import useWishlistStore from '../store/useWishlistStore';
+
 import { getLoginUser } from '../features/user/useUserHooks';
 import { useLogout } from '../features/auth/useAuthHooks';
-import useAuthStore from '../store/useAuthStore';
+import { useCategories } from '../features/categories/useCategoryHooks';
+import { useProducts } from '../features/products/useProductHooks';
+
+const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
 export default function Navbar() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false);
 
-  // 1. Get real-time data from Zustand (The true Source of Truth)
-  const user = useAuthStore((state) => state.user);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // This hook keeps the session fresh and syncs with Zustand automatically
-  const { data } = getLoginUser();
+  // Keep session fresh — syncs the zustand store from /users/me.
+  getLoginUser();
   const { mutate: logout } = useLogout();
 
-  const location = useLocation();
-  const navigate = useNavigate();
+  const { data: categories = [] } = useCategories({ active: 'true' });
+  const topCategories = categories.filter((c) => c.level === 0);
 
-  // Scroll logic
+  const cartCount = useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
+  const wishlistCount = useWishlistStore((s) => s.items.length);
+
+  const location = useLocation();
+
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // UI Resets on route change
+  // Close menus on navigation.
   useEffect(() => {
-    setIsOpen(false);
+    setIsMobileOpen(false);
     setIsSearchOpen(false);
-    setIsProfileOpen(false);
-    setMobileCategoryOpen(false);
-    document.body.style.overflow = 'unset';
   }, [location]);
 
-  // 2. Updated Logout to trigger the MERN API
-  const handleLogout = () => {
-    logout();
-  };
+  // Open the search overlay on Ctrl/Cmd+K.
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+      if (e.key === 'Escape') setIsSearchOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const navLinks = [
     { name: 'Home', path: '/' },
-    {
-      name: 'Collections',
-      path: '/category',
-      hasDropdown: true,
-      subItems: [
-        { name: 'Women', path: '/category' },
-        { name: 'Men', path: '/category' },
-        { name: 'Accessories', path: '/category' },
-        { name: 'Beauty', path: '/category' },
-      ],
-    },
+    { name: 'Shop', path: '/category', isShop: true },
+    { name: 'Deals', path: '/deals' },
     { name: 'About', path: '/about' },
     { name: 'Contact', path: '/contact' },
-    { name: 'Hot Deals', path: '/deals', highlight: true },
   ];
 
   return (
     <>
-      {/* 1. TOP ANNOUNCEMENT BAR */}
-      <div className="bg-[#222] text-white py-2 px-4 text-center text-[6px] sm:text-[9px] font-black tracking-[0.3em] uppercase relative z-[80]">
-        <div className="container mx-auto flex items-center justify-center gap-2">
-          <FiTruck className="text-[#007074] text-[8px]" />
-          <span>Complimentary Shipping on orders over Rs. 5000</span>
+      {/* Thin announcement bar */}
+      <div className="bg-slate-900 text-white text-[11px] py-1.5 px-4 text-center">
+        <div className="inline-flex items-center gap-2">
+          <FiTruck className="text-[#5cc0c3]" size={12} />
+          <span className="font-medium tracking-wide">Free nationwide delivery · Cash on Delivery available</span>
         </div>
       </div>
 
-      {/* 2. MAIN NAVBAR */}
-      <nav className={`sticky top-0 z-[70] w-full transition-all duration-500 ${isScrolled ? 'bg-white/90 backdrop-blur-xl shadow-sm py-3' : 'bg-white py-5'}`}>
-        <div className="container mx-auto px-6 max-w-7xl flex items-center justify-between">
-
-          {/* LOGO */}
-          <Link to="/" className="flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 bg-[#222] rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white text-xl font-serif font-black italic">S</span>
+      {/* Main nav */}
+      <nav
+        className={`sticky top-0 z-40 w-full bg-white border-b border-slate-100 transition-shadow ${
+          isScrolled ? 'shadow-sm' : ''
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <div className="w-8 h-8 bg-[#007074] rounded-lg flex items-center justify-center text-white font-semibold">
+              S
             </div>
-            <div className="flex flex-col hidden sm:flex">
-              <span className="text-xl font-serif font-black tracking-tighter text-[#222] leading-none">STYLOGIST<span className="text-[#007074]">.PK</span></span>
-              <span className="text-[7px] font-black tracking-[0.5em] text-gray-400 uppercase mt-1">Neural Boutique</span>
-            </div>
+            <span className="text-lg font-semibold tracking-tight text-slate-900">
+              Stylogist<span className="text-[#007074]">.pk</span>
+            </span>
           </Link>
 
-          {/* DESKTOP LINKS */}
-          <div className="hidden lg:flex items-center gap-10">
+          {/* Desktop links */}
+          <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
             {navLinks.map((link) => (
-              <div key={link.name} className="relative group h-full">
+              <div key={link.name} className="relative group">
                 <NavLink
                   to={link.path}
-                  className={({ isActive }) => `flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] transition-all py-2 ${isActive && link.path !== '#' ? 'text-[#007074]' : 'text-gray-500 hover:text-[#222]'} ${link.highlight ? 'text-[#007074]' : ''}`}
+                  className={({ isActive }) =>
+                    `inline-flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'text-[#007074] bg-[#007074]/5'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`
+                  }
                 >
-                  {link.highlight && <FiZap className="animate-pulse" />}
                   {link.name}
-                  {link.hasDropdown && <FiChevronDown className="group-hover:rotate-180 transition-transform" />}
+                  {link.isShop && topCategories.length > 0 && <FiChevronDown size={13} />}
                 </NavLink>
 
-                {link.hasDropdown && (
-                  <div className="absolute left-1/2 -translate-x-1/2 top-full opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300">
-                    <div className="bg-white border border-gray-100 rounded-md shadow-2xl p-6 w-48 flex flex-col gap-4 relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-[#007074]/5 rounded-bl-[3rem]" />
-                      {link.subItems.map((sub) => (
-                        <Link key={sub.name} to={sub.path} className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-[#007074] transition-colors relative z-10">{sub.name}</Link>
+                {/* Shop dropdown */}
+                {link.isShop && topCategories.length > 0 && (
+                  <div className="absolute left-1/2 -translate-x-1/2 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-2 min-w-[220px]">
+                      <Link
+                        to="/category"
+                        className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]"
+                      >
+                        <FiGrid size={14} className="text-slate-400" /> All products
+                      </Link>
+                      <div className="h-px bg-slate-100 my-1" />
+                      {topCategories.map((c) => (
+                        <Link
+                          key={c._id}
+                          to={`/category?category=${c._id}`}
+                          className="block px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]"
+                        >
+                          {c.name}
+                        </Link>
                       ))}
                     </div>
                   </div>
@@ -116,111 +141,377 @@ export default function Navbar() {
             ))}
           </div>
 
-          {/* ACTIONS & AUTH SECTION */}
-          <div className="flex items-center gap-4 sm:gap-6">
-            <button onClick={() => setIsSearchOpen(true)} className="text-[#222] hover:text-[#007074] transition-all"><FiSearch size={20} /></button>
-            <Link to="/wishlist" className="relative text-[#222] hover:text-[#007074] hidden sm:block"><FiHeart size={20} /></Link>
-            <Link to="/cart" className="relative text-[#222] hover:text-[#007074]"><FiShoppingCart size={20} /></Link>
+          {/* Actions */}
+          <div className="flex items-center gap-1">
+            <IconBtn
+              title="Search (Ctrl+K)"
+              onClick={() => setIsSearchOpen(true)}
+            >
+              <FiSearch size={18} />
+            </IconBtn>
 
-            {/* DYNAMIC USER SECTION (Conditioned on isAuthenticated) */}
+            <IconBtn title="Wishlist" as={Link} to="/wishlist" badge={wishlistCount}>
+              <FiHeart size={18} />
+            </IconBtn>
+
+            <IconBtn title="Cart" as={Link} to="/cart" badge={cartCount}>
+              <FiShoppingCart size={18} />
+            </IconBtn>
+
+            <span className="hidden md:block w-px h-6 bg-slate-200 mx-1" />
+
             {isAuthenticated && user ? (
-              <div className="relative group pl-4 border-l border-gray-100">
-                <button
-                  onMouseEnter={() => setIsProfileOpen(true)}
-                  className="flex items-center gap-3 focus:outline-none"
-                >
-                  <img
-                    src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=007074&color=fff`}
-                    className="w-9 h-9 rounded-2xl object-cover border-2 border-teal-50 shadow-sm group-hover:border-[#007074] transition-all"
-                    alt="Profile"
-                  />
-                  <div className="hidden xl:flex flex-col items-start text-left">
-                    <span className="text-[10px] font-black text-[#222] uppercase tracking-tighter truncate w-20">{user.name}</span>
-                    <span className="text-[8px] font-bold text-[#007074] uppercase tracking-widest">{user.role}</span>
-                  </div>
-                </button>
-
-                {/* USER DROPDOWN */}
-                <div className="absolute right-0 top-full pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 w-56">
-                  <div className="bg-white border border-gray-100 rounded-[15px] shadow-2xl overflow-hidden">
-                    <div className="bg-gray-50 p-5 border-b border-gray-100">
-                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Authenticated As</p>
-                      <p className="text-xs font-bold text-[#222] truncate">{user.email}</p>
-                    </div>
-                    <div className="p-3">
-                     
-                      {user?.role == "Super Admin" ?
-
-                        <Link to="/admin/overview" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-teal-50 text-gray-600 hover:text-[#007074] transition-all">
-                          <FiPackage size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Admin Panel</span>
-                        </Link>
-                        :
-                        <Link to="/profile" className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-teal-50 text-gray-600 hover:text-[#007074] transition-all">
-                          <FiUser size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">My Profile</span>
-                        </Link>
-                      }
-                      <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 text-red-400 transition-all mt-2 border-t border-gray-50">
-                        <FiLogOut size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Logout</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <UserMenu user={user} onLogout={() => logout()} />
             ) : (
-              <Link to="/login" className="hidden md:flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#222] pl-4 border-l border-gray-100 group">
-                <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#222] group-hover:text-white transition-all"><FiUser size={16} /></div>
-                <span>Sign In</span>
+              <Link
+                to="/login"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-[#007074]"
+              >
+                <FiUser size={15} /> Sign in
               </Link>
             )}
 
-            <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden text-[#222]"><FiMenu size={26} /></button>
+            <button
+              onClick={() => setIsMobileOpen(true)}
+              className="lg:hidden w-9 h-9 rounded-md inline-flex items-center justify-center text-slate-600 hover:bg-slate-50"
+            >
+              <FiMenu size={20} />
+            </button>
           </div>
         </div>
       </nav>
 
-      {/* 3. NEURAL SEARCHBAR OVERLAY (Preserved) */}
-      <div className={`fixed inset-0 z-[100] transition-all duration-700 ${isSearchOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
-        <div className="absolute inset-0 bg-[#111]/95 backdrop-blur-2xl" onClick={() => setIsSearchOpen(false)} />
-        <div className={`relative w-full max-w-3xl mx-auto mt-32 px-6 transition-all duration-700 ${isSearchOpen ? 'translate-y-0' : 'translate-y-12'}`}>
-          <div className="flex items-center gap-4 border-b border-white/20 pb-6 mb-8">
-            <FiSearch className="text-[#007074]" size={32} />
-            <input autoFocus={isSearchOpen} placeholder="SEARCH THE CATALOG..." className="bg-transparent w-full text-3xl font-serif font-black text-white outline-none placeholder:text-white/10 uppercase tracking-tighter" />
-            <button onClick={() => setIsSearchOpen(false)} className="text-white/40 hover:text-white transition-colors"><FiX size={32} /></button>
+      <SearchOverlay open={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+
+      <MobileMenu
+        open={isMobileOpen}
+        onClose={() => setIsMobileOpen(false)}
+        links={navLinks}
+        categories={topCategories}
+        user={user}
+        isAuthenticated={isAuthenticated}
+        onLogout={() => logout()}
+      />
+    </>
+  );
+}
+
+/* ---------- subcomponents ---------- */
+
+function IconBtn({ children, title, onClick, as: As = 'button', badge, ...rest }) {
+  return (
+    <As
+      title={title}
+      onClick={onClick}
+      className="relative w-9 h-9 rounded-md inline-flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:text-[#007074] transition-colors"
+      {...rest}
+    >
+      {children}
+      {badge > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#007074] text-white text-[10px] font-medium rounded-full inline-flex items-center justify-center">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </As>
+  );
+}
+
+function UserMenu({ user, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const initials = (user.name || '?')
+    .split(' ')
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  const isAdmin = user.role === 'Super Admin' || user.role === 'Staff';
+
+  return (
+    <div
+      className="relative"
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setOpen(true)}
+        className="inline-flex items-center gap-2 pl-1 pr-2 py-1 rounded-md hover:bg-slate-50"
+      >
+        <span className="w-8 h-8 rounded-full bg-[#007074]/10 text-[#007074] flex items-center justify-center text-xs font-semibold">
+          {initials}
+        </span>
+        <span className="hidden xl:inline text-sm text-slate-700 max-w-[100px] truncate">{user.name}</span>
+        <FiChevronDown size={13} className="text-slate-400" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full pt-2 w-56 z-10">
+          <div className="bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
+              <div className="text-sm font-medium text-slate-900 truncate">{user.name}</div>
+              <div className="text-xs text-slate-500 truncate">{user.email}</div>
+            </div>
+            <div className="p-1.5">
+              {isAdmin ? (
+                <MenuItem to="/admin/overview" icon={<FiPackage size={14} />}>
+                  Admin panel
+                </MenuItem>
+              ) : (
+                <MenuItem to="/profile" icon={<FiUser size={14} />}>
+                  My profile
+                </MenuItem>
+              )}
+              <MenuItem to="/wishlist" icon={<FiHeart size={14} />}>
+                Wishlist
+              </MenuItem>
+              <MenuItem to="/cart" icon={<FiShoppingCart size={14} />}>
+                Cart
+              </MenuItem>
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 mt-0.5 border-t border-slate-100"
+              >
+                <FiLogOut size={14} /> Sign out
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
 
-      {/* 4. MOBILE SIDEBAR MENU (Conditioned on isAuthenticated) */}
-      <div className={`lg:hidden fixed inset-0 z-[90] transition-all duration-500 ${isOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} onClick={() => setIsOpen(false)}>
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        <div className={`absolute left-0 top-0 h-full w-[60%] sm:w-[40%] bg-white shadow-2xl transition-transform duration-500 ease-out flex flex-col p-10 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={(e) => e.stopPropagation()}>
-          <div className="flex flex-col gap-3 sm:gap-6">
-            {isAuthenticated && user ? (
-              <div className="flex items-center gap-4 mb-6 p-4 bg-slate-50 rounded-3xl border border-slate-100">
-                <div className="w-12 h-12 rounded-2xl bg-[#007074] flex items-center justify-center text-white font-black text-xl">
-                  {user.name.charAt(0)}
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase text-[#222]">{user.name}</p>
-                  <button onClick={handleLogout} className="text-[9px] font-black uppercase text-red-400 tracking-widest mt-1">Logout</button>
-                </div>
+function MenuItem({ to, icon, children }) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]"
+    >
+      {icon} {children}
+    </Link>
+  );
+}
+
+/* ---------- Search overlay ---------- */
+
+function SearchOverlay({ open, onClose }) {
+  const navigate = useNavigate();
+  const [q, setQ] = useState('');
+  const [debounced, setDebounced] = useState('');
+
+  // 250ms debounce so the user typing "silk dress" fires one request, not six.
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(q.trim()), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // Reset local state when the overlay closes so next open is fresh.
+  useEffect(() => {
+    if (!open) {
+      setQ('');
+      setDebounced('');
+    }
+  }, [open]);
+
+  const enabled = debounced.length >= 2;
+  const { data, isFetching } = useProducts(
+    enabled ? { search: debounced, limit: 6 } : {}
+  );
+  // useProducts fires regardless; ignore its result if the query isn't ready.
+  const results = enabled ? data?.items ?? [] : [];
+
+  const handleSelect = (slug) => {
+    onClose();
+    navigate(`/product/${slug}`);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!debounced) return;
+    onClose();
+    navigate(`/category?search=${encodeURIComponent(debounced)}`);
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative max-w-2xl mx-auto mt-20 px-4">
+        <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+          <form onSubmit={handleSubmit} className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+            <FiSearch className="text-slate-400 flex-shrink-0" size={18} />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search products…"
+              className="flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400"
+            />
+            {isFetching && enabled && <FiLoader className="animate-spin text-slate-400" size={16} />}
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] font-medium text-slate-500">
+              ESC
+            </kbd>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-md inline-flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+            >
+              <FiX size={16} />
+            </button>
+          </form>
+
+          <div className="max-h-[60vh] overflow-y-auto">
+            {!enabled ? (
+              <div className="p-8 text-center text-sm text-slate-500">
+                Type at least 2 characters to search.
+              </div>
+            ) : results.length === 0 && !isFetching ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-slate-500">No products match "{debounced}".</p>
+                <button
+                  onClick={handleSubmit}
+                  className="mt-3 text-xs text-[#007074] hover:underline"
+                >
+                  Open full catalog search
+                </button>
               </div>
             ) : (
-              <div className="mb-6">
-                <div className="w-12 h-12 bg-[#222] rounded-2xl flex items-center justify-center mb-4"><span className="text-white text-2xl font-serif font-black italic">S</span></div>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">Stylogist.pk</p>
-              </div>
+              <ul className="py-2">
+                {results.map((p) => (
+                  <li key={p._id}>
+                    <button
+                      onClick={() => handleSelect(p.slug)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 text-left"
+                    >
+                      <div className="w-12 h-12 bg-slate-100 rounded-md overflow-hidden flex-shrink-0">
+                        {p.image ? (
+                          <img src={p.image} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-300">
+                            <FiPackage size={16} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-slate-900 truncate">{p.name}</div>
+                        <div className="text-xs text-slate-500 truncate">
+                          {p.brand?.name || p.category?.name || '—'}
+                        </div>
+                      </div>
+                      <div className="text-sm font-semibold text-slate-900 tabular-nums flex-shrink-0">
+                        {fmtPKR(p.minPrice)}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+                <li className="border-t border-slate-100 mt-1">
+                  <button
+                    onClick={handleSubmit}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#007074] hover:bg-slate-50"
+                  >
+                    <span>See all results</span>
+                    <span className="text-xs text-slate-400">↵ Enter</span>
+                  </button>
+                </li>
+              </ul>
             )}
-            {navLinks.map((link) => (
-              <Link key={link.name} to={link.path} className="text-md sm:text-2xl font-serif lg:font-black text-[#222]">{link.name}</Link>
-            ))}
-          </div>
-          <div className="mt-auto pt-10 border-t border-gray-100 flex flex-col gap-6">
-            {!isAuthenticated && <Link to="/login" className="flex items-center gap-3 text-[#222] font-black uppercase text-[10px] tracking-widest"><FiUser size={18} /> Sign In</Link>}
-            <Link to="/cart" className="flex items-center gap-3 text-[#222] font-black uppercase text-[10px] tracking-widest"><FiShoppingCart size={18} /> My Cart</Link>
           </div>
         </div>
       </div>
-    </>
+    </div>
+  );
+}
+
+/* ---------- Mobile menu ---------- */
+
+function MobileMenu({ open, onClose, links, categories, user, isAuthenticated, onLogout }) {
+  if (!open) return null;
+  return (
+    <div className="lg:hidden fixed inset-0 z-50">
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <aside className="absolute left-0 top-0 h-full w-[80%] max-w-sm bg-white shadow-xl flex flex-col">
+        <header className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <span className="text-base font-semibold text-slate-900">
+            Stylogist<span className="text-[#007074]">.pk</span>
+          </span>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-md inline-flex items-center justify-center text-slate-400 hover:bg-slate-100"
+          >
+            <FiX size={16} />
+          </button>
+        </header>
+
+        {isAuthenticated && user && (
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[#007074]/10 text-[#007074] flex items-center justify-center text-xs font-semibold">
+              {user.name?.[0]?.toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-slate-900 truncate">{user.name}</div>
+              <div className="text-xs text-slate-500 truncate">{user.email}</div>
+            </div>
+          </div>
+        )}
+
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {links.map((l) => (
+            <Link
+              key={l.name}
+              to={l.path}
+              className="block px-3 py-2 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {l.name}
+            </Link>
+          ))}
+
+          {categories.length > 0 && (
+            <>
+              <div className="pt-3 pb-1 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                Categories
+              </div>
+              {categories.map((c) => (
+                <Link
+                  key={c._id}
+                  to={`/category?category=${c._id}`}
+                  className="block px-3 py-2 rounded-md text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  {c.name}
+                </Link>
+              ))}
+            </>
+          )}
+        </nav>
+
+        <footer className="border-t border-slate-100 p-3 space-y-1">
+          {isAuthenticated ? (
+            <>
+              <MenuItem
+                to={user?.role === 'Super Admin' || user?.role === 'Staff' ? '/admin/overview' : '/profile'}
+                icon={<FiUser size={14} />}
+              >
+                {user?.role === 'Super Admin' || user?.role === 'Staff' ? 'Admin panel' : 'My profile'}
+              </MenuItem>
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50"
+              >
+                <FiLogOut size={14} /> Sign out
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/login"
+              className="block px-3 py-2 rounded-md text-sm font-medium text-[#007074] bg-[#007074]/10 hover:bg-[#007074]/20 text-center"
+            >
+              Sign in
+            </Link>
+          )}
+        </footer>
+      </aside>
+    </div>
   );
 }

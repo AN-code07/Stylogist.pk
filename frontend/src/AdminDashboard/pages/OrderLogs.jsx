@@ -1,248 +1,377 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  FiSearch, FiPrinter, FiTruck, FiCheckCircle, 
-  FiXCircle, FiEye, FiDownload, FiClock, 
-  FiPackage, FiX, FiMapPin, FiUser, FiAlertCircle, FiActivity, FiChevronDown
+import React, { useState } from 'react';
+import {
+  FiSearch, FiEye, FiClock, FiCheckCircle, FiXCircle, FiTruck, FiPackage,
+  FiX, FiMapPin, FiUser, FiAlertCircle, FiRefreshCw, FiChevronLeft, FiChevronRight, FiLoader
 } from 'react-icons/fi';
+import { useAdminOrders, useUpdateOrderStatus } from '../../features/admin/useAdminHooks';
+
+const STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'returned'];
+const PAGE_SIZE = 25;
+
+const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
+const fmtDate = (iso) =>
+  iso
+    ? new Date(iso).toLocaleString('en-US', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      })
+    : '—';
 
 export default function OrderLogs() {
-  const [activeFilter, setActiveFilter] = useState('All');
-  const [searchQuery, setSearchQuery] = useState(""); // 1. Added Search State
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [confirmUpdate, setConfirmUpdate] = useState(null);
+  const [status, setStatus] = useState('all');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [selectedId, setSelectedId] = useState(null);
 
-  const statusOptions = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+  const { data, isLoading, isError, refetch, isFetching } = useAdminOrders({
+    status,
+    search,
+    page,
+    limit: PAGE_SIZE,
+  });
 
-  const [allOrders, setAllOrders] = useState([
-    { 
-        id: "ST-99102", customer: "Javeria Khan", phone: "0300-1234567", 
-        date: "Mar 07, 2026", time: "10:30 AM", amount: "12,999", status: "Pending", 
-        items: 2, address: "House 12, Street 4, Satellite Town, Bahawalpur",
-        products: [{name: "Midnight Silk Wrap", qty: 1, price: "8,500"}, {name: "Glow Serum", qty: 1, price: "4,499"}]
-    },
-    { 
-        id: "ST-99101", customer: "Allah Nawaz", phone: "0321-7654321", 
-        date: "Mar 06, 2026", time: "02:15 PM", amount: "4,500", status: "Delivered", 
-        items: 1, address: "Plot 45, Industrial Area, Jalal Pur Pirwala",
-        products: [{name: "Oxford Cotton Shirt", qty: 1, price: "4,500"}]
-    },
-    { 
-        id: "ST-99100", customer: "Ahmed Ali", phone: "0333-9876543", 
-        date: "Mar 05, 2026", time: "11:45 AM", amount: "8,200", status: "Shipped", 
-        items: 3, address: "Apartment 5B, Gulgasht Colony, Multan",
-        products: [{name: "Hoop Earrings", qty: 2, price: "4,000"}, {name: "Face Wash", qty: 1, price: "4,200"}]
-    },
-  ]);
+  const orders = data?.items ?? [];
+  const pagination = data?.pagination;
+  const selectedOrder = orders.find((o) => o._id === selectedId);
 
-  // 2. FIXED SEARCH & FILTER LOGIC
-  const displayedOrders = useMemo(() => {
-    return allOrders.filter(order => {
-      const matchesFilter = activeFilter === 'All' || order.status === activeFilter;
-      const matchesSearch = 
-        order.customer.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.phone.includes(searchQuery);
-      
-      return matchesFilter && matchesSearch;
-    });
-  }, [allOrders, activeFilter, searchQuery]);
-
-  const handleExecuteUpdate = () => {
-    setAllOrders(prev => prev.map(order => 
-      order.id === confirmUpdate.orderId ? { ...order, status: confirmUpdate.newStatus } : order
-    ));
-    setConfirmUpdate(null);
-    setSelectedOrder(null);
+  const onFilter = (next) => {
+    setStatus(next);
+    setPage(1);
   };
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-10 w-full relative bg-white min-h-screen font-sans">
-      
-      {/* 1. HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6 pb-10">
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-[#222222] tracking-tight uppercase">Order Registry</h1>
-          <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">Manage COD Lifecycle & Logistics</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Orders</h1>
+          <p className="text-sm text-slate-500 mt-1">Track and manage order lifecycle.</p>
         </div>
-        <div className="flex items-center gap-3">
-           <button className="flex-1 md:flex-none bg-white border border-slate-200 text-slate-600 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all">
-              <FiPrinter className="inline mr-2" /> Batch Print
-           </button>
-           <button className="flex-1 md:flex-none bg-[#007074] text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#007074]/20 hover:shadow-[#007074]/40 transition-all">
-              <FiDownload className="inline mr-2" /> Export
-           </button>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+        >
+          <FiRefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+          Refresh
+        </button>
+      </header>
+
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search by customer name, email, phone, or order id"
+            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074]"
+          />
+        </div>
+        <div className="inline-flex flex-wrap gap-1 bg-white border border-slate-200 rounded-lg p-1 shadow-sm">
+          <FilterChip active={status === 'all'} onClick={() => onFilter('all')}>All</FilterChip>
+          {STATUSES.map((s) => (
+            <FilterChip key={s} active={status === s} onClick={() => onFilter(s)}>
+              {s}
+            </FilterChip>
+          ))}
         </div>
       </div>
 
-      {/* 2. DYNAMIC FILTERS */}
-      <div className="flex items-center gap-2 md:gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {['All', ...statusOptions].map((f) => (
-          <button
-            key={f}
-            onClick={() => setActiveFilter(f)}
-            className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border-2 ${
-              activeFilter === f 
-              ? 'bg-[#007074] text-white border-[#007074] shadow-md scale-105' 
-              : 'bg-white text-slate-400 border-slate-50 hover:border-[#007074]/20 hover:text-[#007074]'
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      {/* 3. SEARCH & TABLE */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl overflow-hidden">
-        <div className="p-4 md:p-6 border-b border-slate-100 relative group bg-slate-50/30">
-           <FiSearch className="absolute left-8 md:left-10 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#007074] transition-colors" size={18} />
-           <input 
-             value={searchQuery}
-             onChange={(e) => setSearchQuery(e.target.value)}
-             type="text" 
-             placeholder="Search name, ID, or phone..." 
-             className="w-full pl-12 md:pl-14 pr-6 py-3.5 md:py-4 bg-white border-2 border-slate-100 focus:border-[#007074]/30 focus:ring-4 focus:ring-[#007074]/5 rounded-2xl text-sm font-bold text-[#222222] outline-none transition-all"
-           />
-        </div>
-
-        <div className="w-full overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left min-w-[850px]">
-            <thead className="bg-slate-50/80">
-              <tr>
-                <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Order</th>
-                <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
-                <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Valuation</th>
-                <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-8 py-5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {displayedOrders.map((order) => (
-                <tr key={order.id} className="transition-all hover:bg-[#007074]/5 group cursor-pointer" onClick={() => setSelectedOrder(order)}>
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-[#007074] group-hover:text-white transition-all shadow-inner">
-                        <FiPackage size={18} />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-black text-[#222222]">{order.id}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase">{order.date}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <p className="text-[13px] font-bold text-[#222222]">{order.customer}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">{order.phone}</p>
-                  </td>
-                  <td className="px-8 py-5">
-                    <p className="text-sm font-black text-[#222222]">Rs. {order.amount}</p>
-                  </td>
-                  <td className="px-8 py-5">
-                    <StatusBadge status={order.status} />
-                  </td>
-                  <td className="px-8 py-5 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-2">
-                       <button className="p-2.5 bg-white border border-slate-100 text-slate-400 hover:text-[#007074] rounded-xl transition-all shadow-sm active:scale-90"><FiPrinter size={14}/></button>
-                       <button onClick={() => setSelectedOrder(order)} className="p-2.5 bg-white border border-slate-100 text-slate-400 hover:text-[#007074] rounded-xl transition-all shadow-sm active:scale-90"><FiEye size={14}/></button>
-                    </div>
-                  </td>
+      {/* Table */}
+      {isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px]">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  <th className="px-5 py-3 text-left">Order</th>
+                  <th className="px-5 py-3 text-left">Customer</th>
+                  <th className="px-5 py-3 text-left">Placed</th>
+                  <th className="px-5 py-3 text-right">Amount</th>
+                  <th className="px-5 py-3 text-center">Status</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* --- MODAL: ORDER DETAILS --- */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-[#222222]/60 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setSelectedOrder(null)} />
-          <div className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-            
-            <div className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
-               <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-[#007074] rounded-2xl flex items-center justify-center text-white shadow-lg shadow-[#007074]/30"><FiPackage size={20} /></div>
-                  <div>
-                    <h2 className="text-xl font-black text-[#222222] tracking-tighter">{selectedOrder.id}</h2>
-                    <p className="text-[10px] text-[#007074] font-black uppercase tracking-widest mt-1">Order Logistics</p>
-                  </div>
-               </div>
-               <button onClick={() => setSelectedOrder(null)} className="p-2.5 text-slate-400 hover:text-red-500 transition-colors"><FiX size={20} /></button>
-            </div>
-            
-            <div className="p-6 md:p-8 overflow-y-auto space-y-8 custom-scrollbar">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-2"><FiUser/> Client Info</h3>
-                      <p className="text-sm font-bold text-[#222222]">{selectedOrder.customer}</p>
-                      <p className="text-xs font-bold text-slate-400 mt-1">{selectedOrder.phone}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-2"><FiMapPin/> Shipping</h3>
-                      <p className="text-xs font-bold text-slate-600 leading-relaxed bg-[#007074]/5 p-4 rounded-2xl border border-[#007074]/10 italic">"{selectedOrder.address}"</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h3 className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3 flex items-center gap-2"><FiActivity/> Update Logistics</h3>
-                    <div className="grid grid-cols-1 gap-2">
-                      {statusOptions.map(opt => (
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td colSpan={6} className="px-5 py-4">
+                        <div className="h-8 bg-slate-50 rounded animate-pulse" />
+                      </td>
+                    </tr>
+                  ))
+                ) : orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-12 text-center text-sm text-slate-400">
+                      {search || status !== 'all' ? 'No orders match your filters.' : 'No orders yet.'}
+                    </td>
+                  </tr>
+                ) : (
+                  orders.map((o) => (
+                    <tr
+                      key={o._id}
+                      className="hover:bg-slate-50 cursor-pointer"
+                      onClick={() => setSelectedId(o._id)}
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-md bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0">
+                            <FiPackage size={15} />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-slate-900">
+                              #{String(o._id).slice(-6).toUpperCase()}
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              {o.items?.length || 0} item{o.items?.length === 1 ? '' : 's'}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="text-sm text-slate-700">{o.user?.name || 'Guest'}</div>
+                        <div className="text-xs text-slate-400">{o.user?.email || ''}</div>
+                      </td>
+                      <td className="px-5 py-3 text-sm text-slate-600 whitespace-nowrap">{fmtDate(o.createdAt)}</td>
+                      <td className="px-5 py-3 text-right text-sm font-medium text-slate-900 tabular-nums">
+                        {fmtPKR(o.totalAmount)}
+                      </td>
+                      <td className="px-5 py-3 text-center">
+                        <StatusBadge status={o.status} />
+                      </td>
+                      <td className="px-5 py-3 text-right">
                         <button
-                          key={opt}
-                          onClick={() => setConfirmUpdate({ orderId: selectedOrder.id, newStatus: opt })}
-                          className={`w-full py-3 px-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-left transition-all flex items-center justify-between border ${
-                            selectedOrder.status === opt 
-                            ? 'bg-[#007074] text-white border-[#007074] shadow-lg shadow-[#007074]/20' 
-                            : 'bg-white text-slate-400 border-slate-100 hover:border-[#007074]/30 hover:bg-slate-50'
-                          }`}
+                          onClick={(e) => { e.stopPropagation(); setSelectedId(o._id); }}
+                          className="w-8 h-8 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-[#007074] hover:bg-teal-50"
+                          title="View"
                         >
-                          {opt}
-                          {selectedOrder.status === opt && <FiCheckCircle size={14} />}
+                          <FiEye size={14} />
                         </button>
-                      ))}
-                    </div>
-                  </div>
-               </div>
-            </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
+
+          {/* Pagination */}
+          {pagination && pagination.pages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50/50">
+              <div className="text-xs text-slate-500">
+                Page <span className="font-medium text-slate-700">{pagination.page}</span> of{' '}
+                <span className="font-medium text-slate-700">{pagination.pages}</span> · {pagination.total} total
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={page <= 1 || isFetching}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="w-8 h-8 rounded-md border border-slate-200 inline-flex items-center justify-center text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <FiChevronLeft size={14} />
+                </button>
+                <button
+                  disabled={page >= pagination.pages || isFetching}
+                  onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+                  className="w-8 h-8 rounded-md border border-slate-200 inline-flex items-center justify-center text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <FiChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* --- CONFIRMATION MODAL --- */}
-      {confirmUpdate && (
-         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-[#222222]/80 backdrop-blur-md animate-in fade-in duration-300" />
-            <div className="relative bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 md:p-10 text-center animate-in zoom-in duration-300">
-               <div className="w-20 h-20 bg-[#007074]/10 text-[#007074] rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
-                  <FiAlertCircle size={36} />
-               </div>
-               <h2 className="text-xl font-black text-[#222222] tracking-tighter uppercase">Commit Status?</h2>
-               <p className="text-xs text-slate-400 font-bold leading-relaxed mb-8 mt-3">
-                 Updating this shipment to <span className="text-[#007074]">{confirmUpdate.newStatus}</span>. This change is permanent.
-               </p>
-               <div className="flex gap-3">
-                  <button onClick={() => setConfirmUpdate(null)} className="flex-1 py-4 rounded-2xl bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">Abort</button>
-                  <button onClick={handleExecuteUpdate} className="flex-1 py-4 rounded-2xl bg-[#007074] text-white text-[10px] font-black uppercase tracking-widest shadow-xl shadow-[#007074]/30 active:scale-95 transition-all">Execute</button>
-               </div>
-            </div>
-         </div>
+      {selectedOrder && (
+        <OrderDetailModal order={selectedOrder} onClose={() => setSelectedId(null)} />
       )}
     </div>
   );
 }
 
-function StatusBadge({ status }) {
-  const configs = {
-    Pending: "bg-orange-50 text-orange-600 border-orange-100",
-    Confirmed: "bg-blue-50 text-blue-600 border-blue-100",
-    Shipped: "bg-purple-50 text-purple-600 border-purple-100",
-    Delivered: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    Cancelled: "bg-red-50 text-red-600 border-red-100",
-  };
+/* ------------- subcomponents ------------- */
+
+function FilterChip({ active, onClick, children }) {
   return (
-    <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${configs[status] || configs.Pending}`}>
-      <div className={`w-1.5 h-1.5 rounded-full mr-2 ${status === 'Pending' ? 'bg-orange-500 animate-pulse' : 'bg-current'}`} />
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${
+        active ? 'bg-[#007074] text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    pending:   { cls: 'bg-amber-50 text-amber-700 border-amber-100', icon: <FiClock size={11} /> },
+    confirmed: { cls: 'bg-blue-50 text-blue-700 border-blue-100', icon: <FiCheckCircle size={11} /> },
+    shipped:   { cls: 'bg-violet-50 text-violet-700 border-violet-100', icon: <FiTruck size={11} /> },
+    delivered: { cls: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: <FiCheckCircle size={11} /> },
+    cancelled: { cls: 'bg-slate-100 text-slate-500 border-slate-200', icon: <FiXCircle size={11} /> },
+    returned:  { cls: 'bg-rose-50 text-rose-700 border-rose-100', icon: <FiXCircle size={11} /> },
+  };
+  const s = map[status] || map.pending;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${s.cls}`}>
+      {s.icon}
       {status}
     </span>
+  );
+}
+
+function OrderDetailModal({ order, onClose }) {
+  const updateMut = useUpdateOrderStatus();
+  const [pendingStatus, setPendingStatus] = useState(null);
+
+  const addr = order.shippingAddress;
+  const addressLine =
+    typeof addr === 'string'
+      ? addr
+      : addr
+        ? [addr.line1, addr.line2, addr.city, addr.state, addr.postalCode, addr.country]
+            .filter(Boolean)
+            .join(', ')
+        : '—';
+
+  const onChange = async (newStatus) => {
+    if (newStatus === order.status) return;
+    setPendingStatus(newStatus);
+    try {
+      await updateMut.mutateAsync({ id: order._id, status: newStatus });
+      onClose();
+    } catch { /* hook toast */ }
+    finally { setPendingStatus(null); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white w-full max-w-2xl rounded-xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+        <header className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#007074] text-white flex items-center justify-center">
+              <FiPackage size={18} />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">
+                Order #{String(order._id).slice(-6).toUpperCase()}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">{fmtDate(order.createdAt)}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100"
+          >
+            <FiX size={16} />
+          </button>
+        </header>
+
+        <div className="p-6 overflow-y-auto space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <Panel icon={<FiUser size={14} />} title="Customer">
+              <div className="text-sm text-slate-800">{order.user?.name || 'Guest'}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{order.user?.email || ''}</div>
+            </Panel>
+            <Panel icon={<FiMapPin size={14} />} title="Shipping">
+              <div className="text-sm text-slate-700 leading-relaxed">{addressLine}</div>
+            </Panel>
+          </div>
+
+          <Panel title="Items" icon={<FiPackage size={14} />}>
+            <div className="divide-y divide-slate-100 -mx-3">
+              {(order.items || []).map((it, idx) => (
+                <div key={idx} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <div className="text-slate-800 truncate">{it.name}</div>
+                    <div className="text-xs text-slate-400">SKU {it.sku} · qty {it.quantity}</div>
+                  </div>
+                  <div className="text-slate-700 tabular-nums ml-3 flex-shrink-0">
+                    {fmtPKR(it.subtotal ?? it.total ?? it.price * it.quantity)}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-100 mt-3 pt-3 space-y-1.5 text-sm">
+              <Row label="Subtotal" value={fmtPKR(order.subtotal)} />
+              <Row label="Shipping" value={fmtPKR(order.shippingFee)} />
+              <Row label="Total" value={fmtPKR(order.totalAmount)} bold />
+            </div>
+          </Panel>
+
+          <Panel title="Update status" icon={<FiTruck size={14} />}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {STATUSES.map((s) => {
+                const isCurrent = s === order.status;
+                const isPending = pendingStatus === s && updateMut.isPending;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => onChange(s)}
+                    disabled={isCurrent || updateMut.isPending}
+                    className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium border capitalize transition-colors ${
+                      isCurrent
+                        ? 'bg-[#007074] text-white border-[#007074]'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-[#007074] hover:text-[#007074]'
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    {s}
+                    {isPending ? (
+                      <FiLoader className="animate-spin" size={12} />
+                    ) : isCurrent ? (
+                      <FiCheckCircle size={12} />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Panel({ title, icon, children }) {
+  return (
+    <section className="border border-slate-200 rounded-lg p-4">
+      <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+        {icon} {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+function Row({ label, value, bold }) {
+  return (
+    <div className={`flex justify-between ${bold ? 'font-medium text-slate-900' : 'text-slate-600'}`}>
+      <span>{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function ErrorState({ onRetry }) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-10 text-center">
+      <FiAlertCircle className="mx-auto text-red-500 mb-3" size={28} />
+      <h3 className="text-sm font-semibold text-slate-900">Couldn't load orders</h3>
+      <p className="text-sm text-slate-500 mt-1">Check that the backend is running and you're signed in as an admin.</p>
+      <button
+        onClick={() => onRetry()}
+        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d]"
+      >
+        <FiRefreshCw size={14} /> Try again
+      </button>
+    </div>
   );
 }

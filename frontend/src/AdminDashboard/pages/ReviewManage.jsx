@@ -1,214 +1,293 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  FiSearch, FiStar, FiCheck, FiTrash2, FiEyeOff, 
-  FiPackage, FiUser, FiClock, FiAlertTriangle, FiX
+import React, { useState } from 'react';
+import {
+  FiSearch, FiStar, FiCheck, FiTrash2, FiFlag, FiX, FiRefreshCw,
+  FiAlertCircle, FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
+import {
+  useReviews,
+  useUpdateReviewStatus,
+  useDeleteReview,
+} from '../../features/reviews/useReviewHooks';
+import { ConfirmDialog } from './CategoryManage';
+
+const PAGE_SIZE = 20;
+
+const fmtDate = (iso) =>
+  iso ? new Date(iso).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 export default function ReviewManage() {
-  const [activeFilter, setActiveFilter] = useState('Pending');
-  const [searchQuery, setSearchQuery] = useState("");
+  const [status, setStatus] = useState('pending');
+  const [search, setSearch] = useState('');
+  const [ratingFilter, setRatingFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
-  // DYNAMIC DATA STATE
-  const [reviews, setReviews] = useState([
-    { 
-      id: 501, user: "Sara Malik", product: "Silk Satin Slip Dress", rating: 5, 
-      comment: "Absolutely stunning quality! The recommendation was spot on for my size. Will definitely order again.", 
-      status: "Pending", date: "Mar 06, 2026"
-    },
-    { 
-      id: 502, user: "Ahmed Ali", product: "Onyx Chronograph", rating: 2, 
-      comment: "The strap feels a bit stiff, expected more for the premium price tag. The dial is nice though.", 
-      status: "Pending", date: "Mar 05, 2026"
-    },
-    { 
-      id: 503, user: "Javeria", product: "Velvet Midnight Wrap", rating: 5, 
-      comment: "Incredible material and super fast delivery via COD. Stylogist never disappoints!", 
-      status: "Approved", date: "Mar 02, 2026"
-    },
-    { 
-      id: 504, user: "Unknown User", product: "Radiance C Serum", rating: 1, 
-      comment: "Terrible service. The box arrived completely crushed. Want a refund ASAP.", 
-      status: "Flagged", date: "Mar 01, 2026"
-    },
-    { 
-      id: 501, user: "Javed Shakir", product: "Silk Satin Slip Dress", rating: 5, 
-      comment: "Absolutely stunning quality! The recommendation was spot on for my size. Will definitely order again.", 
-      status: "Pending", date: "Mar 06, 2026"
-    },
-    { 
-      id: 502, user: "Mujataba saqlain", product: "Onyx Chronograph", rating: 2, 
-      comment: "The strap feels a bit stiff, expected more for the premium price tag. The dial is nice though.", 
-      status: "Pending", date: "Mar 05, 2026"
-    },
-    { 
-      id: 503, user: "Janifer", product: "Velvet Midnight Wrap", rating: 5, 
-      comment: "Incredible material and super fast delivery via COD. Stylogist never disappoints!", 
-      status: "Approved", date: "Mar 02, 2026"
-    },
-    { 
-      id: 504, user: "Tyler rein", product: "Radiance C Serum", rating: 1, 
-      comment: "Terrible service. The box arrived completely crushed. Want a refund ASAP.", 
-      status: "Flagged", date: "Mar 01, 2026"
-    }
-  ]);
-
-  const tabs = ['Pending', 'Approved', 'Flagged'];
-
-  // FILTER & SEARCH LOGIC
-  const displayedReviews = useMemo(() => {
-    return reviews.filter(rev => {
-      const matchesTab = rev.status === activeFilter;
-      const matchesSearch = 
-        rev.user.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        rev.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        rev.comment.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      return matchesTab && matchesSearch;
-    });
-  }, [reviews, activeFilter, searchQuery]);
-
-  // ACTION HANDLERS
-  const handleStatusUpdate = (id, newStatus) => {
-    setReviews(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+  const params = {
+    status,
+    search,
+    page,
+    limit: PAGE_SIZE,
+    ...(ratingFilter !== 'all' ? { rating: ratingFilter } : {}),
   };
+  const { data, isLoading, isError, refetch, isFetching } = useReviews(params);
+  const updateMut = useUpdateReviewStatus();
+  const deleteMut = useDeleteReview();
 
-  const handleDelete = (id) => {
-    if(window.confirm("Permanently delete this review?")) {
-      setReviews(prev => prev.filter(r => r.id !== id));
-    }
+  const items = data?.items ?? [];
+  const pagination = data?.pagination;
+
+  const onStatus = (s) => { setStatus(s); setPage(1); };
+  const onRating = (r) => { setRatingFilter(r); setPage(1); };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteMut.mutateAsync(deleteTarget._id);
+      setDeleteTarget(null);
+    } catch { /* hook toast */ }
   };
-
-  const customStyles = `
-    @keyframes slideUpFade {
-      0% { opacity: 0; transform: translateY(20px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-    .animate-cascade { opacity: 0; animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-  `;
 
   return (
-    <div className="space-y-6 md:space-y-8 pb-10 px-2 md:px-0 bg-white min-h-screen font-sans">
-      <style>{customStyles}</style>
-      
-      {/* 1. HEADER & MODERATION TABS */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 animate-cascade" style={{ animationDelay: '0ms' }}>
+    <div className="space-y-6 pb-10">
+      {/* Header */}
+      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black text-[#222222] tracking-tight uppercase">Review Grid</h1>
-          <p className="text-slate-500 text-[10px] md:text-xs font-bold uppercase tracking-widest mt-1">
-            Moderation Control Panel
+          <h1 className="text-2xl font-semibold text-slate-900">Reviews</h1>
+          <p className="text-sm text-slate-500 mt-1">Moderate customer feedback before it goes live.</p>
+        </div>
+
+        <div className="inline-flex bg-white border border-slate-200 rounded-lg p-1 shadow-sm w-max">
+          {['pending', 'approved', 'flagged', 'all'].map((s) => (
+            <TabButton key={s} active={status === s} onClick={() => onStatus(s)}>
+              {s}
+            </TabButton>
+          ))}
+        </div>
+      </header>
+
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search by customer, product, or comment"
+            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074]"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <FiX size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="inline-flex bg-white border border-slate-200 rounded-lg p-1 shadow-sm w-max">
+          <TabButton active={ratingFilter === 'all'} onClick={() => onRating('all')}>Any rating</TabButton>
+          {[5, 4, 3, 2, 1].map((r) => (
+            <TabButton key={r} active={ratingFilter === r} onClick={() => onRating(r)}>
+              <span className="inline-flex items-center gap-1">{r} <FiStar size={10} className="fill-current" /></span>
+            </TabButton>
+          ))}
+        </div>
+
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-60"
+        >
+          <FiRefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+        </button>
+      </div>
+
+      {/* Grid */}
+      {isError ? (
+        <ErrorState onRetry={refetch} />
+      ) : isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-44 bg-white border border-slate-200 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-xl p-14 text-center">
+          <div className="w-12 h-12 rounded-full bg-slate-50 text-slate-300 mx-auto flex items-center justify-center mb-3">
+            <FiCheck size={22} />
+          </div>
+          <p className="text-sm text-slate-500">
+            {search || ratingFilter !== 'all'
+              ? 'No reviews match your filters.'
+              : `No ${status === 'all' ? '' : status + ' '}reviews yet.`}
           </p>
         </div>
-        
-        <div className="flex bg-slate-50 border border-slate-100 rounded-2xl md:rounded-[1.5rem] p-1.5 shadow-sm overflow-x-auto no-scrollbar">
-           {tabs.map((tab) => (
-             <button 
-                key={tab}
-                onClick={() => setActiveFilter(tab)}
-                className={`px-5 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase whitespace-nowrap transition-all duration-300 ${
-                  activeFilter === tab 
-                  ? 'bg-[#007074] text-white shadow-lg' 
-                  : 'text-slate-400 hover:text-[#222222]'
-                }`}
-             >
-                {tab}
-             </button>
-           ))}
-        </div>
-      </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {items.map((r) => (
+              <ReviewCard
+                key={r._id}
+                review={r}
+                isSaving={updateMut.isPending}
+                onApprove={() => updateMut.mutate({ id: r._id, status: 'approved' })}
+                onFlag={() => updateMut.mutate({ id: r._id, status: 'flagged' })}
+                onReopen={() => updateMut.mutate({ id: r._id, status: 'pending' })}
+                onDelete={() => setDeleteTarget(r)}
+              />
+            ))}
+          </div>
 
-      {/* 2. SEARCH INTERFACE */}
-      <div className="relative group animate-cascade" style={{ animationDelay: '100ms' }}>
-        <FiSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#007074]" size={18} />
-        <input 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Filter by keyword..." 
-          className="w-full bg-white border-2 border-slate-100 rounded-[2rem] py-3.5 md:py-4 pl-14 pr-12 text-sm font-bold text-[#222222] outline-none focus:border-[#007074]/30 focus:ring-4 focus:ring-[#007074]/5 transition-all shadow-sm"
-        />
-        {searchQuery && (
-          <FiX 
-            className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-400 cursor-pointer hover:text-red-500" 
-            onClick={() => setSearchQuery("")}
-          />
-        )}
-      </div>
-
-      {/* 3. REVIEWS GRID (Responsive columns) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 animate-cascade" style={{ animationDelay: '200ms' }}>
-        {displayedReviews.length === 0 ? (
-           <div className="col-span-full bg-white rounded-3xl border border-slate-100 p-20 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-4">
-                 <FiCheck size={28} />
+          {pagination && pagination.pages > 1 && (
+            <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-5 py-3 shadow-sm">
+              <div className="text-xs text-slate-500">
+                Page <span className="font-medium text-slate-700">{pagination.page}</span> of{' '}
+                <span className="font-medium text-slate-700">{pagination.pages}</span> · {pagination.total} total
               </div>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">No matching reviews found</p>
-           </div>
-        ) : (
-          displayedReviews.map((rev, index) => (
-            <div 
-              key={rev.id} 
-              className="bg-white rounded-3xl border border-slate-100 p-6 shadow-lg hover:shadow-2xl hover:border-teal-100 transition-all duration-500 group relative flex flex-col h-full"
-            >
-              {/* Star Rating Badge */}
-              <div className="flex items-center justify-between mb-5">
-                 <div className="flex items-center gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <FiStar key={i} size={14} className={i < rev.rating ? "fill-yellow-400 text-yellow-400" : "fill-slate-100 text-slate-200"} />
-                    ))}
-                 </div>
-                 <span className="text-[10px] font-black text-slate-400 uppercase">{rev.date}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={page <= 1 || isFetching}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="w-8 h-8 rounded-md border border-slate-200 inline-flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <FiChevronLeft size={14} />
+                </button>
+                <button
+                  disabled={page >= pagination.pages || isFetching}
+                  onClick={() => setPage((p) => Math.min(pagination.pages, p + 1))}
+                  className="w-8 h-8 rounded-md border border-slate-200 inline-flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <FiChevronRight size={14} />
+                </button>
               </div>
-
-              {/* User Identity */}
-              <div className="flex items-center gap-3 mb-4">
-                 <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-[#007074] border border-slate-100 font-black text-xs uppercase">
-                    {rev.user.charAt(0)}
-                 </div>
-                 <div>
-                    <h4 className="text-[13px] font-black text-[#222222] uppercase tracking-tight">{rev.user}</h4>
-                    <p className="text-[9px] font-bold text-[#007074] uppercase tracking-widest truncate max-w-[150px]">{rev.product}</p>
-                 </div>
-              </div>
-
-              {/* Comment Content */}
-              <div className="flex-1">
-                 <p className="text-[13px] text-slate-600 leading-relaxed italic mb-6">
-                    "{rev.comment}"
-                 </p>
-              </div>
-
-              {/* Moderation Actions */}
-              <div className="flex items-center gap-2 pt-5 border-t border-slate-50 mt-auto">
-                 {rev.status === 'Pending' && (
-                    <button 
-                      onClick={() => handleStatusUpdate(rev.id, 'Approved')}
-                      className="flex-1 bg-[#007074] text-white py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#222222] transition-all active:scale-95"
-                    >
-                      Approve
-                    </button>
-                 )}
-                 <button 
-                    onClick={() => handleStatusUpdate(rev.id, 'Flagged')}
-                    className="flex-1 bg-slate-50 text-slate-500 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-orange-50 hover:text-orange-600 transition-all active:scale-95"
-                 >
-                    Flag
-                 </button>
-                 <button 
-                    onClick={() => handleDelete(rev.id)}
-                    className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-500 rounded-xl transition-all active:scale-95"
-                 >
-                    <FiTrash2 size={14} />
-                 </button>
-              </div>
-
-              {/* Status Indicator Bar */}
-              <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 rounded-b-full ${
-                rev.status === 'Pending' ? 'bg-orange-400' : rev.status === 'Flagged' ? 'bg-red-400' : 'bg-[#007074]'
-              }`} />
             </div>
-          ))
-        )}
+          )}
+        </>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete review"
+          message={`Permanently delete ${deleteTarget.user?.name || 'this customer'}'s review? This can't be undone.`}
+          confirmLabel={deleteMut.isPending ? 'Deleting…' : 'Delete'}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ------------ subcomponents ------------ */
+
+function TabButton({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${
+        active ? 'bg-[#007074] text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ReviewCard({ review, isSaving, onApprove, onFlag, onReopen, onDelete }) {
+  const { user, product, rating, comment, status, createdAt } = review;
+  const initials = (user?.name || '?').split(' ').map((n) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
+  return (
+    <article className="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col overflow-hidden">
+      <div className={`h-1 ${statusBarClass(status)}`} />
+      <div className="p-5 flex-1 flex flex-col">
+        <header className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-0.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <FiStar
+                key={i}
+                size={13}
+                className={i < rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}
+              />
+            ))}
+          </div>
+          <span className="text-[11px] text-slate-400">{fmtDate(createdAt)}</span>
+        </header>
+
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 rounded-full bg-[#007074]/10 text-[#007074] flex items-center justify-center text-xs font-semibold flex-shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-slate-900 truncate">{user?.name || 'Unknown'}</div>
+            <div className="text-xs text-[#007074] truncate">{product?.name || 'Unknown product'}</div>
+          </div>
+        </div>
+
+        <p className="text-sm text-slate-600 leading-relaxed flex-1 mb-4">
+          {comment ? `"${comment}"` : <span className="italic text-slate-400">No comment provided.</span>}
+        </p>
+
+        <footer className="flex items-center gap-2 pt-3 border-t border-slate-100">
+          {status !== 'approved' && (
+            <button
+              disabled={isSaving}
+              onClick={onApprove}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium bg-[#007074] text-white hover:bg-[#005a5d] disabled:opacity-60"
+            >
+              <FiCheck size={12} /> Approve
+            </button>
+          )}
+          {status !== 'flagged' && (
+            <button
+              disabled={isSaving}
+              onClick={onFlag}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium text-amber-700 bg-amber-50 border border-amber-100 hover:bg-amber-100 disabled:opacity-60"
+            >
+              <FiFlag size={12} /> Flag
+            </button>
+          )}
+          {status !== 'pending' && (
+            <button
+              disabled={isSaving}
+              onClick={onReopen}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 hover:bg-slate-100 disabled:opacity-60"
+            >
+              Reopen
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="w-9 h-9 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 flex-shrink-0"
+            title="Delete"
+          >
+            <FiTrash2 size={13} />
+          </button>
+        </footer>
       </div>
+    </article>
+  );
+}
+
+function statusBarClass(status) {
+  if (status === 'approved') return 'bg-emerald-400';
+  if (status === 'flagged') return 'bg-rose-400';
+  return 'bg-amber-400';
+}
+
+function ErrorState({ onRetry }) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-10 text-center">
+      <FiAlertCircle className="mx-auto text-red-500 mb-3" size={28} />
+      <h3 className="text-sm font-semibold text-slate-900">Couldn't load reviews</h3>
+      <p className="text-sm text-slate-500 mt-1">Check that the backend is running and you're signed in as an admin.</p>
+      <button
+        onClick={() => onRetry()}
+        className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d]"
+      >
+        <FiRefreshCw size={14} /> Try again
+      </button>
     </div>
   );
 }

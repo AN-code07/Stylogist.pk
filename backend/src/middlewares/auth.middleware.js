@@ -29,13 +29,18 @@ export const authMiddleware = catchAsync(async (req, res, next) => {
 
   // 3️⃣ Check if user still exists
   const currentUser = await User.findById(decoded.id).select(
-    "_id role passwordChangedAt"
+    "_id role passwordChangedAt isBlocked"
   );
 
   if (!currentUser) {
     return next(
       new ApiError(401, "The user belonging to this token no longer exists.")
     );
+  }
+
+  // Revoke live sessions for blocked users.
+  if (currentUser.isBlocked) {
+    return next(new ApiError(403, "Your account has been suspended."));
   }
 
   // 4️⃣ Optional: Check if password changed after token issued

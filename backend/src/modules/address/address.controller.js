@@ -3,7 +3,7 @@ import { ApiError } from '../../utils/ApiError.js';
 
 // GET /api/addresses
 export const getAddresses = async (req, res) => {
-  const addresses = await Address.find({ userId: req.user.id });
+  const addresses = await Address.find({ userId: req.user.id }).sort({ isDefault: -1, createdAt: -1 });
   res.status(200).json({ status: 'success', data: { addresses } });
 };
 
@@ -19,7 +19,7 @@ export const addAddress = async (req, res) => {
 };
 
 // PATCH /api/addresses/:id
-export const updateAddress = async (req, res) => {
+export const updateAddress = async (req, res, next) => {
   const { id } = req.validated.params;
   const updates = req.validated.body;
 
@@ -37,7 +37,7 @@ export const updateAddress = async (req, res) => {
 };
 
 // DELETE /api/addresses/:id
-export const deleteAddress = async (req, res) => {
+export const deleteAddress = async (req, res, next) => {
   const { id } = req.validated.params;
   const address = await Address.findOneAndDelete({ _id: id, userId: req.user.id });
   if (!address) return next(new ApiError(404, 'Address not found'));

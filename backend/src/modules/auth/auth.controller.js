@@ -2,43 +2,35 @@ import { User } from '../users/user.model.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { sendEmail } from '../../utils/email.js';
 import { createSendToken } from './auth.service.js';
-import jwt from 'jsonwebtoken';
 import env from '../../config/env.js';
 import crypto from 'node:crypto';
-
-
-const signToken = (id) => {
-  return jwt.sign({ id }, env.jwtSecret, { expiresIn: env.jwtExpiresIn });
-};
 
 const generateNumericOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
 export const register = async (req, res, next) => {
-  const existingUser = await User.findOne({ $or: [{ email: req.body.email }, { phone: req.body.phone }] });
+  const { name, email, phone, password } = req.validated.body;
+
+  const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
 
   if (existingUser) {
-    // If user exists but isn't verified, we could tell the frontend to redirect to OTP page
     if (!existingUser.isVerified) {
       return next(new ApiError(403, 'Account exists but is unverified. Please request a new OTP.'));
     }
     return next(new ApiError(409, 'Email or phone number is already in use.'));
   }
 
-  // 1. Generate 6-Digit Code
   const otp = generateNumericOTP();
 
-  // 2. Create user (Bcrypt hook fires automatically)
   const newUser = await User.create({
-    name: req.body.name,
-    email: req.body.email,
-    phone: req.body.phone,
-    password: req.body.password,
-    isVerified: false, // MUST add this to your schema
-    // Hash the OTP before saving to DB
+    name,
+    email,
+    phone,
+    password,
+    isVerified: false,
     otp: crypto.createHash('sha256').update(otp).digest('hex'),
-    otpExpires: Date.now() + 10 * 60 * 1000, // Valid for 10 minutes
+    otpExpires: Date.now() + 10 * 60 * 1000,
   });
 
   // 3. Send Email
@@ -118,20 +110,15 @@ export const register = async (req, res, next) => {
 </div>
   `,
     });
-    const token = signToken(newUser._id);
 
-    // 4. Remove password from the output completely
-    newUser.password = undefined;
-
-    // Notice we do NOT send the token here anymore. 
+    // Do NOT issue a JWT here — user is not yet verified. They must go through /verify-otp first.
     res.status(201).json({
       status: 'success',
-      token,
       message: 'Account created. Please check your email for the OTP.',
-      data: { email: newUser.email } // Send email back so frontend knows who to verify
+      data: { email: newUser.email },
     });
   } catch (error) {
-    // If email fails, delete the user so they can try registering again
+    console.error('[register] sendEmail failed:', error);
     await User.findByIdAndDelete(newUser._id);
     return next(new ApiError(500, 'Error sending verification email. Please try again.'));
   }
@@ -140,8 +127,7 @@ export const register = async (req, res, next) => {
 // src/controllers/auth.controller.js
 
 export const forgotPassword = async (req, res, next) => {
-  // 1. Get user based on POSTed email (Using req.validated if you are using the validation middleware)
-  const email = req.validated?.body?.email || req.body.email;
+  const { email } = req.validated.body;
   const user = await User.findOne({ email });
 
   if (!user) {
@@ -284,29 +270,31 @@ export const forgotPassword = async (req, res, next) => {
 export const login = async (req, res, next) => {
   const { email, password } = req.validated.body;
 
-  // 1. Check if email & password exist
-  if (!email || !password) {
-    return next(new ApiError(400, 'Please provide email and password'));
-  }
-
-  // 2. Find user + explicitly select password (since select: false in schema)
   const user = await User.findOne({ email }).select('+password');
   if (!user) {
     return next(new ApiError(401, 'Incorrect email or password'));
   }
 
-  // 3. Check if password is correct using instance method
   const isCorrect = await user.correctPassword(password, user.password);
   if (!isCorrect) {
     return next(new ApiError(401, 'Incorrect email or password'));
   }
 
-  // 4. Remove password from output
-  user.password = undefined;
+  // Block unverified accounts from logging in — they must go through OTP verification first.
+  if (!user.isVerified) {
+    return next(
+      new ApiError(403, 'Please verify your email before logging in. A new OTP can be requested from the verification page.')
+    );
+  }
 
-  // 5. Send JWT
+  // Blocked by an admin — refuse session.
+  if (user.isBlocked) {
+    return next(new ApiError(403, 'Your account has been suspended. Please contact support.'));
+  }
+
+  user.password = undefined;
   createSendToken(user, 200, res);
-}
+};
 
 
 
@@ -323,9 +311,6 @@ export const verifyOTP = async (req, res, next) => {
     otp: hashedOtp,
     otpExpires: { $gt: Date.now() },
   });
-
-  console.log("user otp", user);
-
 
   if (!user) {
     return next(new ApiError(400, 'Invalid or expired OTP.'));
@@ -479,6 +464,30 @@ export const resetPassword = async (req, res, next) => {
   await user.save();
 
   // 4. Re-issue a fresh cookie with the newly updated user state
+  createSendToken(user, 200, res);
+};
+
+// ========================
+// CHANGE PASSWORD (authenticated)
+// ========================
+export const changePassword = async (req, res, next) => {
+  const { currentPassword, newPassword } = req.validated.body;
+
+  // Pull user with password since it is select:false by default.
+  const user = await User.findById(req.user.id).select('+password');
+  if (!user) return next(new ApiError(404, 'User not found'));
+
+  const ok = await user.correctPassword(currentPassword, user.password);
+  if (!ok) return next(new ApiError(401, 'Current password is incorrect'));
+
+  if (currentPassword === newPassword) {
+    return next(new ApiError(400, 'New password must be different from the current one'));
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  // Re-issue the cookie so the live session stays valid with the new password.
   createSendToken(user, 200, res);
 };
 

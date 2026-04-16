@@ -2,46 +2,34 @@
 import jwt from 'jsonwebtoken';
 import env from '../../config/env.js';
 
-/**
- * Pure function to sign the JWT.
- * @param {string} id - The MongoDB ObjectId of the user
- * @returns {string} - The signed JWT
- */
 const signToken = (id) => {
   return jwt.sign({ id }, env.jwtSecret, {
     expiresIn: env.jwtExpiresIn,
   });
 };
 
-/**
- * Composable utility to format the auth response and attach secure cookies.
- * @param {Object} user - The Mongoose user document
- * @param {number} statusCode - The HTTP status code (e.g., 200 or 201)
- * @param {Object} res - The Express response object
- */
 export const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
 
+  const isProd = env.nodeEnv === 'production';
+
+  // In production we need `secure + sameSite=none` for cross-site cookies (e.g. Vercel -> Render).
+  // In development (http://localhost) browsers silently drop `secure` cookies, which is why
+  // login "works" but the cookie never lands. Fall back to `lax` so dev just works.
   const cookieOptions = {
-    // Convert '7d' string (or similar) to milliseconds for the cookie expiration
-    // Assuming env.jwtExpiresIn is passed in a way that aligns with this, 
-    // but hardcoding the math here ensures the cookie dies when the token dies.
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    httpOnly: true, // Absolutely critical: prevents XSS token theft
-    secure: true,   // Send only over HTTPS in production
-    sameSite: 'none'  // Prevents CSRF attacks
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
   };
 
-  // Attach the cookie to the response layout
   res.cookie('jwt', token, cookieOptions);
 
-  // Remove the password hash from the output so it never reaches the client network
   user.password = undefined;
 
-  // Dispatch the response
   res.status(statusCode).json({
     status: 'success',
-    token, // We send it in the JSON body too, in case your future Mobile App needs it
+    token,
     data: {
       user,
     },

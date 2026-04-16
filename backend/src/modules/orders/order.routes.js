@@ -9,10 +9,9 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.post(
-  "/",
-  validate(createOrderSchema),
-  catchAsync(OrderController.createOrder)
-);
+// Customer order lifecycle.
+router.post("/", validate(createOrderSchema), catchAsync(OrderController.createOrder));
+router.get("/me", catchAsync(OrderController.listMyOrders));
+router.get("/me/:id", catchAsync(OrderController.getMyOrder));
 
 export default router;
