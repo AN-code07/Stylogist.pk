@@ -16,11 +16,15 @@ export const createSendToken = (user, statusCode, res) => {
   // In production we need `secure + sameSite=none` for cross-site cookies (e.g. Vercel -> Render).
   // In development (http://localhost) browsers silently drop `secure` cookies, which is why
   // login "works" but the cookie never lands. Fall back to `lax` so dev just works.
+  // `path: '/'` is explicit so Set-Cookie on login overwrites any stale `jwt` cookie left
+  // over from a previous deployment — otherwise the browser keeps both and the old one
+  // (pointing at a user that no longer exists in the new DB) can win on the next request.
   const cookieOptions = {
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? 'none' : 'lax',
+    path: '/',
   };
 
   res.cookie('jwt', token, cookieOptions);

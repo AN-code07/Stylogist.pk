@@ -17,6 +17,11 @@ import reviewRoutes from './modules/reviews/review.routes.js';
 
 const app = express();
 
+// Render (and most managed hosts) sit behind a reverse proxy. Without this,
+// Express sees requests as HTTP, which breaks `secure` cookies, correct IP
+// detection for express-rate-limit, and req.secure checks.
+app.set('trust proxy', 1);
+
 // Allow requests from the deployed Vercel frontend *and* local dev origins.
 // `origin` callback rather than a single string so we can whitelist multiple hosts.
 const allowedOrigins = [

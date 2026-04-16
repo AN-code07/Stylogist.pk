@@ -495,13 +495,15 @@ export const changePassword = async (req, res, next) => {
 // LOGOUT
 // ========================
 export const logout = (req, res) => {
-  // 1. Overwrite JWT cookie (if using cookie) or instruct client to remove token
+  // Cookie attributes MUST match the ones used at login (including path) for the
+  // browser to treat this as an overwrite rather than a second, separate cookie.
+  const isProd = env.nodeEnv === 'production';
   res.cookie('jwt', 'loggedout', {
     expires: new Date(Date.now() + 10),
     httpOnly: true,
-    secure: env.nodeEnv === 'production',
-    // THIS MUST MATCH HOW YOU CREATED IT
-    sameSite: env.nodeEnv === 'production' ? 'none' : 'lax'
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
   });
 
   res.status(200).json({
