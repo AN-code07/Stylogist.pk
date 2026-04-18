@@ -388,7 +388,7 @@ function SearchOverlay({ open, onClose }) {
                     >
                       <div className="w-12 h-12 bg-slate-100 rounded-md overflow-hidden flex-shrink-0">
                         {p.image ? (
-                          <img src={p.image} alt="" className="w-full h-full object-cover" />
+                          <img src={p.image} alt={p.name} width="48" height="48" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-slate-300">
                             <FiPackage size={16} />

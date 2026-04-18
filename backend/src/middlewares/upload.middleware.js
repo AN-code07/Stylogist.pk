@@ -38,7 +38,13 @@ export const uploadImage = multer({
 
 export const buildPublicUrl = (req, filename) => {
   const envBase = process.env.PUBLIC_BASE_URL;
-  const base = envBase ? envBase.replace(/\/$/, "") : `${req.protocol}://${req.get("host")}`;
+  let base = envBase ? envBase.replace(/\/$/, "") : `${req.protocol}://${req.get("host")}`;
+  // Lighthouse "Best Practices" fails as soon as a single http:// asset loads
+  // on an https page. Upgrade the scheme unconditionally when we're not on a
+  // localhost development host.
+  if (/^http:\/\//i.test(base) && !/localhost|127\.0\.0\.1/.test(base)) {
+    base = base.replace(/^http:\/\//i, "https://");
+  }
   return `${base}/uploads/${filename}`;
 };
 
@@ -88,9 +94,15 @@ export const processImageToWebp = async (file, { slug, productSlug, role, index,
   // chromaSubsampling 4:4:4 keeps colour detail (important for reds/oranges
   // in fashion/beauty shots). near-lossless smooths flat areas without
   // ballooning file size.
+  //
+  // We also cap the longest side at 2000 px so a camera-dump upload
+  // (e.g. 6000×4000 / 10 MB JPEG) lands on the storefront at a sensible
+  // 150–350 KB. `withoutEnlargement` makes this a ceiling, not a stretch —
+  // small source images keep their native resolution.
   await sharp(file.buffer)
     .rotate()
-    .webp({ quality: 92, effort: 6, smartSubsample: true, alphaQuality: 100 })
+    .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 85, effort: 6, smartSubsample: true, alphaQuality: 100 })
     .toFile(filePath);
 
   const { size } = await fsp.stat(filePath);

@@ -105,11 +105,13 @@ export default function FeaturedProducts() {
           {/* Floating Actions */}
           <button
             onClick={() => toggleWishlist(product.id)}
+            aria-label={wishlist.includes(product.id) ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
             className="absolute top-3 right-3 z-20 p-2 rounded-full bg-white/90 backdrop-blur-md shadow-sm transition-all hover:scale-110"
           >
             <FiHeart
+              aria-hidden="true"
               size={16}
-              className={wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-400'}
+              className={wishlist.includes(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-500'}
             />
           </button>
 
@@ -124,7 +126,7 @@ export default function FeaturedProducts() {
 
       {/* Product Information */}
       <div className="mt-5 px-1 text-center">
-        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1 block">
+        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1 block">
           {product.brand}
         </span>
         <Link to={`/product/${product.id}`}>
@@ -164,7 +166,7 @@ export default function FeaturedProducts() {
             <h2 className="text-2xl md:text-5xl font-serif font-black text-[#222] tracking-tight">
               Featured <span className="italic text-[#007074]">Collection</span>
             </h2>
-            <p className="text-gray-400 mt-2 sm:mt-5 max-w-lg text-sm sm:leading-relaxed sm:uppercase tracking-wide font-medium">
+            <p className="text-gray-500 mt-2 sm:mt-5 max-w-lg text-sm sm:leading-relaxed sm:uppercase tracking-wide font-medium">
               Handpicked arrivals designed to elevate your everyday ritual.
             </p>
           </div>
@@ -172,15 +174,17 @@ export default function FeaturedProducts() {
           <div className="sm:flex hidden items-center justify-center space-x-3">
             <button
               onClick={() => setDesktopPage((prev) => (prev === 0 ? totalDesktopPages - 1 : prev - 1))}
+              aria-label="Previous featured products"
               className="w-12 h-12 flex items-center justify-center cursor-pointer rounded-full border border-gray-100 bg-white text-[#222] hover:bg-[#222] hover:text-white transition-all duration-500 shadow-sm hover:shadow-xl"
             >
-              <FiChevronLeft size={20} />
+              <FiChevronLeft aria-hidden="true" size={20} />
             </button>
             <button
               onClick={() => setDesktopPage((prev) => (prev === totalDesktopPages - 1 ? 0 : prev + 1))}
+              aria-label="Next featured products"
               className="w-12 h-12 flex items-center justify-center cursor-pointer rounded-full border border-gray-100 bg-white text-[#222] hover:bg-[#222] hover:text-white transition-all duration-500 shadow-sm hover:shadow-xl"
             >
-              <FiChevronRight size={20} />
+              <FiChevronRight aria-hidden="true" size={20} />
             </button>
           </div>
         </div>
@@ -204,6 +208,8 @@ export default function FeaturedProducts() {
               <button
                 key={index}
                 onClick={() => setMobileIndex(index)}
+                aria-label={`Show featured product ${index + 1}`}
+                aria-current={index === mobileIndex ? 'true' : 'false'}
                 className={`h-1 rounded-full transition-all duration-500 ${
                   index === mobileIndex ? 'w-10 bg-[#007074]' : 'w-4 bg-gray-200'
                 }`}

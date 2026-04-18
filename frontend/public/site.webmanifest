@@ -1,0 +1,12 @@
+{
+  "name": "Stylogist.pk",
+  "short_name": "Stylogist",
+  "description": "Curated fashion, beauty and lifestyle essentials across Pakistan.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FDFDFD",
+  "theme_color": "#007074",
+  "icons": [
+    { "src": "/shopping.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

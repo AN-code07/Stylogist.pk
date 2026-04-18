@@ -21,6 +21,11 @@ export const resolveImageUrl = (src) => {
     if (/^https?:\/\/(localhost|127\.0\.0\.1)/i.test(src) && ASSETS_URL) {
       return src.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, ASSETS_URL.replace(/\/$/, ''));
     }
+    // Lighthouse "Best Practices" requires every asset served over HTTPS.
+    // Upgrade any remaining http:// production URLs.
+    if (/^http:\/\//i.test(src) && !/localhost|127\.0\.0\.1/.test(src)) {
+      return src.replace(/^http:\/\//i, 'https://');
+    }
     return src;
   }
 

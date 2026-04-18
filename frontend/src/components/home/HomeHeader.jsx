@@ -50,9 +50,11 @@ export default function HomeHeader() {
     return () => clearInterval(timer);
   }, [slides.length]);
 
+  // Keep every animated property on the compositor (transform/opacity only)
+  // so the slider's idle progress bar doesn't trigger layout on every frame.
   const customStyles = `
     @keyframes shimmer { 100% { transform: translateX(100%); } }
-    @keyframes progress { 0% { width: 0%; } 100% { width: 100%; } }
+    @keyframes progress { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
     @keyframes textSlideUp { 0% { opacity: 0; transform: translateY(40px); } 100% { opacity: 1; transform: translateY(0); } }
   `;
 
@@ -132,11 +134,16 @@ export default function HomeHeader() {
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
+                aria-label={`Go to slide ${index + 1}`}
+                aria-current={isCurrent ? 'true' : 'false'}
                 className="group relative w-12 h-8 flex items-center justify-center"
               >
                 <div className={`h-[2px] transition-all duration-500 rounded-full ${isCurrent ? 'w-full bg-[#007074]' : 'w-4 bg-white/30 group-hover:bg-white/60'}`} />
                 {isCurrent && (
-                   <div className="absolute top-0 left-0 h-full w-full animate-[progress_6s_linear_forwards] bg-transparent border-b-2 border-[#007074]" />
+                   <div
+                     className="absolute bottom-0 left-0 h-[2px] w-full bg-[#007074] animate-[progress_6s_linear_forwards] origin-left"
+                     aria-hidden="true"
+                   />
                 )}
               </button>
             );

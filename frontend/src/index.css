@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+/* Keyboard-only "skip to main content" helper. Hidden until focused so it
+   doesn't show in the visual layout but is reachable by tab. */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  z-index: 10000;
+  background: #007074;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: top 180ms ease-out;
+}
+.skip-link:focus { top: 8px; outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Main landmark target — don't show the focus ring when scrolled to programmatically. */
+main:focus-visible { outline: none; }
+
 /* ProductManage.css or index.css */
 .ql-container.ql-snow {
   border: none !important; /* We use the parent div for the border */

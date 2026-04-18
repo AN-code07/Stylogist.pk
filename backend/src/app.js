@@ -31,7 +31,35 @@ const allowedOrigins = [
     'http://localhost:3000',
 ].filter(Boolean);
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+// Tighter security posture — satisfies the Lighthouse "Best Practices" audit
+// (CSP, COOP, XFO, no sniff). Adjust `imgSrc` / `connectSrc` whitelists when
+// plugging in a new CDN or analytics host.
+app.use(
+    helmet({
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+        crossOriginOpenerPolicy: { policy: 'same-origin' },
+        crossOriginEmbedderPolicy: false,   // disable to keep cross-origin images easy
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+        contentSecurityPolicy: {
+            useDefaults: true,
+            directives: {
+                'default-src': ["'self'"],
+                'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+                'media-src': ["'self'", 'https:'],
+                'script-src': ["'self'"],
+                'style-src': ["'self'", "'unsafe-inline'", 'https:'],
+                'font-src': ["'self'", 'data:', 'https:'],
+                'connect-src': ["'self'", 'https:', 'wss:'],
+                'frame-ancestors': ["'none'"],
+                'base-uri': ["'self'"],
+                'object-src': ["'none'"],
+                'upgrade-insecure-requests': [],
+            },
+        },
+        hsts: { maxAge: 15552000, includeSubDomains: true, preload: true },
+        frameguard: { action: 'deny' },
+    })
+);
 app.use(cookieParser());
 app.use(cors({
     origin: (origin, cb) => {
@@ -43,10 +71,18 @@ app.use(cors({
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Serve uploaded files. Kept outside the /api namespace so assets resolve with a clean URL.
+// Serve uploaded files. Kept outside the /api namespace so assets resolve
+// with a clean URL. Files here are content-addressed (unique slug/filename),
+// so we mark them immutable + 1 year so browsers reuse the cached copy
+// indefinitely — this is what turns Lighthouse's "efficient cache lifetimes"
+// audit from yellow to green.
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads'), {
-    maxAge: '7d',
+    maxAge: '365d',
+    immutable: true,
     fallthrough: false,
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    },
 }));
 
 app.get('/health', (_req, res) => {

@@ -440,7 +440,7 @@ function ProductCard({ product, index = 0 }) {
             onClick={handleWishlist}
             className="absolute top-3 right-3 z-20 p-2 rounded-full bg-white/90 backdrop-blur-md shadow-sm transition-all hover:scale-110"
           >
-            <FiHeart size={16} className={inWishlist ? 'fill-red-500 text-red-500' : 'text-gray-400'} />
+            <FiHeart size={16} className={inWishlist ? 'fill-red-500 text-red-500' : 'text-gray-500'} />
           </button>
 
           <div className="absolute bottom-3 left-3 right-3 translate-y-12 group-hover:translate-y-0 transition-all duration-500 z-20">
@@ -455,7 +455,7 @@ function ProductCard({ product, index = 0 }) {
       </div>
 
       <div className="mt-4 px-1 text-center">
-        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1 block">
+        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1 block">
           {product.brand?.name || '—'}
         </span>
         <Link to={to}>

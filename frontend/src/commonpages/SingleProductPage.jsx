@@ -257,7 +257,7 @@ export default function ProductDetailsPage() {
 
       {/* Breadcrumb */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-5">
-        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold">
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold">
           <Link to="/" className="hover:text-[#007074]">Home</Link>
           <FiChevronRight size={11} />
           <Link to="/category" className="hover:text-[#007074]">Shop</Link>
@@ -329,7 +329,7 @@ export default function ProductDetailsPage() {
         {/* CENTER — info */}
         <section className="lg:col-span-4 space-y-6">
           <div>
-            <div className="text-[9px] font-black uppercase tracking-[0.25em] text-gray-400 mb-3">
+            <div className="text-[9px] font-black uppercase tracking-[0.25em] text-gray-500 mb-3">
               {product.brand?.name || product.category?.name || '—'}
             </div>
             <h1 className="font-serif text-3xl md:text-4xl font-black text-[#222] leading-tight tracking-tight">
@@ -346,7 +346,7 @@ export default function ProductDetailsPage() {
                   />
                 ))}
               </div>
-              <span className="text-[10px] uppercase tracking-[0.15em] text-gray-400 font-semibold">
+              <span className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">
                 {product.averageRating > 0
                   ? `${product.averageRating.toFixed(1)} · ${product.totalReviews} reviews`
                   : 'No reviews yet'}
@@ -371,7 +371,7 @@ export default function ProductDetailsPage() {
                 You save <span className="font-black">{fmtPKR(savings)}</span> on this order
               </p>
             )}
-            <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-[0.15em] font-semibold">
+            <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-[0.15em] font-semibold">
               Inclusive of all taxes
             </p>
           </div>
@@ -388,7 +388,7 @@ export default function ProductDetailsPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Color</span>
-                <span className="text-[10px] uppercase tracking-[0.15em] text-gray-400 font-semibold">{selectedColor || '—'}</span>
+                <span className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">{selectedColor || '—'}</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {colors.map((c) => (
@@ -412,7 +412,7 @@ export default function ProductDetailsPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Size</span>
-                <span className="text-[10px] uppercase tracking-[0.15em] text-gray-400 font-semibold">{selectedSize || '—'}</span>
+                <span className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">{selectedSize || '—'}</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {sizes.map((s) => (
@@ -498,7 +498,7 @@ export default function ProductDetailsPage() {
                 className={`w-12 h-12 rounded-xl border inline-flex items-center justify-center transition-all ${
                   inWishlist
                     ? 'border-[#007074]/30 bg-[#F7F3F0] text-[#007074]'
-                    : 'border-gray-200 bg-white text-gray-400 hover:text-[#007074] hover:border-[#007074]/40'
+                    : 'border-gray-200 bg-white text-gray-500 hover:text-[#007074] hover:border-[#007074]/40'
                 }`}
               >
                 <FiHeart size={15} className={inWishlist ? 'fill-[#007074]' : ''} />
@@ -506,7 +506,7 @@ export default function ProductDetailsPage() {
               <button
                 onClick={handleShare}
                 title="Share this product"
-                className="w-12 h-12 rounded-xl border border-gray-200 bg-white text-gray-400 hover:text-[#007074] hover:border-[#007074]/40 inline-flex items-center justify-center transition-all"
+                className="w-12 h-12 rounded-xl border border-gray-200 bg-white text-gray-500 hover:text-[#007074] hover:border-[#007074]/40 inline-flex items-center justify-center transition-all"
               >
                 <FiShare2 size={15} />
               </button>
@@ -524,7 +524,7 @@ export default function ProductDetailsPage() {
           {/* SKU */}
           {matchedVariant?.sku && (
             <div className="flex items-center justify-between gap-3 pt-2 border-t border-gray-100">
-              <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold">
                 SKU <span className="text-gray-600 font-mono tracking-normal normal-case ml-1">{matchedVariant.sku}</span>
               </span>
               <button
@@ -534,7 +534,7 @@ export default function ProductDetailsPage() {
                     toast.success('SKU copied');
                   } catch { /* ignore */ }
                 }}
-                className="text-gray-400 hover:text-[#007074] transition-colors"
+                className="text-gray-500 hover:text-[#007074] transition-colors"
                 title="Copy SKU"
               >
                 <FiCopy size={12} />
@@ -549,7 +549,7 @@ export default function ProductDetailsPage() {
             {/* Order summary snapshot */}
             <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
               <div className="bg-[#F7F3F0] px-5 py-3 border-b border-gray-100">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-[#222]">Order summary</h3>
+                <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-[#222]">Order summary</h2>
               </div>
               <div className="p-5 space-y-3 text-sm">
                 <SummaryRow label="Item price" value={fmtPKR(price)} />
@@ -592,7 +592,7 @@ export default function ProductDetailsPage() {
               key={t}
               onClick={() => setTab(t)}
               className={`pb-3 text-[10px] font-black uppercase tracking-[0.25em] transition-colors relative ${
-                tab === t ? 'text-[#007074]' : 'text-gray-400 hover:text-[#222]'
+                tab === t ? 'text-[#007074]' : 'text-gray-500 hover:text-[#222]'
               }`}
             >
               {t}
@@ -617,7 +617,7 @@ export default function ProductDetailsPage() {
                 dangerouslySetInnerHTML={{ __html: product.description }}
               />
             ) : (
-              <p className="text-gray-400">No description provided.</p>
+              <p className="text-gray-500">No description provided.</p>
             )
           )}
 
@@ -686,7 +686,7 @@ export default function ProductDetailsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-400">No gallery images for this product.</p>
+              <p className="text-gray-500">No gallery images for this product.</p>
             )
           )}
 
@@ -697,12 +697,12 @@ export default function ProductDetailsPage() {
         {variants.length > 0 && (
           <div className="mt-10 bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
             <div className="px-5 py-3 border-b border-gray-100 bg-[#F7F3F0]">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-[#222]">All variants</h3>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-[#222]">All variants</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
                 <thead className="bg-white border-b border-gray-100">
-                  <tr className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+                  <tr className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                     <th className="text-left px-4 py-2.5">SKU</th>
                     <th className="text-left px-4 py-2.5">Size</th>
                     <th className="text-left px-4 py-2.5">Color</th>
@@ -751,7 +751,7 @@ function TrustPill({ icon, label }) {
 function SummaryRow({ label, value }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[11px] uppercase tracking-[0.15em] text-gray-400 font-semibold">{label}</span>
+      <span className="text-[11px] uppercase tracking-[0.15em] text-gray-500 font-semibold">{label}</span>
       <span className="text-sm font-bold text-[#222]">{value}</span>
     </div>
   );
@@ -771,7 +771,7 @@ function HighlightRow({ icon, text }) {
 function SpecRow({ label, value }) {
   return (
     <li className="py-3 flex justify-between gap-4 text-sm">
-      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{label}</span>
+      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">{label}</span>
       <span className="text-[#222] font-semibold text-right">{value}</span>
     </li>
   );

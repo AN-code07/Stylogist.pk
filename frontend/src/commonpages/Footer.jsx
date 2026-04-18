@@ -135,14 +135,32 @@ export default function Footer() {
               Follow Us
             </h3>
             <div className="flex space-x-4">
-              <a href="#" className="w-10 h-10 rounded-md bg-[#222222] flex items-center justify-center text-gray-400 hover:bg-[#007074] hover:text-white transition-all duration-300">
-                <FiInstagram size={18} />
+              <a
+                href="https://instagram.com/stylogist.pk"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Follow Stylogist on Instagram"
+                className="w-10 h-10 rounded-md bg-[#222222] flex items-center justify-center text-gray-300 hover:bg-[#007074] hover:text-white transition-all duration-300"
+              >
+                <FiInstagram size={18} aria-hidden="true" />
               </a>
-              <a href="#" className="w-10 h-10 rounded-md bg-[#222222] flex items-center justify-center text-gray-400 hover:bg-[#007074] hover:text-white transition-all duration-300">
-                <FiFacebook size={18} />
+              <a
+                href="https://facebook.com/stylogist.pk"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Follow Stylogist on Facebook"
+                className="w-10 h-10 rounded-md bg-[#222222] flex items-center justify-center text-gray-300 hover:bg-[#007074] hover:text-white transition-all duration-300"
+              >
+                <FiFacebook size={18} aria-hidden="true" />
               </a>
-              <a href="#" className="w-10 h-10 rounded-md bg-[#222222] flex items-center justify-center text-gray-400 hover:bg-[#007074] hover:text-white transition-all duration-300">
-                <FiTwitter size={18} />
+              <a
+                href="https://twitter.com/stylogist_pk"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Follow Stylogist on Twitter / X"
+                className="w-10 h-10 rounded-md bg-[#222222] flex items-center justify-center text-gray-300 hover:bg-[#007074] hover:text-white transition-all duration-300"
+              >
+                <FiTwitter size={18} aria-hidden="true" />
               </a>
             </div>
           </div>
