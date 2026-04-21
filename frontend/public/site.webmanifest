@@ -7,6 +7,6 @@
   "background_color": "#FDFDFD",
   "theme_color": "#007074",
   "icons": [
-    { "src": "/shopping.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "../public/stylogist.pk.png", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
 }

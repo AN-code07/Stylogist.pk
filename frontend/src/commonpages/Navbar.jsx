@@ -13,6 +13,7 @@ import { getLoginUser } from '../features/user/useUserHooks';
 import { useLogout } from '../features/auth/useAuthHooks';
 import { useCategories } from '../features/categories/useCategoryHooks';
 import { useProducts } from '../features/products/useProductHooks';
+import logo from "/stylogist.pk.png"
 
 const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
@@ -88,12 +89,15 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 bg-[#007074] rounded-lg flex items-center justify-center text-white font-semibold">
+
+          <img src={logo} alt="" className='w-[100px]' />
+
+            {/* <div className="w-8 h-8 bg-[#007074] rounded-lg flex items-center justify-center text-white font-semibold">
               S
             </div>
             <span className="text-lg font-semibold tracking-tight text-slate-900">
               Stylogist<span className="text-[#007074]">.pk</span>
-            </span>
+            </span> */}
           </Link>
 
           {/* Desktop links */}

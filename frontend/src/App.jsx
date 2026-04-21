@@ -4,15 +4,15 @@ import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom'
 import Home from './commonpages/Home'
 import Navbar from './commonpages/Navbar'
 import Footer from './commonpages/Footer'
-import CategoryPage from './components/category/CategoryPage'
-import ProductDetailsPage from './commonpages/SingleProductPage'
 import ScrollToTop from './commonpages/ScrollToTop'
 import RouteLoader from './components/common/RouteLoader'
 import Seo from './components/common/Seo'
 
-// Everything below is lazy-loaded — checkout flow, auth, admin, profile.
-// This keeps the first-paint bundle focused on the home + browse experience
-// so Lighthouse Performance can clear 90+.
+// Everything below is lazy-loaded. Only the home page ships in the initial
+// bundle — category/product detail and the rest load on demand so the
+// landing-page TTI stays tight.
+const CategoryPage = lazy(() => import('./components/category/CategoryPage'))
+const ProductDetailsPage = lazy(() => import('./commonpages/SingleProductPage'))
 const About = lazy(() => import('./commonpages/About'))
 const Contact = lazy(() => import('./commonpages/Contact'))
 const HotDeals = lazy(() => import('./commonpages/HotDeals'))
@@ -40,11 +40,16 @@ const CategoryManage = lazy(() => import('./AdminDashboard/pages/CategoryManage'
 const BrandManage = lazy(() => import('./AdminDashboard/pages/BrandManage'))
 const AdminSettings = lazy(() => import('./AdminDashboard/pages/AdminSettings'))
 
-// Lightweight fallback while a lazy chunk is fetched.
+// Lightweight fallback while a lazy chunk is fetched. Uses the branded
+// double-ring spinner (see .brand-spinner in index.css) so the loading
+// state feels on-theme rather than a generic stock indicator.
 const PageSuspense = ({ children }) => (
   <Suspense fallback={
-    <div className="min-h-[50vh] flex items-center justify-center" aria-live="polite" role="status">
-      <div className="route-loader__spinner" />
+    <div className="min-h-[60vh] flex items-center justify-center" aria-live="polite" role="status">
+      <div className="brand-spinner" aria-label="Loading">
+        <span className="brand-spinner__ring" />
+        <span className="brand-spinner__mark">S</span>
+      </div>
     </div>
   }>
     {children}

@@ -121,4 +121,16 @@ const productSchema = new mongoose.Schema(
 
 productSchema.index({ name: "text", metaTitle: "text", metaDescription: "text" });
 
+// Storefront sort/filter combinations. These compound indexes let the
+// category/listing query hit a single index for (status filter + sort key)
+// instead of fetching and in-memory sorting, which is the hot path on the
+// public shop pages.
+productSchema.index({ status: 1, createdAt: -1 });
+productSchema.index({ status: 1, minPrice: 1 });
+productSchema.index({ status: 1, averageRating: -1 });
+productSchema.index({ status: 1, totalSales: -1 });
+productSchema.index({ status: 1, isDealActive: 1 });
+productSchema.index({ category: 1, status: 1, createdAt: -1 });
+productSchema.index({ brand: 1, status: 1, createdAt: -1 });
+
 export const Product = mongoose.model("Product", productSchema);

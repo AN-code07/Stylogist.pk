@@ -282,6 +282,48 @@ main:focus-visible { outline: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Branded double-ring spinner used as the Suspense fallback while a lazy
+   route chunk is fetched. Pairs the teal theme ring with a subtle pulsing
+   monogram so the loading state feels on-brand. */
+.brand-spinner {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand-spinner__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 112, 116, 0.12);
+  border-top-color: #007074;
+  border-right-color: #0a8c91;
+  animation: spin 900ms cubic-bezier(0.6, 0.1, 0.3, 1) infinite;
+}
+.brand-spinner__ring::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-bottom-color: rgba(0, 112, 116, 0.35);
+  animation: spin 1400ms linear infinite reverse;
+}
+.brand-spinner__mark {
+  font-family: ui-serif, Georgia, serif;
+  font-weight: 900;
+  font-size: 20px;
+  color: #007074;
+  letter-spacing: -0.02em;
+  animation: brandPulse 1400ms ease-in-out infinite;
+}
+@keyframes brandPulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.92); }
+  50%      { opacity: 1;   transform: scale(1); }
+}
+
 /* Thin progress bar used at the top of the page while data is fetching. */
 .route-progress {
   position: fixed;

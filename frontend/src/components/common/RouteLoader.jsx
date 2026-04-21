@@ -47,7 +47,10 @@ export default function RouteLoader() {
       )}
       {loading && (
         <div className="route-loader" aria-live="polite" role="status">
-          <div className="route-loader__spinner" />
+          <div className="brand-spinner" aria-label="Loading">
+            <span className="brand-spinner__ring" />
+            <span className="brand-spinner__mark">S</span>
+          </div>
         </div>
       )}
     </>

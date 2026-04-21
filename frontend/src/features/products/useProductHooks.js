@@ -1,8 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axiosClient from '../../api/axiosClient';
 import toast from 'react-hot-toast';
 
 const PRODUCTS_KEY = ['products'];
+
+// Tunables: product listings are read-heavy and rarely change within a
+// browsing session, so we cache aggressively and keep the previous page
+// visible while the next page loads — pagination feels instant and
+// background refetches replace the data without a flicker.
+const PRODUCT_LIST_STALE_MS = 2 * 60 * 1000;  // 2 minutes
+const PRODUCT_LIST_GC_MS = 10 * 60 * 1000;    // 10 minutes
+const PRODUCT_DETAIL_STALE_MS = 5 * 60 * 1000; // 5 minutes
+const PRODUCT_DETAIL_GC_MS = 15 * 60 * 1000;   // 15 minutes
 
 export const useProducts = (params = {}) => {
     return useQuery({
@@ -11,6 +20,9 @@ export const useProducts = (params = {}) => {
             const { data } = await axiosClient.get('/products', { params });
             return { items: data.data, pagination: data.pagination };
         },
+        placeholderData: keepPreviousData,
+        staleTime: PRODUCT_LIST_STALE_MS,
+        gcTime: PRODUCT_LIST_GC_MS,
     });
 };
 
@@ -22,6 +34,8 @@ export const useProduct = (slug) => {
             return data.data;
         },
         enabled: !!slug,
+        staleTime: PRODUCT_DETAIL_STALE_MS,
+        gcTime: PRODUCT_DETAIL_GC_MS,
     });
 };
 
@@ -33,6 +47,8 @@ export const useProductById = (id) => {
             return data.data;
         },
         enabled: !!id,
+        staleTime: PRODUCT_DETAIL_STALE_MS,
+        gcTime: PRODUCT_DETAIL_GC_MS,
     });
 };
 

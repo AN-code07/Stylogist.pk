@@ -307,8 +307,9 @@ export const getAllProducts = async (query = {}) => {
   if (inStock === "true") filter.totalStock = { $gt: 0 };
   if (deal === "true") filter.isDealActive = true;
 
-  let mongoQuery = Product.find(filter);
-  if (search) mongoQuery = mongoQuery.find({ $text: { $search: search } });
+  // Text search: collapse into a single filter so the query planner can
+  // pick one index instead of running two `.find()` stages.
+  if (search) filter.$text = { $search: search };
 
   const sortMap = {
     priceLow: { minPrice: 1 },
@@ -317,13 +318,22 @@ export const getAllProducts = async (query = {}) => {
     rating: { averageRating: -1 },
     bestSelling: { totalSales: -1 },
   };
-  mongoQuery = mongoQuery.sort(sort && sortMap[sort] ? sortMap[sort] : { createdAt: -1 });
+  const sortSpec = sort && sortMap[sort] ? sortMap[sort] : { createdAt: -1 };
 
   const pageNum = Math.max(Number(page), 1);
   const pageSize = Math.min(Math.max(Number(limit), 1), 100);
 
+  // Trim the list payload: the product card only needs slug/name/price/stock
+  // /rating/brand/category. Skipping `description`/`shortDescription` (rich
+  // HTML, often several KB each) dramatically reduces the response size on
+  // category pages.
+  const LIST_PROJECTION =
+    "name slug category categories brand status isFeatured averageRating minPrice maxPrice totalStock discountPercentage isDealActive totalReviews totalSales createdAt";
+
   const [items, total] = await Promise.all([
-    mongoQuery
+    Product.find(filter)
+      .select(LIST_PROJECTION)
+      .sort(sortSpec)
       .skip((pageNum - 1) * pageSize)
       .limit(pageSize)
       .populate("category", "name slug")
@@ -352,17 +362,26 @@ export const getAllProducts = async (query = {}) => {
   };
 };
 
+// Single product detail: resolve the product doc, then fan out variants +
+// media in parallel. Each of those queries hits a product-indexed field so
+// the three-way round-trip comes back as fast as the slowest leg.
+const loadProductPayload = async (product) => {
+  const [variants, media] = await Promise.all([
+    Variant.find({ product: product._id }).lean(),
+    ProductMedia.find({ product: product._id })
+      .sort({ isThumbnail: -1, position: 1 })
+      .lean(),
+  ]);
+  return { product, variants, media };
+};
+
 export const getProductById = async (id) => {
   const product = await Product.findById(id)
     .populate("category", "name slug")
     .populate("brand", "name slug logo")
     .lean();
   if (!product) throw new ApiError(404, "Product not found");
-  const [variants, media] = await Promise.all([
-    Variant.find({ product: product._id }).lean(),
-    ProductMedia.find({ product: product._id }).sort({ isThumbnail: -1, position: 1 }).lean(),
-  ]);
-  return { product, variants, media };
+  return loadProductPayload(product);
 };
 
 export const getProductBySlug = async (slug) => {
@@ -371,11 +390,7 @@ export const getProductBySlug = async (slug) => {
     .populate("brand", "name slug logo")
     .lean();
   if (!product) throw new ApiError(404, "Product not found");
-  const [variants, media] = await Promise.all([
-    Variant.find({ product: product._id }).lean(),
-    ProductMedia.find({ product: product._id }).sort({ isThumbnail: -1, position: 1 }).lean(),
-  ]);
-  return { product, variants, media };
+  return loadProductPayload(product);
 };
 
 export const deleteProduct = async (id) => {
