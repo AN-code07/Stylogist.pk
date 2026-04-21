@@ -4,6 +4,7 @@ import {
   FiGrid, FiBox, FiShoppingBag, FiUsers, FiSettings,
   FiLogOut, FiMessageSquare, FiBarChart2, FiMenu, FiX, FiTag, FiFolder
 } from 'react-icons/fi';
+import logo from "../../../public/logo.png"
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false); // Manages visibility on small screens
@@ -59,8 +60,9 @@ export default function Sidebar() {
         {/* HEADER: Added a close button for mobile UX */}
         <div className="p-6 border-b border-slate-700/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#007074] rounded-lg flex items-center justify-center font-bold text-white shadow-lg">S</div>
-            <span className="text-white font-black tracking-tighter uppercase text-sm">Stylogist Admin</span>
+            <img src={logo} width={104} height={44} alt="" />
+            {/* <div className="w-8 h-8 bg-[#007074] rounded-lg flex items-center justify-center font-bold text-white shadow-lg">S</div>
+            <span className="text-white font-black tracking-tighter uppercase text-sm">Stylogist Admin</span> */}
           </div>
           <button 
             onClick={() => setIsOpen(false)}
