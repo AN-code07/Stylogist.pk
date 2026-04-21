@@ -43,15 +43,50 @@ const AdminSettings = lazy(() => import('./AdminDashboard/pages/AdminSettings'))
 // Lightweight fallback while a lazy chunk is fetched. Uses the branded
 // double-ring spinner (see .brand-spinner in index.css) so the loading
 // state feels on-theme rather than a generic stock indicator.
+// Professional branded spinner — two SVG arcs rotating around the logo
+// (outer arc CW, inner arc CCW), a soft halo ripple and a gentle logo pulse.
+// See `.brand-spinner` in index.css for the animation keyframes.
+const BrandSpinner = () => (
+  <div className="brand-spinner" aria-label="Loading">
+    <span className="brand-spinner__halo" />
+    <svg className="brand-spinner__arc brand-spinner__arc--outer" viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="brand-spinner-outer" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#7FD4D7" />
+          <stop offset="55%" stopColor="#0a8c91" />
+          <stop offset="100%" stopColor="#007074" />
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,112,116,0.12)" strokeWidth="4" />
+      <circle
+        cx="50" cy="50" r="46"
+        fill="none"
+        stroke="url(#brand-spinner-outer)"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray="120 210"
+      />
+    </svg>
+    <svg className="brand-spinner__arc brand-spinner__arc--inner" viewBox="0 0 100 100" aria-hidden="true">
+      <circle
+        cx="50" cy="50" r="38"
+        fill="none"
+        stroke="#0a8c91"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray="40 200"
+        opacity="0.8"
+      />
+    </svg>
+    <span className="brand-spinner__glow" />
+    <img src="/logo.png" alt="" className="brand-spinner__logo" />
+  </div>
+)
+
 const PageSuspense = ({ children }) => (
   <Suspense fallback={
     <div className="min-h-[60vh] flex items-center justify-center" aria-live="polite" role="status">
-      <div className="brand-spinner" aria-label="Loading">
-        <span className="brand-spinner__halo" />
-        <span className="brand-spinner__ring" />
-        <span className="brand-spinner__glow" />
-        <img src="/logo.png" alt="" className="brand-spinner__logo" />
-      </div>
+      <BrandSpinner />
     </div>
   }>
     {children}

@@ -49,7 +49,47 @@ export default function RouteLoader() {
         <div className="route-loader" aria-live="polite" role="status">
           <div className="brand-spinner" aria-label="Loading">
             <span className="brand-spinner__halo" />
-            <span className="brand-spinner__ring" />
+            <svg
+              className="brand-spinner__arc brand-spinner__arc--outer"
+              viewBox="0 0 100 100"
+              aria-hidden="true"
+            >
+              <defs>
+                <linearGradient id="route-loader-outer" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#7FD4D7" />
+                  <stop offset="55%" stopColor="#0a8c91" />
+                  <stop offset="100%" stopColor="#007074" />
+                </linearGradient>
+              </defs>
+              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,112,116,0.12)" strokeWidth="4" />
+              <circle
+                cx="50"
+                cy="50"
+                r="46"
+                fill="none"
+                stroke="url(#route-loader-outer)"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray="120 210"
+              />
+            </svg>
+            <svg
+              className="brand-spinner__arc brand-spinner__arc--inner"
+              viewBox="0 0 100 100"
+              aria-hidden="true"
+            >
+              <circle
+                cx="50"
+                cy="50"
+                r="38"
+                fill="none"
+                stroke="#0a8c91"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeDasharray="40 200"
+                opacity="0.8"
+              />
+            </svg>
             <span className="brand-spinner__glow" />
             <img src="/logo.png" alt="" className="brand-spinner__logo" />
           </div>

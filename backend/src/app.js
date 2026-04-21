@@ -14,6 +14,7 @@ import orderRoutes from './modules/orders/order.routes.js';
 import adminRoutes from './modules/admin/admin.routes.js';
 import uploadRoutes from './modules/uploads/upload.routes.js';
 import reviewRoutes from './modules/reviews/review.routes.js';
+import settingsRoutes from './modules/settings/settings.routes.js';
 
 const app = express();
 
@@ -99,6 +100,7 @@ app.use('/api/v1/orders', orderRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/uploads', uploadRoutes);
+app.use('/api/v1/settings', settingsRoutes);
 
 app.use((req, _res, next) => {
     const err = new Error(`Can't find ${req.originalUrl} on this server!`);
