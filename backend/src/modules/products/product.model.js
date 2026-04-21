@@ -72,6 +72,23 @@ const productSchema = new mongoose.Schema(
     isFeatured: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+
+    // Curated storefront rails. Admins tag products that should surface on
+    // the home "Trending" row and the "Deals of the Day" grid — keeps the
+    // merchandising selection out of implicit rules (rating thresholds etc.)
+    // and fully editable from the dashboard.
+    isTrending: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    isDeal: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
 
     averageRating: {

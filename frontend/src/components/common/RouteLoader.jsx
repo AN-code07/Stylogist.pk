@@ -47,51 +47,24 @@ export default function RouteLoader() {
       )}
       {loading && (
         <div className="route-loader" aria-live="polite" role="status">
-          <div className="brand-spinner" aria-label="Loading">
-            <span className="brand-spinner__halo" />
-            <svg
-              className="brand-spinner__arc brand-spinner__arc--outer"
-              viewBox="0 0 100 100"
-              aria-hidden="true"
-            >
-              <defs>
-                <linearGradient id="route-loader-outer" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#7FD4D7" />
-                  <stop offset="55%" stopColor="#0a8c91" />
-                  <stop offset="100%" stopColor="#007074" />
-                </linearGradient>
-              </defs>
-              <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,112,116,0.12)" strokeWidth="4" />
-              <circle
-                cx="50"
-                cy="50"
-                r="46"
-                fill="none"
-                stroke="url(#route-loader-outer)"
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeDasharray="120 210"
-              />
-            </svg>
-            <svg
-              className="brand-spinner__arc brand-spinner__arc--inner"
-              viewBox="0 0 100 100"
-              aria-hidden="true"
-            >
-              <circle
-                cx="50"
-                cy="50"
-                r="38"
-                fill="none"
-                stroke="#0a8c91"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeDasharray="40 200"
-                opacity="0.8"
-              />
-            </svg>
-            <span className="brand-spinner__glow" />
-            <img src="/logo.png" alt="" className="brand-spinner__logo" />
+          <div className="flex flex-col items-center gap-5">
+            <div className="relative w-20 h-20">
+              <div className="absolute inset-0 rounded-full border-[2.5px] border-[#007074]/10" />
+              <div className="absolute inset-0 rounded-full border-[2.5px] border-transparent border-t-[#007074] border-r-[#0a8c91] brand-ring" />
+              <div className="absolute inset-[14%] rounded-full bg-white shadow-[0_8px_20px_rgba(0,112,116,0.15)] flex items-center justify-center">
+                <img src="/logo.png" alt="" className="w-[72%] h-[72%] object-contain" draggable={false} />
+              </div>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-[10px] tracking-[0.4em] uppercase text-[#007074] font-semibold">
+                Loading
+              </span>
+              <div className="flex gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#007074] brand-dot brand-dot--1" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0a8c91] brand-dot brand-dot--2" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#7FD4D7] brand-dot brand-dot--3" />
+              </div>
+            </div>
           </div>
         </div>
       )}

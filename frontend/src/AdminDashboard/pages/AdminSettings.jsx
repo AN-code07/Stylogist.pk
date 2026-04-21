@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import {
   FiUser, FiShield, FiMail, FiPhone, FiLock, FiSave, FiLoader, FiEye, FiEyeOff,
   FiAlertCircle, FiLayout, FiPlus, FiTrash2, FiLink, FiMapPin, FiPhoneCall,
-  FiCreditCard, FiShare2
+  FiCreditCard, FiShare2, FiUsers, FiImage
 } from 'react-icons/fi';
+import { useUploadImage } from '../../features/uploads/useUploadHooks';
 import toast from 'react-hot-toast';
 import { useMe, useUpdateProfile, useChangePassword } from '../../features/user/useUserHooks';
 import { useSiteSettings, useUpdateSiteSettings } from '../../features/settings/useSettingsHooks';
@@ -31,6 +32,9 @@ export default function AdminSettings() {
             <TabButton icon={<FiLayout size={15} />} active={tab === 'footer'} onClick={() => setTab('footer')}>
               Footer
             </TabButton>
+            <TabButton icon={<FiUsers size={15} />} active={tab === 'visionaries'} onClick={() => setTab('visionaries')}>
+              Visionaries
+            </TabButton>
           </div>
         </nav>
 
@@ -39,6 +43,7 @@ export default function AdminSettings() {
           {tab === 'profile' && <ProfilePanel />}
           {tab === 'security' && <SecurityPanel />}
           {tab === 'footer' && <FooterPanel />}
+          {tab === 'visionaries' && <VisionariesPanel />}
         </section>
       </div>
     </div>
@@ -704,5 +709,226 @@ function RemoveButton({ onClick }) {
     >
       <FiTrash2 size={14} />
     </button>
+  );
+}
+
+/* ------------ Visionaries ------------ */
+
+const emptyVisionary = () => ({ name: '', role: '', bio: '', image: '', socialUrl: '' });
+
+function VisionariesPanel() {
+  const { data, isLoading, isError, refetch } = useSiteSettings();
+  const updateMut = useUpdateSiteSettings();
+  const uploadOne = useUploadImage();
+
+  const [form, setForm] = useState(null);
+  const [dirty, setDirty] = useState(false);
+  const [uploadingIndex, setUploadingIndex] = useState(null);
+
+  useEffect(() => {
+    if (!data?.about) return;
+    setForm({
+      visionHeading: data.about.visionHeading || '',
+      visionBlurb: data.about.visionBlurb || '',
+      visionaries: (data.about.visionaries || []).map((v) => ({
+        name: v.name || '',
+        role: v.role || '',
+        bio: v.bio || '',
+        image: v.image || '',
+        socialUrl: v.socialUrl || '',
+      })),
+    });
+    setDirty(false);
+  }, [data]);
+
+  if (isError) {
+    return (
+      <div className="text-center py-10">
+        <FiAlertCircle className="mx-auto text-red-500 mb-3" size={24} />
+        <p className="text-sm text-slate-500">Couldn't load visionaries.</p>
+        <button onClick={() => refetch()} className="mt-3 text-sm text-[#007074] hover:underline">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (isLoading || !form) {
+    return (
+      <div className="flex items-center justify-center py-16 text-slate-400">
+        <FiLoader className="animate-spin" size={18} />
+      </div>
+    );
+  }
+
+  const updateField = (key, value) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setDirty(true);
+  };
+
+  const updateItem = (idx, patch) => {
+    setForm((f) => ({
+      ...f,
+      visionaries: f.visionaries.map((v, i) => (i === idx ? { ...v, ...patch } : v)),
+    }));
+    setDirty(true);
+  };
+
+  const addItem = () => {
+    setForm((f) => ({ ...f, visionaries: [...f.visionaries, emptyVisionary()] }));
+    setDirty(true);
+  };
+
+  const removeItem = (idx) => {
+    setForm((f) => ({ ...f, visionaries: f.visionaries.filter((_, i) => i !== idx) }));
+    setDirty(true);
+  };
+
+  const handleImageUpload = async (idx, file) => {
+    if (!file) return;
+    setUploadingIndex(idx);
+    try {
+      const res = await uploadOne.mutateAsync({
+        file,
+        role: 'visionary',
+        alt: form.visionaries[idx].name || 'Visionary',
+      });
+      updateItem(idx, { image: res.url });
+    } catch { /* hook toast */ } finally {
+      setUploadingIndex(null);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!dirty) return toast('Nothing to save.', { icon: 'ℹ️' });
+    const visionaries = form.visionaries
+      .map((v) => ({
+        name: v.name.trim(),
+        role: v.role.trim(),
+        bio: v.bio.trim(),
+        image: v.image.trim(),
+        socialUrl: v.socialUrl.trim(),
+      }))
+      .filter((v) => v.name && v.role);
+    try {
+      await updateMut.mutateAsync({
+        about: {
+          visionHeading: form.visionHeading.trim(),
+          visionBlurb: form.visionBlurb.trim(),
+          visionaries,
+        },
+      });
+      setDirty(false);
+    } catch { /* hook toast */ }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900">Meet the Visionaries</h3>
+        <p className="text-xs text-slate-500 mt-1">
+          People showcased on the About page. Name and role are required; everything else is optional.
+        </p>
+      </div>
+
+      <Section title="Section heading" icon={<FiUsers size={14} />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Heading">
+            <input
+              value={form.visionHeading}
+              onChange={(e) => updateField('visionHeading', e.target.value)}
+              className={plainInput}
+              placeholder="Meet the Visionaries"
+            />
+          </Field>
+          <Field label="Blurb">
+            <input
+              value={form.visionBlurb}
+              onChange={(e) => updateField('visionBlurb', e.target.value)}
+              className={plainInput}
+              placeholder="One-line subtitle"
+            />
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="Visionaries" icon={<FiUsers size={14} />}>
+        <div className="space-y-4">
+          {form.visionaries.length === 0 && (
+            <p className="text-xs text-slate-400 italic">No visionaries yet. Use "Add person" to create one.</p>
+          )}
+          {form.visionaries.map((v, idx) => (
+            <div key={idx} className="border border-slate-200 rounded-xl p-4 bg-slate-50/40 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-full bg-white border border-slate-200 overflow-hidden flex items-center justify-center text-slate-300 flex-shrink-0">
+                  {v.image ? (
+                    // eslint-disable-next-line jsx-a11y/img-redundant-alt
+                    <img src={v.image} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <FiImage size={18} />
+                  )}
+                </div>
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-md text-xs font-medium text-slate-600 bg-white hover:bg-slate-50 cursor-pointer">
+                  {uploadingIndex === idx ? <FiLoader className="animate-spin" size={12} /> : <FiImage size={12} />}
+                  {v.image ? 'Replace photo' : 'Upload photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleImageUpload(idx, e.target.files?.[0])}
+                  />
+                </label>
+                <button type="button" onClick={() => removeItem(idx)} className="ml-auto">
+                  <RemoveButton onClick={() => removeItem(idx)} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  value={v.name}
+                  onChange={(e) => updateItem(idx, { name: e.target.value })}
+                  placeholder="Full name"
+                  className={plainInput}
+                />
+                <input
+                  value={v.role}
+                  onChange={(e) => updateItem(idx, { role: e.target.value })}
+                  placeholder="Role / title"
+                  className={plainInput}
+                />
+              </div>
+
+              <textarea
+                value={v.bio}
+                onChange={(e) => updateItem(idx, { bio: e.target.value })}
+                placeholder="Short bio (optional)"
+                rows={2}
+                className={plainInput}
+              />
+
+              <input
+                value={v.socialUrl}
+                onChange={(e) => updateItem(idx, { socialUrl: e.target.value })}
+                placeholder="LinkedIn / profile URL (optional)"
+                className={plainInput}
+              />
+            </div>
+          ))}
+          <AddButton onClick={addItem} label="Add person" />
+        </div>
+      </Section>
+
+      <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 sticky bottom-0 bg-white py-3">
+        <button
+          type="submit"
+          disabled={!dirty || updateMut.isPending}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d] disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {updateMut.isPending ? <FiLoader className="animate-spin" size={14} /> : <FiSave size={14} />}
+          Save visionaries
+        </button>
+      </div>
+    </form>
   );
 }

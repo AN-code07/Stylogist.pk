@@ -47,6 +47,8 @@ export const emptyForm = {
   brand: '',
   status: 'draft',
   isFeatured: false,
+  isTrending: false,
+  isDeal: false,
   variants: [emptyVariant()],
   thumbnail: null,
   media: [],

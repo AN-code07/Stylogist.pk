@@ -31,9 +31,11 @@ export default function AdminNavbar() {
     .toUpperCase();
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-5 md:px-8 shrink-0 relative z-30">
-      <div className="flex items-center gap-3">
-        <h2 className="text-sm font-semibold text-slate-900">Dashboard</h2>
+    <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between pl-16 md:pl-20 lg:pl-8 pr-5 md:pr-8 shrink-0 relative z-30">
+      {/* Left padding above reserves room for the fixed hamburger button that
+          the Sidebar component renders at the top-left on screens < lg. */}
+      <div className="flex items-center gap-3 min-w-0">
+        <h2 className="text-sm font-semibold text-slate-900 truncate">Dashboard</h2>
       </div>
 
       <div className="flex items-center gap-2">

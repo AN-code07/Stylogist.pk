@@ -156,8 +156,8 @@ export default function Footer() {
               <img
                 src={logo}
                 alt="Stylogist.pk"
-                width="140"
-                height="44"
+                width="240"
+                height="64"
                 className="h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03]"
                 loading="lazy"
                 decoding="async"

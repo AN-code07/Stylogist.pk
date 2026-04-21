@@ -234,15 +234,33 @@ export default function ProductForm({
           </Field>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={form.isFeatured}
-            onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })}
-            className="w-4 h-4 accent-[#007074]"
-          />
-          Mark as featured
-        </label>
+        {/* Merchandising rails — drive the Home page sections. Keep in sync
+            with FeaturedProducts / TrendingProducts / DealsOfDay consumers. */}
+        <div className="pt-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+            Storefront placement
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <MerchFlag
+              label="Featured"
+              hint="Shown in Home → Featured Collection"
+              checked={form.isFeatured}
+              onChange={(v) => setForm({ ...form, isFeatured: v })}
+            />
+            <MerchFlag
+              label="Trending"
+              hint="Shown in Home / Deals → Trending Now"
+              checked={form.isTrending}
+              onChange={(v) => setForm({ ...form, isTrending: v })}
+            />
+            <MerchFlag
+              label="On deal"
+              hint="Shown in Deals of the Day"
+              checked={form.isDeal}
+              onChange={(v) => setForm({ ...form, isDeal: v })}
+            />
+          </div>
+        </div>
       </section>
 
       {/* RIGHT — media + variants */}
@@ -285,3 +303,33 @@ export default function ProductForm({
     </form>
   );
 }
+
+// Segmented flag toggle: click-to-activate, shows an accent border + check
+// dot when active. Used for the Featured / Trending / Deal merchandising
+// rails so admins can tag a product into a home section in one click.
+function MerchFlag({ label, hint, checked, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`text-left p-3 rounded-lg border transition-colors ${
+        checked
+          ? 'border-[#007074] bg-[#007074]/5 ring-2 ring-[#007074]/10'
+          : 'border-slate-200 hover:border-slate-300 bg-white'
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span className={`text-sm font-semibold ${checked ? 'text-[#007074]' : 'text-slate-900'}`}>
+          {label}
+        </span>
+        <span
+          className={`w-4 h-4 rounded-full border ${
+            checked ? 'bg-[#007074] border-[#007074]' : 'border-slate-300'
+          }`}
+        />
+      </div>
+      {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
+    </button>
+  );
+}
+

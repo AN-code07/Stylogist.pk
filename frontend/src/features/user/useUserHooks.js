@@ -1,11 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axiosClient from '../../api/axiosClient';
-import useAuthStore from '../../store/useAuthStore';
+import useAuthStore, { hadSession } from '../../store/useAuthStore';
 import toast from 'react-hot-toast';
 
 const ME_KEY = ['user', 'me'];
 
 // Legacy named export kept because existing callers import it as `getLoginUser`.
+// Anonymous visitors should NOT see a "session expired" toast — only surface
+// the message when we had a real session (localStorage flag set at login) and
+// the backend now returns 401. Otherwise fail silently: the user simply isn't
+// logged in yet.
 export const getLoginUser = () => {
     const setAuth = useAuthStore((state) => state.setAuth);
     const clearAuth = useAuthStore((state) => state.clearAuth);
@@ -13,6 +17,7 @@ export const getLoginUser = () => {
     return useQuery({
         queryKey: ["user"],
         queryFn: async () => {
+            const hadActiveSession = hadSession();
             try {
                 const { data } = await axiosClient.get("/users/me");
                 const user = data.data?.user || data.user;
@@ -20,7 +25,7 @@ export const getLoginUser = () => {
                 return user;
             } catch (error) {
                 clearAuth();
-                if (error.response?.status === 401) {
+                if (error.response?.status === 401 && hadActiveSession) {
                     toast.error("Session expired. Please log in again.");
                 }
                 throw error;
@@ -28,6 +33,8 @@ export const getLoginUser = () => {
         },
         retry: false,
         refetchOnWindowFocus: true,
+        // Don't retry-spam /users/me; the ProtectedRoute guard handles redirect.
+        staleTime: 5 * 60 * 1000,
     });
 };
 

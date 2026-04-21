@@ -6,6 +6,8 @@ import Navbar from './commonpages/Navbar'
 import Footer from './commonpages/Footer'
 import ScrollToTop from './commonpages/ScrollToTop'
 import RouteLoader from './components/common/RouteLoader'
+import PageLoader from './components/common/PageLoader'
+import ProtectedRoute from './components/common/ProtectedRoute'
 import Seo from './components/common/Seo'
 
 // Everything below is lazy-loaded. Only the home page ships in the initial
@@ -43,43 +45,27 @@ const AdminSettings = lazy(() => import('./AdminDashboard/pages/AdminSettings'))
 // Lightweight fallback while a lazy chunk is fetched. Uses the branded
 // double-ring spinner (see .brand-spinner in index.css) so the loading
 // state feels on-theme rather than a generic stock indicator.
-// Professional branded spinner — two SVG arcs rotating around the logo
-// (outer arc CW, inner arc CCW), a soft halo ripple and a gentle logo pulse.
-// See `.brand-spinner` in index.css for the animation keyframes.
-const BrandSpinner = () => (
-  <div className="brand-spinner" aria-label="Loading">
-    <span className="brand-spinner__halo" />
-    <svg className="brand-spinner__arc brand-spinner__arc--outer" viewBox="0 0 100 100" aria-hidden="true">
-      <defs>
-        <linearGradient id="brand-spinner-outer" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#7FD4D7" />
-          <stop offset="55%" stopColor="#0a8c91" />
-          <stop offset="100%" stopColor="#007074" />
-        </linearGradient>
-      </defs>
-      <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,112,116,0.12)" strokeWidth="4" />
-      <circle
-        cx="50" cy="50" r="46"
-        fill="none"
-        stroke="url(#brand-spinner-outer)"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeDasharray="120 210"
-      />
-    </svg>
-    <svg className="brand-spinner__arc brand-spinner__arc--inner" viewBox="0 0 100 100" aria-hidden="true">
-      <circle
-        cx="50" cy="50" r="38"
-        fill="none"
-        stroke="#0a8c91"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray="40 200"
-        opacity="0.8"
-      />
-    </svg>
-    <span className="brand-spinner__glow" />
-    <img src="/logo.png" alt="" className="brand-spinner__logo" />
+// Inline spinner used as the Suspense fallback while a lazy route chunk
+// is fetched. Mirrors the full-screen PageLoader styling (dim track ring
+// + rotating teal/cyan arc + centered logo disc + bouncing dots label)
+// so loading states feel consistent across the app.
+const BrandSpinner = ({ label = 'Loading' }) => (
+  <div className="flex flex-col items-center gap-5" aria-label={label}>
+    <div className="relative w-20 h-20">
+      <div className="absolute inset-0 rounded-full border-[2.5px] border-[#007074]/10" />
+      <div className="absolute inset-0 rounded-full border-[2.5px] border-transparent border-t-[#007074] border-r-[#0a8c91] brand-ring" />
+      <div className="absolute inset-[14%] rounded-full bg-white shadow-[0_8px_20px_rgba(0,112,116,0.15)] flex items-center justify-center">
+        <img src="/logo.png" alt="" className="w-[72%] h-[72%] object-contain" draggable={false} />
+      </div>
+    </div>
+    <div className="flex flex-col items-center gap-2">
+      <span className="text-[10px] tracking-[0.4em] uppercase text-[#007074] font-semibold">{label}</span>
+      <div className="flex gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#007074] brand-dot brand-dot--1" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#0a8c91] brand-dot brand-dot--2" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#7FD4D7] brand-dot brand-dot--3" />
+      </div>
+    </div>
   </div>
 )
 
@@ -177,13 +163,28 @@ const route = createBrowserRouter([
   { path: '/forgot-password', element: <PageSuspense><ForgotPassword /></PageSuspense> },
   { path: '/verify-otp', element: <PageSuspense><EnterOTP /></PageSuspense> },
   { path: '/reset-password', element: <PageSuspense><ResetPassword /></PageSuspense> },
-  { path: '/profile', element: <PageSuspense><UserProfile /></PageSuspense> },
 
-  // admin Routes — fully lazy so the storefront bundle never includes them.
+  // Customer dashboard: must be logged in. Redirects to /login with a
+  // `from` state so the login screen can bounce back here after auth.
+  {
+    path: '/profile',
+    element: (
+      <ProtectedRoute>
+        <PageSuspense><UserProfile /></PageSuspense>
+      </ProtectedRoute>
+    ),
+  },
 
+  // Admin console: locked to Super Admin only. All child routes inherit the
+  // guard by wrapping the layout itself; a non-admin user is redirected to
+  // the storefront home before any admin chunk is executed.
   {
     path: '/admin',
-    element: <PageSuspense><AdminLayout /></PageSuspense>,
+    element: (
+      <ProtectedRoute adminOnly>
+        <PageSuspense><AdminLayout /></PageSuspense>
+      </ProtectedRoute>
+    ),
     children: [
       { path: 'overview', element: <PageSuspense><AdminDashboard /></PageSuspense> },
       { path: 'analytics', element: <PageSuspense><RevenueAnalytics /></PageSuspense> },
@@ -200,5 +201,10 @@ const route = createBrowserRouter([
 
 ])
 export default function App() {
-  return <RouterProvider router={route} />
+  return (
+    <>
+      <PageLoader />
+      <RouterProvider router={route} />
+    </>
+  )
 }

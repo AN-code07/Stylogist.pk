@@ -74,6 +74,8 @@ export default function useProductManage() {
       brand: product.brand?._id || product.brand || '',
       status: product.status || 'draft',
       isFeatured: !!product.isFeatured,
+      isTrending: !!product.isTrending,
+      isDeal: !!product.isDeal,
       variants: variants.length
         ? variants.map((v) => ({
           sku: v.sku || '',
@@ -245,6 +247,8 @@ export default function useProductManage() {
       brand: form.brand || undefined,
       status: form.status,
       isFeatured: form.isFeatured,
+      isTrending: !!form.isTrending,
+      isDeal: !!form.isDeal,
       variants,
       thumbnail: form.thumbnail
         ? {

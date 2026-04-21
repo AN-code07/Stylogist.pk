@@ -272,105 +272,50 @@ main:focus-visible { outline: none; }
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+/* Custom keyframes for the brand loader — NAMED differently from `spin` so
+   they don't collide with Tailwind v4's own @keyframes spin, which can
+   otherwise shadow this rule depending on CSS layer ordering and leave
+   the ring visually static. */
+@keyframes brandSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes brandBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.6; }
+  40%           { transform: translateY(-6px); opacity: 1; }
+}
+
 .route-loader__spinner {
   width: 38px;
   height: 38px;
   border-radius: 50%;
   border: 3px solid rgba(0, 112, 116, 0.15);
   border-top-color: #007074;
-  animation: spin 720ms linear infinite;
+  animation: brandSpin 720ms linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Branded logo-centered spinner.
-   Layer stack (from outside in):
-   - halo           : expanding double ripple ring
-   - arc--outer     : SVG dashed-arc rotating clockwise with teal gradient
-   - arc--inner     : SVG short arc rotating counter-clockwise
-   - glow           : radial teal glow behind the logo (breathes)
-   - logo           : the Stylogist mark, gentle pulse
-   Uses SVG (not conic-gradient) so the arcs are visibly "spinning"
-   across the whole frame — works consistently on Safari/Firefox too. */
-.brand-spinner {
-  position: relative;
-  width: 104px;
-  height: 104px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 8px 22px rgba(0, 112, 116, 0.22));
-}
-.brand-spinner__halo {
-  position: absolute;
-  inset: 2px;
-  border-radius: 50%;
-  border: 2px solid rgba(0, 112, 116, 0.35);
-  animation: brandHalo 1800ms cubic-bezier(0.33, 0, 0.2, 1) infinite;
-  pointer-events: none;
-}
-.brand-spinner__halo::after {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: 50%;
-  border: 2px solid rgba(10, 140, 145, 0.22);
-  animation: brandHalo 1800ms cubic-bezier(0.33, 0, 0.2, 1) infinite;
-  animation-delay: 700ms;
-}
-.brand-spinner__arc {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
+/* Branded loader (PageLoader + RouteLoader overlay + Suspense fallback).
+   `.brand-ring` drives the rotating teal arc around the logo directly via
+   our own @keyframes brandSpin — independent of Tailwind's animate-spin
+   utility so it's guaranteed to run even if utilities get purged or
+   reshuffled between Tailwind versions. */
+.brand-ring {
+  animation: brandSpin 900ms linear infinite !important;
   transform-origin: 50% 50%;
   will-change: transform;
 }
-.brand-spinner__arc--outer {
-  animation: spin 1400ms cubic-bezier(0.55, 0, 0.45, 1) infinite;
-}
-.brand-spinner__arc--inner {
-  animation: spin 2200ms linear infinite reverse;
-}
-.brand-spinner__glow {
-  position: absolute;
-  inset: 18px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%,
-    rgba(127, 212, 215, 0.55) 0%,
-    rgba(0, 112, 116, 0.18) 45%,
-    rgba(255, 255, 255, 0) 75%);
-  animation: brandGlow 1800ms ease-in-out infinite;
-  pointer-events: none;
-}
-.brand-spinner__logo {
-  position: relative;
-  z-index: 1;
-  width: 52%;
-  height: 52%;
-  object-fit: contain;
-  animation: brandLogoPulse 1800ms ease-in-out infinite;
+.brand-dot {
+  animation: brandBounce 900ms ease-in-out infinite !important;
   will-change: transform, opacity;
 }
-@keyframes brandHalo {
-  0%   { transform: scale(0.82); opacity: 0.9; }
-  75%  { transform: scale(1.22); opacity: 0; }
-  100% { transform: scale(1.22); opacity: 0; }
-}
-@keyframes brandGlow {
-  0%, 100% { opacity: 0.55; transform: scale(0.92); }
-  50%      { opacity: 1;    transform: scale(1.06); }
-}
-@keyframes brandLogoPulse {
-  0%, 100% { transform: scale(0.96); opacity: 0.9; }
-  50%      { transform: scale(1.02); opacity: 1; }
-}
+.brand-dot--1 { animation-delay: 0s; }
+.brand-dot--2 { animation-delay: 120ms; }
+.brand-dot--3 { animation-delay: 240ms; }
 @media (prefers-reduced-motion: reduce) {
-  .brand-spinner__halo,
-  .brand-spinner__halo::after,
-  .brand-spinner__arc,
-  .brand-spinner__glow,
-  .brand-spinner__logo { animation: none; }
+  .brand-ring,
+  .brand-dot,
+  .animate-spin,
+  .animate-bounce { animation: none !important; }
 }
 
 /* Thin progress bar used at the top of the page while data is fetching. */

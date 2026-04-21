@@ -28,6 +28,19 @@ const paymentBadgeSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// "Meet the Visionaries" — team/leadership cards rendered on the About
+// page. Admin-editable list with photo, name, role, and an optional bio.
+const visionarySchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    role: { type: String, required: true, trim: true },
+    bio: { type: String, default: "", trim: true },
+    image: { type: String, default: "", trim: true },
+    socialUrl: { type: String, default: "", trim: true },
+  },
+  { _id: false }
+);
+
 const settingsSchema = new mongoose.Schema(
   {
     key: { type: String, default: "site", unique: true, index: true },
@@ -62,6 +75,17 @@ const settingsSchema = new mongoose.Schema(
         trim: true,
         default: "Stylogist.pk. All Rights Reserved.",
       },
+    },
+
+    about: {
+      visionHeading: { type: String, trim: true, default: "Meet the Visionaries" },
+      visionBlurb: {
+        type: String,
+        trim: true,
+        default:
+          "The people behind Stylogist — pairing design, technology, and craftsmanship to curate a better way to shop.",
+      },
+      visionaries: { type: [visionarySchema], default: undefined },
     },
   },
   { timestamps: true }
@@ -111,4 +135,11 @@ export const DEFAULT_FOOTER = {
   newsletterBlurb:
     "Subscribe to our newsletter and get 10% off your first premium purchase, plus early access to new drops.",
   copyright: "Stylogist.pk. All Rights Reserved.",
+};
+
+export const DEFAULT_ABOUT = {
+  visionHeading: "Meet the Visionaries",
+  visionBlurb:
+    "The people behind Stylogist — pairing design, technology, and craftsmanship to curate a better way to shop.",
+  visionaries: [],
 };

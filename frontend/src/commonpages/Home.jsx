@@ -15,8 +15,8 @@ export default function Home() {
       <div className='w-full sm:w-[90%] mx-auto '>
         <FeaturedProducts />
         <NewArrivals />
-        {/* <DealsOfDay /> */}
         <TrendingProducts />
+        <DealsOfDay />
         {/* <CategoryHighlights /> */}
         <AiSuggestedProducts />
         <CustomerReviews />

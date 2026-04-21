@@ -4,13 +4,17 @@ import toast from 'react-hot-toast';
 
 const ADDRESSES_KEY = ['addresses'];
 
-export const useAddresses = () => {
+// Accepts an `enabled` flag so callers can skip the fetch for anonymous
+// visitors — guest checkout doesn't need the saved-address book and firing
+// this as anon would just return 401.
+export const useAddresses = ({ enabled = true } = {}) => {
     return useQuery({
         queryKey: ADDRESSES_KEY,
         queryFn: async () => {
             const { data } = await axiosClient.get('/addresses');
             return data.data.addresses || [];
         },
+        enabled,
     });
 };
 

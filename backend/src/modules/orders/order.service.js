@@ -8,11 +8,22 @@ import { ApiError } from "../../utils/ApiError.js";
 
 const REVENUE_STATUSES = ["confirmed", "shipped", "delivered"];
 
+// Accepts both authenticated and guest orders.
+// - Registered: `userId` provided → resolve `addressId` from the user's Address book
+// - Guest: `userId` is null, caller must provide `guest` + `guestAddress` inline
 export const createOrder = async (userId, orderData) => {
-  const { items, addressId, paymentMethod = "COD" } = orderData;
+  const { items, addressId, guest, guestAddress, paymentMethod = "COD" } = orderData;
 
-  const address = await Address.findOne({ _id: addressId, userId });
-  if (!address) throw new ApiError(404, "Shipping address not found");
+  let resolvedAddress = null;
+  if (userId) {
+    if (!addressId) throw new ApiError(400, "Shipping address is required");
+    resolvedAddress = await Address.findOne({ _id: addressId, userId });
+    if (!resolvedAddress) throw new ApiError(404, "Shipping address not found");
+  } else {
+    if (!guest || !guestAddress) {
+      throw new ApiError(400, "Guest checkout requires customer info and address");
+    }
+  }
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -75,9 +86,11 @@ export const createOrder = async (userId, orderData) => {
     const [order] = await Order.create(
       [
         {
-          user: userId,
+          user: userId || null,
+          guest: userId ? undefined : guest,
           items: orderItems,
-          shippingAddress: address._id,
+          shippingAddress: resolvedAddress ? resolvedAddress._id : null,
+          guestAddress: userId ? undefined : guestAddress,
           paymentMethod,
           subtotal,
           shippingFee,

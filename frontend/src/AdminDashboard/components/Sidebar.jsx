@@ -28,13 +28,16 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* MOBILE TRIGGER: Visible only on small/medium screens */}
-      <div className="lg:hidden fixed top-6 md:top-4 left-1 md:left-4 z-50">
-        <button 
+      {/* MOBILE TRIGGER: Visible only on small/medium screens.
+          Positioned to sit vertically-centered inside the 64px admin navbar
+          (top-3 + p-2.5 ≈ 40px button centered in an h-16 header). */}
+      <div className="lg:hidden fixed top-3 left-3 z-50">
+        <button
           onClick={() => setIsOpen(true)}
-          className="p-1 md:p-3 bg-[#1E293B] text-white rounded-md md:rounded-xl shadow-lg border border-slate-700 hover:bg-[#007074] transition-colors"
+          aria-label="Open menu"
+          className="p-2.5 bg-[#1E293B] text-white rounded-lg shadow-lg border border-slate-700 hover:bg-[#007074] transition-colors inline-flex items-center justify-center"
         >
-          <FiMenu size={20} />
+          <FiMenu size={18} />
         </button>
       </div>
 

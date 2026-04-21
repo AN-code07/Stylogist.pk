@@ -271,6 +271,8 @@ export const getAllProducts = async (query = {}) => {
     discount,
     inStock,
     deal,
+    featured,
+    trending,
     sort,
     page = 1,
     limit = 12,
@@ -305,7 +307,16 @@ export const getAllProducts = async (query = {}) => {
   if (rating) filter.averageRating = { $gte: Number(rating) };
   if (discount) filter.discountPercentage = { $gte: Number(discount) };
   if (inStock === "true") filter.totalStock = { $gt: 0 };
-  if (deal === "true") filter.isDealActive = true;
+  // Admin-curated rails. `deal` accepts either the newer `isDeal` flag or
+  // the legacy `isDealActive` schedule flag so existing data keeps working.
+  if (deal === "true") {
+    filter.$and = [
+      ...(filter.$and || []),
+      { $or: [{ isDeal: true }, { isDealActive: true }] },
+    ];
+  }
+  if (featured === "true") filter.isFeatured = true;
+  if (trending === "true") filter.isTrending = true;
 
   // Text search: collapse into a single filter so the query planner can
   // pick one index instead of running two `.find()` stages.
@@ -328,7 +339,7 @@ export const getAllProducts = async (query = {}) => {
   // HTML, often several KB each) dramatically reduces the response size on
   // category pages.
   const LIST_PROJECTION =
-    "name slug category categories brand status isFeatured averageRating minPrice maxPrice totalStock discountPercentage isDealActive totalReviews totalSales createdAt";
+    "name slug category categories brand status isFeatured isTrending isDeal averageRating minPrice maxPrice totalStock discountPercentage isDealActive dealStart dealEnd totalReviews totalSales createdAt";
 
   const [items, total] = await Promise.all([
     Product.find(filter)

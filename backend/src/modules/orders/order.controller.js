@@ -1,7 +1,9 @@
 import * as OrderService from "./order.service.js";
 
 export const createOrder = async (req, res) => {
-  const order = await OrderService.createOrder(req.user.id, req.validated.body);
+  // `req.user` is set for authenticated customers; undefined for guest checkout.
+  const userId = req.user?.id || null;
+  const order = await OrderService.createOrder(userId, req.validated.body);
   res.status(201).json({ status: "success", message: "Order placed", data: order });
 };
 

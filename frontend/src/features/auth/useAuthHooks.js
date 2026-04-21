@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axiosClient from '../../api/axiosClient';
 import useAuthStore from '../../store/useAuthStore';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 // --- 4. SIGNUP HOOK ---
@@ -27,6 +27,7 @@ export const useSignup = () => {
 export const useLogin = () => {
     const setAuth = useAuthStore((state) => state.setAuth);
     const navigate = useNavigate();
+    const location = useLocation();
 
     return useMutation({
         mutationFn: async (credentials) => {
@@ -36,7 +37,15 @@ export const useLogin = () => {
         onSuccess: (user) => {
             setAuth(user);
             toast.success("Welcome back to Stylogist!");
-            navigate('/');
+            // Post-login routing:
+            //  - Super Admin lands straight in the console
+            //  - Anyone else goes back to where they came from, or home
+            if (user?.role === 'Super Admin') {
+                navigate('/admin/overview');
+                return;
+            }
+            const redirectTo = location.state?.from || '/';
+            navigate(redirectTo);
         },
         onError: (error) => {
             toast.error(error.response?.data?.message || "Login failed. Please check your credentials.");

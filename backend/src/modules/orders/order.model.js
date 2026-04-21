@@ -16,26 +16,56 @@ const orderItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const guestInfoSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: { type: String, required: true, trim: true, lowercase: true },
+    phone: { type: String, required: true, trim: true },
+  },
+  { _id: false }
+);
+
+const inlineAddressSchema = new mongoose.Schema(
+  {
+    label: { type: String, default: "Home", trim: true },
+    addressLine1: { type: String, required: true, trim: true },
+    addressLine2: { type: String, default: "", trim: true },
+    city: { type: String, required: true, trim: true },
+    state: { type: String, required: true, trim: true },
+    postalCode: { type: String, required: true, trim: true },
+    country: { type: String, required: true, trim: true },
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema(
   {
+    // Registered-customer orders: `user` populated, `guest` empty.
+    // Guest orders: `user` null, `guest` + `guestAddress` populated.
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
       index: true,
     },
+
+    guest: { type: guestInfoSchema, default: undefined },
 
     items: {
       type: [orderItemSchema],
       required: true,
     },
 
-    // Reference shipping address
+    // Reference shipping address — only set for registered customers.
     shippingAddress: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Address",
-      required: true,
+      default: null,
     },
+
+    // Snapshot address captured at checkout time for guest orders (so the
+    // order record stays self-contained even if the customer never signs up).
+    guestAddress: { type: inlineAddressSchema, default: undefined },
 
     paymentMethod: {
       type: String,

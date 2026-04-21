@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   FiChevronLeft, FiTruck, FiShield, FiMapPin, FiPackage, FiPlus,
-  FiCheck, FiAlertCircle, FiLoader, FiTrash2
+  FiCheck, FiAlertCircle, FiLoader, FiTrash2, FiUser
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import useCartStore from '../store/useCartStore';
@@ -26,31 +26,51 @@ const emptyAddress = {
   isDefault: true,
 };
 
+const emptyGuest = { name: '', email: '', phone: '' };
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
   const items = useCartStore((s) => s.items);
   const removeItem = useCartStore((s) => s.removeItem);
   const setQuantity = useCartStore((s) => s.setQuantity);
   const clearCart = useCartStore((s) => s.clear);
 
-  const { data: addresses = [], isLoading: loadingAddresses } = useAddresses();
+  // Only fetch the saved-address book when we're actually logged in — guests
+  // never need it and firing /addresses as anon would just trigger a 401.
+  const { data: addresses = [], isLoading: loadingAddresses } = useAddresses({
+    enabled: isAuthenticated,
+  });
   const addAddressMut = useAddAddress();
   const createOrderMut = useCreateOrder();
 
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newAddress, setNewAddress] = useState(emptyAddress);
+  const [guestInfo, setGuestInfo] = useState(emptyGuest);
 
   // Select the default address (or first one) whenever the list loads or changes.
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (addresses.length && !selectedAddressId) {
       const def = addresses.find((a) => a.isDefault) || addresses[0];
       setSelectedAddressId(def._id);
     }
     if (!addresses.length) setShowAddForm(true);
-  }, [addresses, selectedAddressId]);
+  }, [isAuthenticated, addresses, selectedAddressId]);
+
+  // Prefill guest info from the authenticated user when available — saves
+  // logged-in customers from retyping their name/email on the order form.
+  useEffect(() => {
+    if (!user) return;
+    setGuestInfo((g) => ({
+      name: g.name || user.name || '',
+      email: g.email || user.email || '',
+      phone: g.phone || user.phone || '',
+    }));
+  }, [user]);
 
   const subtotal = useMemo(
     () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
@@ -73,29 +93,80 @@ export default function CheckoutPage() {
     } catch { /* hook toast */ }
   };
 
-  const handlePlaceOrder = async () => {
-    if (!isAuthenticated) {
-      toast.error('Please sign in to place your order');
-      return navigate('/login');
+  const validateGuestInfo = () => {
+    if (!guestInfo.name.trim() || guestInfo.name.trim().length < 2) {
+      toast.error('Enter your full name');
+      return false;
     }
-    if (!items.length) return toast.error('Your cart is empty');
-    if (!selectedAddressId) return toast.error('Choose a shipping address');
+    if (!/^\S+@\S+\.\S+$/.test(guestInfo.email.trim())) {
+      toast.error('Enter a valid email address');
+      return false;
+    }
+    if (guestInfo.phone.trim().length < 7) {
+      toast.error('Enter a valid phone number');
+      return false;
+    }
+    return true;
+  };
 
-    const payload = {
+  const validateGuestAddress = () => {
+    const required = ['addressLine1', 'city', 'state', 'postalCode', 'country'];
+    for (const f of required) {
+      if (!newAddress[f]?.trim()) {
+        toast.error(`${f.replace(/([A-Z])/g, ' $1')} is required`);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!items.length) return toast.error('Your cart is empty');
+
+    const basePayload = {
       items: items.map((i) => ({
         productId: i.productId,
         sku: i.sku,
         quantity: i.quantity,
       })),
-      addressId: selectedAddressId,
       paymentMethod: 'COD',
     };
+
+    let payload;
+    if (isAuthenticated) {
+      if (!selectedAddressId) return toast.error('Choose a shipping address');
+      payload = { ...basePayload, addressId: selectedAddressId };
+    } else {
+      if (!validateGuestInfo()) return;
+      if (!validateGuestAddress()) return;
+      payload = {
+        ...basePayload,
+        guest: {
+          name: guestInfo.name.trim(),
+          email: guestInfo.email.trim().toLowerCase(),
+          phone: guestInfo.phone.trim(),
+        },
+        guestAddress: {
+          label: newAddress.label?.trim() || 'Home',
+          addressLine1: newAddress.addressLine1.trim(),
+          addressLine2: newAddress.addressLine2?.trim() || '',
+          city: newAddress.city.trim(),
+          state: newAddress.state.trim(),
+          postalCode: newAddress.postalCode.trim(),
+          country: newAddress.country.trim(),
+        },
+      };
+    }
 
     try {
       const order = await createOrderMut.mutateAsync(payload);
       toast.success('Order placed — you will pay on delivery.');
       clearCart();
-      navigate('/profile', { state: { placedOrderId: order._id } });
+      if (isAuthenticated) {
+        navigate('/profile', { state: { placedOrderId: order._id } });
+      } else {
+        navigate('/', { state: { placedOrderId: order._id } });
+      }
     } catch { /* hook toast */ }
   };
 
@@ -116,8 +187,56 @@ export default function CheckoutPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 md:px-8 mt-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left — address + payment */}
+        {/* Left — contact + address + payment */}
         <section className="lg:col-span-7 space-y-4">
+          {/* Contact info — always collected so we can reach the buyer for COD
+              confirmation, regardless of guest or registered. */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 rounded-md bg-[#007074]/10 text-[#007074] flex items-center justify-center">
+                  <FiUser size={15} />
+                </span>
+                <h2 className="text-base font-semibold">Contact information</h2>
+              </div>
+              {!isAuthenticated && (
+                <Link
+                  to="/login"
+                  state={{ from: '/checkout' }}
+                  className="text-xs font-medium text-[#007074] hover:underline"
+                >
+                  Have an account? Sign in
+                </Link>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input
+                label="Full name"
+                value={guestInfo.name}
+                onChange={(e) => setGuestInfo({ ...guestInfo, name: e.target.value })}
+                placeholder="Your full name"
+              />
+              <Input
+                label="Email"
+                type="email"
+                value={guestInfo.email}
+                onChange={(e) => setGuestInfo({ ...guestInfo, email: e.target.value })}
+                placeholder="you@example.com"
+              />
+              <Input
+                label="Phone"
+                value={guestInfo.phone}
+                onChange={(e) => setGuestInfo({ ...guestInfo, phone: e.target.value })}
+                placeholder="e.g. 03xx-xxxxxxx"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 mt-3">
+              We'll use these details to confirm the order and coordinate delivery. No account required.
+            </p>
+          </div>
+
+          {/* Shipping address — saved-address picker for logged-in users, inline form for guests. */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
@@ -126,7 +245,7 @@ export default function CheckoutPage() {
                 </span>
                 <h2 className="text-base font-semibold">Shipping address</h2>
               </div>
-              {addresses.length > 0 && !showAddForm && (
+              {isAuthenticated && addresses.length > 0 && !showAddForm && (
                 <button
                   onClick={() => setShowAddForm(true)}
                   className="text-xs font-medium text-[#007074] hover:underline inline-flex items-center gap-1"
@@ -136,24 +255,14 @@ export default function CheckoutPage() {
               )}
             </div>
 
-            {!isAuthenticated ? (
-              <div className="text-center py-6">
-                <p className="text-sm text-slate-600">You'll need to sign in to check out.</p>
-                <Link
-                  to="/login"
-                  className="inline-block mt-3 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d]"
-                >
-                  Sign in
-                </Link>
-              </div>
-            ) : loadingAddresses ? (
+            {isAuthenticated && loadingAddresses ? (
               <div className="space-y-2">
                 <div className="h-16 bg-slate-50 rounded-lg animate-pulse" />
                 <div className="h-16 bg-slate-50 rounded-lg animate-pulse" />
               </div>
             ) : (
               <>
-                {addresses.length > 0 && (
+                {isAuthenticated && addresses.length > 0 && (
                   <div className="space-y-2">
                     {addresses.map((a) => (
                       <AddressOption
@@ -166,12 +275,14 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {showAddForm && (
+                {(showAddForm || !isAuthenticated) && (
                   <form
-                    onSubmit={handleAddAddress}
-                    className="mt-4 pt-4 border-t border-slate-100 space-y-3"
+                    onSubmit={isAuthenticated ? handleAddAddress : (e) => e.preventDefault()}
+                    className={`${isAuthenticated && addresses.length > 0 ? 'mt-4 pt-4 border-t border-slate-100' : ''} space-y-3`}
                   >
-                    <h3 className="text-sm font-semibold text-slate-900">New address</h3>
+                    {isAuthenticated && (
+                      <h3 className="text-sm font-semibold text-slate-900">New address</h3>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <Input
@@ -218,35 +329,39 @@ export default function CheckoutPage() {
                       />
                     </div>
 
-                    <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={newAddress.isDefault}
-                        onChange={(e) => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
-                        className="w-4 h-4 accent-[#007074]"
-                      />
-                      Set as default
-                    </label>
+                    {isAuthenticated && (
+                      <>
+                        <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={newAddress.isDefault}
+                            onChange={(e) => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
+                            className="w-4 h-4 accent-[#007074]"
+                          />
+                          Set as default
+                        </label>
 
-                    <div className="flex gap-2 pt-2">
-                      <button
-                        type="submit"
-                        disabled={addAddressMut.isPending}
-                        className="px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d] disabled:opacity-60 inline-flex items-center gap-2"
-                      >
-                        {addAddressMut.isPending && <FiLoader className="animate-spin" size={14} />}
-                        Save address
-                      </button>
-                      {addresses.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => { setShowAddForm(false); setNewAddress(emptyAddress); }}
-                          className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="submit"
+                            disabled={addAddressMut.isPending}
+                            className="px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d] disabled:opacity-60 inline-flex items-center gap-2"
+                          >
+                            {addAddressMut.isPending && <FiLoader className="animate-spin" size={14} />}
+                            Save address
+                          </button>
+                          {addresses.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => { setShowAddForm(false); setNewAddress(emptyAddress); }}
+                              className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </form>
                 )}
               </>
@@ -369,7 +484,7 @@ export default function CheckoutPage() {
 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={createOrderMut.isPending || !items.length || !selectedAddressId}
+                  disabled={createOrderMut.isPending || !items.length}
                   className="mt-5 w-full bg-[#007074] text-white py-3 rounded-lg text-sm font-semibold hover:bg-[#005a5d] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
                 >
                   {createOrderMut.isPending ? (
