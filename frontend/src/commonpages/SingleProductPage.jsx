@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, memo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   FiChevronRight, FiStar, FiHeart, FiMinus, FiPlus, FiShoppingCart,
@@ -50,18 +50,13 @@ export default function ProductDetailsPage() {
     if (colors.length) setSelectedColor((prev) => prev || colors[0]);
   }, [images, sizes, colors]);
 
-  // Per-product SEO title/description/image is rendered via <Seo /> below so
-  // the tags update on every navigation and can be read by crawlers without
-  // waiting on a client-side effect.
   const seoTitle = product?.metaTitle?.trim() || (product ? `${product.name} | Stylogist` : '');
   const seoDescription = product
     ? product.metaDescription?.trim() ||
-      stripHtml(product.shortDescription) ||
-      stripHtml(product.description).slice(0, 160)
+    stripHtml(product.shortDescription) ||
+    stripHtml(product.description).slice(0, 160)
     : '';
 
-  // Resolve the variant that matches the current size/color. If only one attribute
-  // exists we relax the match so the user isn't forced to pick something irrelevant.
   const matchedVariant = useMemo(() => {
     if (!variants.length) return null;
     return (
@@ -76,25 +71,23 @@ export default function ProductDetailsPage() {
   const stock = matchedVariant?.stock ?? 0;
   const outOfStock = stock <= 0;
 
-  // schema.org Product JSON-LD. Gives Google the data it needs to render a
-  // rich product result (price, availability, rating, brand) on the SERP.
   const productJsonLd = useMemo(() => {
     if (!product) return null;
     const canonicalUrl = typeof window !== 'undefined' ? window.location.href : undefined;
     const anyInStock = variants.some((v) => (v.stock ?? 0) > 0);
     const offers = variants.length
       ? variants.map((v) => ({
-          '@type': 'Offer',
-          sku: v.sku,
-          price: v.salePrice,
-          priceCurrency: 'PKR',
-          availability:
-            (v.stock ?? 0) > 0
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
-          itemCondition: 'https://schema.org/NewCondition',
-          url: canonicalUrl,
-        }))
+        '@type': 'Offer',
+        sku: v.sku,
+        price: v.salePrice,
+        priceCurrency: 'PKR',
+        availability:
+          (v.stock ?? 0) > 0
+            ? 'https://schema.org/InStock'
+            : 'https://schema.org/OutOfStock',
+        itemCondition: 'https://schema.org/NewCondition',
+        url: canonicalUrl,
+      }))
       : undefined;
     return {
       '@context': 'https://schema.org',
@@ -109,10 +102,10 @@ export default function ProductDetailsPage() {
       aggregateRating:
         product.averageRating && product.totalReviews
           ? {
-              '@type': 'AggregateRating',
-              ratingValue: product.averageRating,
-              reviewCount: product.totalReviews,
-            }
+            '@type': 'AggregateRating',
+            ratingValue: product.averageRating,
+            reviewCount: product.totalReviews,
+          }
           : undefined,
       offers: offers || {
         '@type': 'Offer',
@@ -125,6 +118,7 @@ export default function ProductDetailsPage() {
       },
     };
   }, [product, variants, images, matchedVariant, seoDescription]);
+
   const lowStock = !outOfStock && stock <= 5;
 
   const price = matchedVariant?.salePrice ?? product?.minPrice ?? 0;
@@ -136,16 +130,6 @@ export default function ProductDetailsPage() {
     ? Math.round(((originalPrice - matchedVariant.salePrice) / originalPrice) * 100)
     : 0;
   const savings = originalPrice ? originalPrice - matchedVariant.salePrice : 0;
-
-  // Delivery window: 3–5 business days from today, shown as a human-friendly range.
-  const deliveryWindow = useMemo(() => {
-    const fmt = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-    const start = new Date();
-    start.setDate(start.getDate() + 3);
-    const end = new Date();
-    end.setDate(end.getDate() + 5);
-    return `${fmt(start)} – ${fmt(end)}`;
-  }, []);
 
   const handleQty = (delta) => {
     setQuantity((q) => Math.max(1, Math.min(stock || 99, q + delta)));
@@ -238,7 +222,7 @@ export default function ProductDetailsPage() {
         jsonLd={productJsonLd}
         jsonLdId={`product-${product?._id}`}
       />
-      {/* Top announcement bar — keeps the headline promises visible the moment the page loads. */}
+      {/* Top announcement bar */}
       <div className="bg-[#222] text-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-2.5 flex flex-wrap items-center justify-center gap-x-8 gap-y-1.5 text-[10px] font-black uppercase tracking-[0.25em]">
           <span className="inline-flex items-center gap-1.5">
@@ -267,8 +251,9 @@ export default function ProductDetailsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 pb-16 grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* LEFT — gallery */}
-        <section className="lg:col-span-5">
+
+        {/* LEFT — gallery (ANIMATED) */}
+        <ScrollReveal as="section" className="lg:col-span-5">
           <div className="sticky top-6 flex gap-3">
             {images.length > 1 && (
               <div className="flex flex-col gap-2 w-16 shrink-0">
@@ -278,11 +263,10 @@ export default function ProductDetailsPage() {
                     onClick={() => setActiveImage(src)}
                     aria-label={`View image ${idx + 1}`}
                     aria-pressed={activeImage === src}
-                    className={`w-16 aspect-square rounded-xl overflow-hidden border p-1 bg-white shadow-sm transition-all ${
-                      activeImage === src
-                        ? 'border-[#007074] shadow-md -translate-y-0.5'
-                        : 'border-gray-100 hover:border-[#007074]/40'
-                    }`}
+                    className={`w-16 aspect-square rounded-xl overflow-hidden border p-1 bg-white shadow-sm transition-all ${activeImage === src
+                      ? 'border-[#007074] shadow-md -translate-y-0.5'
+                      : 'border-gray-100 hover:border-[#007074]/40'
+                      }`}
                   >
                     <div className="w-full h-full bg-[#F7F3F0] rounded-lg overflow-hidden">
                       <img
@@ -302,7 +286,6 @@ export default function ProductDetailsPage() {
             <div className="flex-1 relative">
               <ZoomableImage src={activeImage} alt={product.name} />
 
-              {/* Floating badges on the image — stacked top-left */}
               <div className="absolute top-5 left-5 flex flex-col gap-1.5 z-10">
                 {product.isFeatured && (
                   <span className="bg-[#222] text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-[0.2em] shadow-md inline-flex items-center gap-1">
@@ -316,7 +299,6 @@ export default function ProductDetailsPage() {
                 )}
               </div>
 
-              {/* Image counter — bottom-right */}
               {images.length > 1 && (
                 <div className="absolute bottom-5 right-5 bg-white/95 backdrop-blur-sm text-[#222] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[0.2em] shadow-sm border border-gray-100 z-10">
                   {images.indexOf(activeImage) + 1} / {images.length}
@@ -324,10 +306,10 @@ export default function ProductDetailsPage() {
               )}
             </div>
           </div>
-        </section>
+        </ScrollReveal>
 
-        {/* CENTER — info */}
-        <section className="lg:col-span-4 space-y-6">
+        {/* CENTER — info (ANIMATED) */}
+        <ScrollReveal as="section" className="lg:col-span-4 space-y-6" delay={100}>
           <div>
             <div className="text-[9px] font-black uppercase tracking-[0.25em] text-gray-500 mb-3">
               {product.brand?.name || product.category?.name || '—'}
@@ -395,11 +377,10 @@ export default function ProductDetailsPage() {
                   <button
                     key={c}
                     onClick={() => setSelectedColor(c)}
-                    className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${
-                      selectedColor === c
-                        ? 'bg-[#222] text-white border-[#222] shadow-sm'
-                        : 'bg-white text-[#222] border-gray-200 hover:border-[#222]'
-                    }`}
+                    className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${selectedColor === c
+                      ? 'bg-[#222] text-white border-[#222] shadow-sm'
+                      : 'bg-white text-[#222] border-gray-200 hover:border-[#222]'
+                      }`}
                   >
                     {c}
                   </button>
@@ -419,11 +400,10 @@ export default function ProductDetailsPage() {
                   <button
                     key={s}
                     onClick={() => setSelectedSize(s)}
-                    className={`min-w-[44px] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${
-                      selectedSize === s
-                        ? 'bg-[#222] text-white border-[#222] shadow-sm'
-                        : 'bg-white text-[#222] border-gray-200 hover:border-[#222]'
-                    }`}
+                    className={`min-w-[44px] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${selectedSize === s
+                      ? 'bg-[#222] text-white border-[#222] shadow-sm'
+                      : 'bg-white text-[#222] border-gray-200 hover:border-[#222]'
+                      }`}
                   >
                     {s}
                   </button>
@@ -458,7 +438,6 @@ export default function ProductDetailsPage() {
                   <FiPlus size={14} />
                 </button>
               </div>
-              {/* Low-stock progress bar — social-proof nudge, only when the variant is running out. */}
               {lowStock && (
                 <div className="flex-1 min-w-0">
                   <div className="h-1.5 bg-[#F7F3F0] rounded-full overflow-hidden">
@@ -495,11 +474,10 @@ export default function ProductDetailsPage() {
               <button
                 onClick={handleToggleWishlist}
                 title={inWishlist ? 'Remove from wishlist' : 'Save to wishlist'}
-                className={`w-12 h-12 rounded-xl border inline-flex items-center justify-center transition-all ${
-                  inWishlist
-                    ? 'border-[#007074]/30 bg-[#F7F3F0] text-[#007074]'
-                    : 'border-gray-200 bg-white text-gray-500 hover:text-[#007074] hover:border-[#007074]/40'
-                }`}
+                className={`w-12 h-12 rounded-xl border inline-flex items-center justify-center transition-all ${inWishlist
+                  ? 'border-[#007074]/30 bg-[#F7F3F0] text-[#007074]'
+                  : 'border-gray-200 bg-white text-gray-500 hover:text-[#007074] hover:border-[#007074]/40'
+                  }`}
               >
                 <FiHeart size={15} className={inWishlist ? 'fill-[#007074]' : ''} />
               </button>
@@ -541,12 +519,11 @@ export default function ProductDetailsPage() {
               </button>
             </div>
           )}
-        </section>
+        </ScrollReveal>
 
-        {/* RIGHT — delivery + highlights side panel */}
-        <aside className="lg:col-span-3">
+        {/* RIGHT — delivery + highlights side panel (ANIMATED) */}
+        <ScrollReveal as="aside" className="lg:col-span-3" delay={200}>
           <div className="sticky top-6 space-y-4">
-            {/* Order summary snapshot */}
             <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
               <div className="bg-[#F7F3F0] px-5 py-3 border-b border-gray-100">
                 <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-[#222]">Order summary</h2>
@@ -581,143 +558,87 @@ export default function ProductDetailsPage() {
               </div>
             </div>
           </div>
-        </aside>
+        </ScrollReveal>
       </div>
 
-      {/* Tabs */}
-      <div className="max-w-5xl mx-auto px-4 md:px-8 pb-20">
-        <div className="border-b border-gray-100 flex gap-7">
-          {['description', 'specifications', 'gallery', 'reviews'].map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`pb-3 text-[10px] font-black uppercase tracking-[0.25em] transition-colors relative ${
-                tab === t ? 'text-[#007074]' : 'text-gray-500 hover:text-[#222]'
-              }`}
-            >
-              {t}
-              {t === 'reviews' && product.totalReviews > 0 && (
-                <span className="ml-1 text-gray-300">({product.totalReviews})</span>
-              )}
-              {t === 'gallery' && media.length > 0 && (
-                <span className="ml-1 text-gray-300">({media.length})</span>
-              )}
-              {tab === t && (
-                <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-[#007074]" />
-              )}
-            </button>
-          ))}
-        </div>
+      {/* Tabs / Bottom Sections */}
+      <div className="max-w-5xl mx-auto px-4 md:px-8 pb-20 space-y-16">
 
-        <div className="py-8 text-sm text-gray-600 leading-relaxed min-w-0 overflow-hidden">
-          {tab === 'description' && (
-            product.description ? (
-              <div
-                className="product-rich"
-                dangerouslySetInnerHTML={{ __html: product.description }}
-              />
-            ) : (
-              <p className="text-gray-500">No description provided.</p>
-            )
+        {/* ✅ DESCRIPTION (ANIMATED) */}
+        <ScrollReveal as="section">
+          <h2 className="text-xl font-bold text-[#222] mb-4">Product Details</h2>
+          {product.description ? (
+            <div
+              className="prose max-w-none text-gray-600 break-words"
+              dangerouslySetInnerHTML={{ __html: product.description }}
+            />
+          ) : (
+            <p className="text-gray-500">No description available.</p>
           )}
+        </ScrollReveal>
 
-          {tab === 'specifications' && (
-            <ul className="divide-y divide-gray-100">
-              <SpecRow label="Name" value={product.name} />
-              <SpecRow label="Slug" value={product.slug ? `/${product.slug}` : '—'} />
-              <SpecRow label="Category" value={product.category?.name || '—'} />
-              {product.subCategory?.name && (
-                <SpecRow label="Sub-category" value={product.subCategory.name} />
-              )}
-              <SpecRow label="Brand" value={product.brand?.name || '—'} />
-              <SpecRow label="Status" value={product.status || '—'} />
-              <SpecRow label="Featured" value={product.isFeatured ? 'Yes' : 'No'} />
-              <SpecRow label="Price range"
-                value={
-                  product.minPrice != null && product.maxPrice != null
-                    ? product.minPrice === product.maxPrice
-                      ? fmtPKR(product.minPrice)
-                      : `${fmtPKR(product.minPrice)} – ${fmtPKR(product.maxPrice)}`
-                    : '—'
-                }
-              />
-              <SpecRow label="Variants" value={variants.length} />
-              <SpecRow label="Total stock" value={product.totalStock ?? 0} />
-              <SpecRow label="Discount" value={product.discountPercentage ? `${product.discountPercentage}%` : '—'} />
-              <SpecRow label="Average rating" value={product.averageRating ? product.averageRating.toFixed(1) : '—'} />
-              <SpecRow label="Total sales" value={product.totalSales ?? 0} />
-              {matchedVariant?.material && (
-                <SpecRow label="Material" value={matchedVariant.material} />
-              )}
-              {matchedVariant?.weight && (
-                <SpecRow label="Weight" value={`${matchedVariant.weight}g`} />
-              )}
-              {product.metaTitle && <SpecRow label="Meta title" value={product.metaTitle} />}
-              {product.metaDescription && (
-                <SpecRow label="Meta description" value={product.metaDescription} />
-              )}
-            </ul>
-          )}
+        {/* ✅ KEY HIGHLIGHTS (ANIMATED) */}
+        <ScrollReveal as="section">
+          <h2 className="text-xl font-bold text-[#222] mb-4">Key Highlights</h2>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
+            {product.brand?.name && <li>✔ Brand: {product.brand.name}</li>}
+            {matchedVariant?.material && <li>✔ Material: {matchedVariant.material}</li>}
+            {matchedVariant?.weight && <li>✔ Weight: {matchedVariant.weight}g</li>}
+            <li>✔ Total Stock: {product.totalStock ?? 0}</li>
+            <li>✔ Variants: {variants.length}</li>
+            {product.averageRating && <li>✔ Rating: {product.averageRating.toFixed(1)} / 5</li>}
+          </ul>
+        </ScrollReveal>
 
-          {tab === 'gallery' && (
-            media.length ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {media.map((m, idx) => (
-                  <figure
-                    key={m._id || m.url || idx}
-                    className="rounded-2xl overflow-hidden border border-gray-100 bg-[#F7F3F0]"
-                  >
-                    <img
-                      src={m.url}
-                      alt={m.alt || m.metaTitle || `${product.name} image ${idx + 1}`}
-                      width="600"
-                      height="600"
-                      loading="lazy"
-                      decoding="async"
-                      className="pdp-crisp w-full h-auto object-contain p-3"
-                    />
-                    {(m.metaTitle || m.metaDescription) && (
-                      <figcaption className="px-4 py-3 text-xs text-gray-500 bg-white border-t border-gray-100">
-                        {m.metaTitle && <div className="font-semibold text-[#222]">{m.metaTitle}</div>}
-                        {m.metaDescription && <div className="mt-0.5">{m.metaDescription}</div>}
-                      </figcaption>
-                    )}
-                  </figure>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">No gallery images for this product.</p>
-            )
-          )}
+        {/* ✅ SPECIFICATIONS (ANIMATED) */}
+        <ScrollReveal as="section">
+          <h2 className="text-xl font-bold text-[#222] mb-4">Specifications</h2>
+          <ul className="divide-y divide-gray-100 text-sm">
+            <SpecRow label="Brand" value={product.brand?.name || '—'} />
+            {matchedVariant?.material && (
+              <SpecRow label="Material" value={matchedVariant.material} />
+            )}
+            {matchedVariant?.weight && (
+              <SpecRow label="Weight" value={`${matchedVariant.weight}g`} />
+            )}
+            <SpecRow label="Total Stock" value={product.totalStock ?? 0} />
+            <SpecRow label="Variants" value={variants.length} />
+            <SpecRow
+              label="Price"
+              value={
+                product.minPrice === product.maxPrice
+                  ? fmtPKR(product.minPrice)
+                  : `${fmtPKR(product.minPrice)} – ${fmtPKR(product.maxPrice)}`
+              }
+            />
+          </ul>
+        </ScrollReveal>
 
-          {tab === 'reviews' && <ReviewsSection product={product} />}
-        </div>
-
-        {/* Variants table — always shown so the buyer sees exactly what's stocked. */}
+        {/* ✅ VARIANTS TABLE (ANIMATED) */}
         {variants.length > 0 && (
-          <div className="mt-10 bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-5 py-3 border-b border-gray-100 bg-[#F7F3F0]">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-[#222]">All variants</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-sm">
-                <thead className="bg-white border-b border-gray-100">
-                  <tr className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                    <th className="text-left px-4 py-2.5">SKU</th>
-                    <th className="text-left px-4 py-2.5">Size</th>
-                    <th className="text-left px-4 py-2.5">Color</th>
-                    <th className="text-right px-4 py-2.5">Price</th>
-                    <th className="text-right px-4 py-2.5">Stock</th>
+          <ScrollReveal as="section">
+            <h2 className="text-xl font-bold text-[#222] mb-4">Available Variants</h2>
+            <div className="overflow-x-auto border rounded-xl">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="text-left px-4 py-3">SKU</th>
+                    <th className="text-left px-4 py-3">Size</th>
+                    <th className="text-left px-4 py-3">Color</th>
+                    <th className="text-right px-4 py-3">Price</th>
+                    <th className="text-right px-4 py-3">Stock</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y">
                   {variants.map((v) => (
-                    <tr key={v._id || v.sku} className="hover:bg-[#F7F3F0]/40">
-                      <td className="px-4 py-3 text-gray-700 font-mono text-xs">{v.sku || '—'}</td>
-                      <td className="px-4 py-3 text-gray-700 capitalize">{v.size || '—'}</td>
-                      <td className="px-4 py-3 text-gray-700 capitalize">{v.color || '—'}</td>
-                      <td className="px-4 py-3 text-right text-[#222] font-bold">{fmtPKR(v.salePrice)}</td>
-                      <td className={`px-4 py-3 text-right ${v.stock === 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                    <tr key={v._id || v.sku}>
+                      <td className="px-4 py-3 font-mono text-xs">{v.sku || '—'}</td>
+                      <td className="px-4 py-3 capitalize">{v.size || '—'}</td>
+                      <td className="px-4 py-3 capitalize">{v.color || '—'}</td>
+                      <td className="px-4 py-3 text-right font-semibold">
+                        {fmtPKR(v.salePrice)}
+                      </td>
+                      <td className={`px-4 py-3 text-right ${v.stock === 0 ? 'text-red-500' : ''}`}>
                         {v.stock ?? 0}
                       </td>
                     </tr>
@@ -725,57 +646,94 @@ export default function ProductDetailsPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </ScrollReveal>
         )}
+
+        {/* ✅ REVIEWS (ANIMATED) */}
+        <ScrollReveal as="section">
+          <h2 className="text-xl font-bold text-[#222] mb-4">Customer Reviews</h2>
+          <ReviewsSection product={product} />
+        </ScrollReveal>
+
       </div>
     </div>
   );
 }
+
+/* -------- Utility Hooks & Components -------- */
+
+/**
+ * ScrollReveal Wrapper Component 
+ * Uses Intersection Observer to add 'opacity-100 translate-y-0' 
+ * smoothly when the user scrolls the element into view.
+ */
+const ScrollReveal = memo(function ScrollReveal({ children, className = "", as: Component = "div", delay = 0 }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: "0px 0px -50px 0px" // Trigger slightly before the element fully hits the viewport bottom
+      }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <Component
+      ref={ref}
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`transform transition-all duration-700 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
+        } ${className}`}
+    >
+      {children}
+    </Component>
+  );
+});
 
 function stripHtml(html) {
   if (!html) return '';
   return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }
 
-/* -------- subcomponents -------- */
-
-function TrustPill({ icon, label }) {
+// React.memo applied to purely visual subcomponents to prevent them from re-rendering 
+// when the parent state (like "quantity" or "selectedSize") updates.
+const TrustPill = memo(function TrustPill({ icon, label }) {
   return (
     <div className="bg-white border border-gray-100 rounded-xl px-3 py-2.5 flex items-center gap-2 hover:border-[#007074]/30 transition-colors">
       <span className="text-[#007074] flex-shrink-0">{icon}</span>
       <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#222] truncate">{label}</span>
     </div>
   );
-}
+});
 
-function SummaryRow({ label, value }) {
+const SummaryRow = memo(function SummaryRow({ label, value }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-[11px] uppercase tracking-[0.15em] text-gray-500 font-semibold">{label}</span>
       <span className="text-sm font-bold text-[#222]">{value}</span>
     </div>
   );
-}
+});
 
-function HighlightRow({ icon, text }) {
-  return (
-    <li className="flex items-start gap-2.5 leading-relaxed">
-      <span className="w-5 h-5 rounded-full bg-[#7FD4D7]/15 text-[#7FD4D7] flex items-center justify-center flex-shrink-0 mt-0.5">
-        {icon}
-      </span>
-      <span className="text-white/85">{text}</span>
-    </li>
-  );
-}
-
-function SpecRow({ label, value }) {
+const SpecRow = memo(function SpecRow({ label, value }) {
   return (
     <li className="py-3 flex justify-between gap-4 text-sm">
       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">{label}</span>
       <span className="text-[#222] font-semibold text-right">{value}</span>
     </li>
   );
-}
+});
 
 function SkeletonPage() {
   return (
@@ -820,18 +778,12 @@ function uniq(arr) {
   return [...new Set(arr)];
 }
 
-/* ------- Hover-zoom image -------
-   Uses a *second* high-res copy of the image layered on top and shifted by
-   background-position instead of `transform: scale()` on the visible <img>.
-   Scaling an <img> in CSS interpolates pixels and looks blurry; swapping to a
-   background-sized overlay keeps the output crisp at its native resolution.
-   Disabled on touch devices by ignoring pointer events.
-*/
-function ZoomableImage({ src, alt }) {
-  const [zoom, setZoom] = useState(null); // { x, y } in percent
+// React.memo applied to the heaviest subcomponent on the page. 
+// Prevents the hover/zoom image from re-evaluating when the user simply clicks '+' on the quantity box.
+const ZoomableImage = memo(function ZoomableImage({ src, alt }) {
+  const [zoom, setZoom] = useState(null);
 
   const handleMove = (e) => {
-    // Skip the zoom overlay on touch — fingers don't hover cleanly.
     if (e.pointerType && e.pointerType !== 'mouse') return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -882,7 +834,7 @@ function ZoomableImage({ src, alt }) {
       </div>
     </div>
   );
-}
+});
 
 function clamp(n, min = 0, max = 100) {
   return Math.max(min, Math.min(max, n));

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, memo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiMail,
@@ -13,12 +13,13 @@ import {
   FiArrowRight
 } from 'react-icons/fi';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import logo from '/logo.png';
 import { useSiteSettings } from '../features/settings/useSettingsHooks';
 
-// Maps a platform slug (stored on the settings document) to its icon.
-// Unknown platforms fall back to a generic globe so adding a new social
-// channel in the admin settings doesn't require a code change.
+// Register GSAP Plugin
+gsap.registerPlugin(ScrollTrigger);
+
 const SOCIAL_ICONS = {
   instagram: FiInstagram,
   facebook: FiFacebook,
@@ -31,112 +32,73 @@ const SOCIAL_ICONS = {
 const pickIcon = (platform) =>
   SOCIAL_ICONS[(platform || '').toLowerCase()] || FiGlobe;
 
-export default function Footer() {
+// Memoized to prevent re-renders on parent state changes
+const Footer = memo(function Footer() {
   const { data } = useSiteSettings();
   const footer = data?.footer;
-
-  // GSAP scroll-triggered entrance + continuous micro-animations.
-  // We use IntersectionObserver to trigger the entrance once the footer
-  // enters the viewport so the animation doesn't play off-screen on long
-  // pages. Continuous loops (socials float, CTA shimmer) start immediately.
   const rootRef = useRef(null);
+
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+    if (!root || !footer) return;
 
     const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
     if (prefersReduced) return;
 
+    // Targets
     const brand = root.querySelector('[data-anim="brand"]');
     const cols = root.querySelectorAll('[data-anim="col"]');
     const socials = root.querySelectorAll('[data-anim="social"]');
     const bottom = root.querySelector('[data-anim="bottom"]');
     const cta = root.querySelector('[data-anim="cta"]');
-    const tagline = root.querySelector('[data-anim="tagline"]');
 
-    // Seed hidden state synchronously so the browser never paints the
-    // un-animated version before GSAP takes over.
-    gsap.set([brand, cols, bottom].filter(Boolean), { opacity: 0, y: 24 });
-    gsap.set(socials, { opacity: 0, y: 10, scale: 0.85 });
+    // Initial State (Clean Paint)
+    gsap.set([brand, cols, bottom], { opacity: 0, y: 30 });
+    gsap.set(socials, { opacity: 0, scale: 0.8 });
 
-    let entranceTl;
-    let shimmerTween;
-    let socialsTween;
+    // 1. ENTRANCE ANIMATION (Scroll-Triggered)
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: root,
+        start: "top 90%", // Starts when footer is 10% visible
+        toggleActions: "play none none none"
+      }
+    });
 
-    const io = new IntersectionObserver(
-      (entries, observer) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          observer.disconnect();
+    tl.to(brand, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" })
+      .to(cols, { opacity: 1, y: 0, duration: 0.6, stagger: 0.15, ease: "power2.out" }, "-=0.5")
+      .to(socials, { opacity: 1, scale: 1, duration: 0.5, stagger: 0.1, ease: "back.out(1.7)" }, "-=0.3")
+      .to(bottom, { opacity: 1, y: 0, duration: 0.6 }, "-=0.2");
 
-          entranceTl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-          if (brand) {
-            entranceTl.to(brand, { opacity: 1, y: 0, duration: 0.75 });
-          }
-          if (tagline) {
-            entranceTl.from(tagline, { opacity: 0, y: 10, duration: 0.55 }, '-=0.4');
-          }
-          if (cols.length) {
-            entranceTl.to(
-              cols,
-              { opacity: 1, y: 0, duration: 0.65, stagger: 0.12 },
-              '-=0.45'
-            );
-          }
-          if (socials.length) {
-            entranceTl.to(
-              socials,
-              { opacity: 1, y: 0, scale: 1, duration: 0.45, stagger: 0.08, ease: 'back.out(1.7)' },
-              '-=0.3'
-            );
-          }
-          if (bottom) {
-            entranceTl.to(bottom, { opacity: 1, y: 0, duration: 0.55 }, '-=0.25');
-          }
+    // 2. CONTINUOUS "ALIVE" EFFECTS
+    // Gentle pulse on Newsletter CTA
+    const pulse = gsap.to(cta, {
+      boxShadow: '0 0 0 8px rgba(0,112,116,0.15)',
+      scale: 1.04,
+      duration: 1.2,
+      repeat: -1,
+      yoyo: true,
+      ease: "sine.inOut"
+    });
 
-          // Continuous shimmer on the newsletter CTA — a soft scale + glow
-          // heartbeat that draws the eye to the primary conversion surface.
-          if (cta) {
-            shimmerTween = gsap.to(cta, {
-              boxShadow: '0 0 0 6px rgba(0,112,116,0.18)',
-              scale: 1.03,
-              duration: 1.4,
-              ease: 'sine.inOut',
-              yoyo: true,
-              repeat: -1,
-            });
-          }
-
-          // Gentle float on the social icons so the row feels alive without
-          // being distracting.
-          if (socials.length) {
-            socialsTween = gsap.to(socials, {
-              y: -3,
-              duration: 1.8,
-              ease: 'sine.inOut',
-              yoyo: true,
-              repeat: -1,
-              stagger: { each: 0.15, from: 'start' },
-            });
-          }
-        });
-      },
-      { threshold: 0.15 }
-    );
-
-    io.observe(root);
+    // Gentle float on Social Icons
+    const float = gsap.to(socials, {
+      y: -4,
+      duration: 2,
+      repeat: -1,
+      yoyo: true,
+      stagger: { each: 0.2, from: "random" },
+      ease: "sine.inOut"
+    });
 
     return () => {
-      io.disconnect();
-      entranceTl?.kill();
-      shimmerTween?.kill();
-      socialsTween?.kill();
+      ScrollTrigger.getAll().forEach(t => t.kill());
+      tl.kill();
+      pulse.kill();
+      float.kill();
     };
-  }, [data]); // rebind once settings arrive (node count for lists may change)
+  }, [footer]); // Only re-run if footer data actually loads/changes
 
-  // Fall back to empty arrays/strings while the settings request is in flight;
-  // the server always returns populated defaults so this is only the
-  // very-first-paint case.
   const shopLinks = footer?.shopLinks || [];
   const customerCareLinks = footer?.customerCareLinks || [];
   const legalLinks = footer?.legalLinks || [];
@@ -144,71 +106,56 @@ export default function Footer() {
   const paymentBadges = footer?.paymentBadges || [];
 
   return (
-    <footer ref={rootRef} className="w-full bg-[#111111] text-white pt-10 pb-8 ">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+    <footer ref={rootRef} className="w-full bg-[#111111] text-white pt-20 pb-10 border-t border-white/5 overflow-hidden">
+      <div className="container mx-auto px-6 lg:px-8 max-w-7xl">
 
-        {/* Main Footer Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-16 mb-20">
 
-          {/* Column 1: Brand Info (Spans 4 cols on large screens) */}
-          <div data-anim="brand" className="lg:col-span-4">
-            <Link to="/" className="inline-flex items-center group mb-6" aria-label="Stylogist.pk home">
+          {/* Brand Info */}
+          <div data-anim="brand" className="lg:col-span-4 will-change-transform">
+            <Link to="/" className="inline-flex items-center group mb-8">
               <img
                 src={logo}
                 alt="Stylogist.pk"
-                width="240"
-                height="64"
-                className="h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+                width="200"
+                height="50"
+                className="h-10 w-auto object-contain transition-transform duration-500 group-hover:scale-105"
                 loading="lazy"
-                decoding="async"
               />
             </Link>
             {footer?.brandTagline && (
-              <p data-anim="tagline" className="text-gray-400 text-sm leading-relaxed mb-8 max-w-sm">
+              <p className="text-gray-400 text-sm leading-relaxed mb-8 max-w-sm font-light">
                 {footer.brandTagline}
               </p>
             )}
 
             <div className="space-y-4">
               {footer?.address && (
-                <div className="flex items-center space-x-3 text-gray-400">
-                  <FiMapPin className="text-[#007074]" size={18} />
-                  <span className="text-sm">{footer.address}</span>
+                <div className="flex items-center space-x-3 text-gray-400 group cursor-default">
+                  <div className="w-8 h-8 rounded-full bg-[#222] flex items-center justify-center text-[#007074] transition-colors group-hover:bg-[#007074] group-hover:text-white">
+                    <FiMapPin size={16} />
+                  </div>
+                  <span className="text-xs uppercase tracking-widest">{footer.address}</span>
                 </div>
               )}
               {footer?.phone && (
-                <a
-                  href={`tel:${footer.phone.replace(/\s+/g, '')}`}
-                  className="flex items-center space-x-3 text-gray-400 hover:text-white transition-colors"
-                >
-                  <FiPhoneCall className="text-[#007074]" size={18} />
-                  <span className="text-sm">{footer.phone}</span>
-                </a>
-              )}
-              {footer?.email && (
-                <a
-                  href={`mailto:${footer.email}`}
-                  className="flex items-center space-x-3 text-gray-400 hover:text-white transition-colors"
-                >
-                  <FiMail className="text-[#007074]" size={18} />
-                  <span className="text-sm">{footer.email}</span>
+                <a href={`tel:${footer.phone}`} className="flex items-center space-x-3 text-gray-400 group transition-colors hover:text-white">
+                  <div className="w-8 h-8 rounded-full bg-[#222] flex items-center justify-center text-[#007074] transition-colors group-hover:bg-[#007074] group-hover:text-white">
+                    <FiPhoneCall size={16} />
+                  </div>
+                  <span className="text-xs uppercase tracking-widest">{footer.phone}</span>
                 </a>
               )}
             </div>
           </div>
 
-          {/* Column 2: Shop Links (Spans 2 cols) */}
-          <div data-anim="col" className="lg:col-span-2">
-            <h3 className="text-xs font-bold text-white uppercase tracking-widest mb-6">
-              Shop Categories
-            </h3>
+          {/* Links Columns */}
+          <div data-anim="col" className="lg:col-span-2 will-change-transform">
+            <h3 className="text-[10px] font-black text-[#007074] uppercase tracking-[0.3em] mb-8">Collections</h3>
             <ul className="space-y-4">
-              {shopLinks.map((link, index) => (
-                <li key={`${link.label}-${index}`}>
-                  <Link
-                    to={link.path}
-                    className="text-gray-400 text-sm hover:text-[#007074] inline-block transform hover:translate-x-1 transition-all ease-in-out duration-300"
-                  >
+              {shopLinks.map((link, i) => (
+                <li key={i}>
+                  <Link to={link.path} className="text-gray-400 text-xs uppercase tracking-wider hover:text-white transition-all hover:translate-x-2 inline-block">
                     {link.label}
                   </Link>
                 </li>
@@ -216,18 +163,12 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 3: Customer Care (Spans 2 cols) */}
-          <div data-anim="col" className="lg:col-span-2">
-            <h3 className="text-xs font-bold text-white uppercase tracking-widest mb-6">
-              Customer Care
-            </h3>
+          <div data-anim="col" className="lg:col-span-2 will-change-transform">
+            <h3 className="text-[10px] font-black text-[#007074] uppercase tracking-[0.3em] mb-8">Help Desk</h3>
             <ul className="space-y-4">
-              {customerCareLinks.map((link, index) => (
-                <li key={`${link.label}-${index}`}>
-                  <Link
-                    to={link.path}
-                    className="text-gray-400 text-sm hover:text-[#007074]  inline-block transform hover:translate-x-1 transition-all ease-in-out duration-300"
-                  >
+              {customerCareLinks.map((link, i) => (
+                <li key={i}>
+                  <Link to={link.path} className="text-gray-400 text-xs uppercase tracking-wider hover:text-white transition-all hover:translate-x-2 inline-block">
                     {link.label}
                   </Link>
                 </li>
@@ -235,103 +176,73 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 4: Newsletter & Socials (Spans 4 cols) */}
-          <div data-anim="col" className="lg:col-span-4">
-            {footer?.newsletterHeading && (
-              <h3 className="text-xs font-bold text-white uppercase tracking-widest mb-6">
-                {footer.newsletterHeading}
-              </h3>
-            )}
-            {footer?.newsletterBlurb && (
-              <p className="text-gray-400 text-sm mb-4">{footer.newsletterBlurb}</p>
-            )}
+          {/* Newsletter */}
+          <div data-anim="col" className="lg:col-span-4 will-change-transform">
+            <h3 className="text-[10px] font-black text-[#007074] uppercase tracking-[0.3em] mb-8">Newsletter</h3>
+            <p className="text-gray-400 text-xs uppercase tracking-widest mb-6">Get early access to drops & deals.</p>
 
-            <form className="mb-8" onSubmit={(e) => e.preventDefault()}>
-              <div className="relative flex items-center">
+            <form className="mb-10" onSubmit={(e) => e.preventDefault()}>
+              <div className="relative group">
                 <input
                   type="email"
-                  placeholder="Enter your email address"
-                  className="w-full bg-[#222222] border border-gray-700 text-white px-4 py-3.5 rounded-md focus:outline-none focus:border-[#007074] text-sm transition-colors pr-14"
-                  required
+                  placeholder="EMAIL ADDRESS"
+                  className="w-full bg-transparent border-b border-gray-800 py-4 text-xs tracking-[0.2em] focus:outline-none focus:border-[#007074] transition-colors"
                 />
                 <button
                   type="submit"
                   data-anim="cta"
-                  className="absolute right-1.5 p-2 bg-[#007074] text-white rounded-md hover:bg-[#005a5d] transition-colors"
-                  aria-label="Subscribe"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-[#007074] text-white rounded-full flex items-center justify-center hover:bg-white hover:text-black transition-all duration-500"
                 >
                   <FiArrowRight size={18} />
                 </button>
               </div>
             </form>
 
-            {socials.length > 0 && (
-              <>
-                <h3 className="text-xs font-bold text-white uppercase tracking-widest mb-4">
-                  Follow Us
-                </h3>
-                <div className="flex space-x-4">
-                  {socials.map((s, idx) => {
-                    const Icon = pickIcon(s.platform);
-                    return (
-                      <a
-                        key={`${s.platform}-${idx}`}
-                        href={s.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={s.label || `Follow on ${s.platform}`}
-                        data-anim="social"
-                        className="w-10 h-10 rounded-md bg-[#222222] flex items-center justify-center text-gray-300 hover:bg-[#007074] hover:text-white transition-all duration-300"
-                      >
-                        <Icon size={18} aria-hidden="true" />
-                      </a>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+            <div className="flex space-x-4">
+              {socials.map((s, idx) => {
+                const Icon = pickIcon(s.platform);
+                return (
+                  <a
+                    key={idx}
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-anim="social"
+                    className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-gray-400 hover:bg-white hover:text-black hover:border-white transition-all duration-500 will-change-transform"
+                  >
+                    <Icon size={16} />
+                  </a>
+                );
+              })}
+            </div>
           </div>
-
         </div>
 
-        {/* Bottom Bar (Divider, Copyright, Legal, Payments) */}
-        <div data-anim="bottom" className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+        {/* Bottom Bar */}
+        <div data-anim="bottom" className="border-t border-white/5 pt-10 flex flex-col md:flex-row justify-between items-center gap-8 will-change-transform">
+          <p className="text-[9px] font-medium text-gray-600 uppercase tracking-[0.3em]">
+            &copy; {new Date().getFullYear()} {footer?.copyright || 'Stylogist Studio.'}
+          </p>
 
-          <div className="text-gray-500 text-xs text-center md:text-left">
-            &copy; {new Date().getFullYear()} {footer?.copyright || 'All Rights Reserved.'}
+          <div className="flex items-center space-x-8">
+            {legalLinks.map((link, i) => (
+              <Link key={i} to={link.path} className="text-[9px] text-gray-600 uppercase tracking-[0.2em] hover:text-[#007074] transition-colors">
+                {link.label}
+              </Link>
+            ))}
           </div>
 
-          {legalLinks.length > 0 && (
-            <div className="flex items-center space-x-6 text-gray-500 text-xs">
-              {legalLinks.map((link, idx) => (
-                <Link
-                  key={`${link.label}-${idx}`}
-                  to={link.path}
-                  className="hover:text-white transition-colors"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {paymentBadges.length > 0 && (
-            <div className="flex items-center space-x-2">
-              {paymentBadges.map((badge, idx) => (
-                <div
-                  key={`${badge.label}-${idx}`}
-                  className={`bg-[#222222] border border-gray-700 text-[10px] font-bold px-3 py-1.5 rounded-md uppercase tracking-wider ${
-                    badge.tone === 'accent' ? 'text-[#007074]' : 'text-gray-400'
-                  }`}
-                >
-                  {badge.label}
-                </div>
-              ))}
-            </div>
-          )}
-
+          <div className="flex items-center space-x-3 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all duration-700">
+            {paymentBadges.map((badge, i) => (
+              <div key={i} className="px-3 py-1 border border-white/10 rounded text-[8px] font-black tracking-tighter uppercase">
+                {badge.label}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </footer>
   );
-}
+});
+
+export default Footer;

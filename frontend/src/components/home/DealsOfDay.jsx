@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, memo } from 'react';
 import { FiChevronRight, FiZap, FiPackage, FiAlertCircle } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { useProducts } from '../../features/products/useProductHooks';
@@ -28,16 +28,19 @@ export default function DealsOfDay() {
 
       <div className="max-w-6xl mx-auto px-6 relative z-10">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between lg:mb-16 mb-8 gap-10">
-          <div className="text-center lg:text-left">
+          
+          {/* ANIMATED HEADER */}
+          <ScrollReveal className="text-center lg:text-left">
             <div className="inline-flex items-center gap-2 py-1 px-3 rounded-full bg-[#007074]/10 text-[#007074] text-[10px] font-black tracking-[0.2em] uppercase mb-4">
               <FiZap className="animate-pulse" /> Limited Availability
             </div>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif font-black text-[#222] tracking-tighter">
               Deals of the <span className="italic text-[#007074]">Day</span>
             </h2>
-          </div>
+          </ScrollReveal>
 
-          <div className="flex items-center justify-center gap-4 bg-white p-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-gray-100">
+          {/* ANIMATED TIMER */}
+          <ScrollReveal delay={100} className="flex items-center justify-center gap-4 bg-white p-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-gray-100">
             <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 mr-2">Ends In:</span>
             <div className="flex items-center gap-3">
               {[
@@ -54,27 +57,35 @@ export default function DealsOfDay() {
                 </div>
               ))}
             </div>
-          </div>
+          </ScrollReveal>
         </div>
 
         {isError ? (
-          <FallbackState icon={<FiAlertCircle size={28} />} message="Couldn't load deals." />
+          <ScrollReveal>
+            <FallbackState icon={<FiAlertCircle size={28} />} message="Couldn't load deals." />
+          </ScrollReveal>
         ) : isLoading ? (
           <SkeletonGrid count={4} />
         ) : items.length === 0 ? (
-          <FallbackState
-            icon={<FiPackage size={28} />}
-            message="No deals running right now. Tag a product as On Deal in the admin dashboard to feature it here."
-          />
+          <ScrollReveal>
+            <FallbackState
+              icon={<FiPackage size={28} />}
+              message="No deals running right now. Tag a product as On Deal in the admin dashboard to feature it here."
+            />
+          </ScrollReveal>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 lg:gap-10">
             {items.slice(0, 4).map((p, i) => (
-              <StorefrontProductCard key={p._id} product={p} index={i} variant="deal" showStockBar />
+              /* ANIMATED STAGGERED CARDS */
+              <ScrollReveal key={p._id} delay={i * 100} className="h-full">
+                <StorefrontProductCard product={p} index={i} variant="deal" showStockBar />
+              </ScrollReveal>
             ))}
           </div>
         )}
 
-        <div className="mt-10 text-center">
+        {/* ANIMATED BOTTOM LINK */}
+        <ScrollReveal delay={200} className="mt-10 text-center">
           <Link
             to="/category?deal=true"
             className="inline-flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] text-[#222] hover:text-[#007074] transition-all group"
@@ -83,7 +94,7 @@ export default function DealsOfDay() {
             <div className="w-8 h-[1px] bg-gray-200 group-hover:w-12 group-hover:bg-[#007074] transition-all duration-500" />
             <FiChevronRight className="group-hover:translate-x-1.5 transition-transform" />
           </Link>
-        </div>
+        </ScrollReveal>
       </div>
     </section>
   );
@@ -103,7 +114,50 @@ function formatTime(seconds) {
   return { hrs, mins, secs };
 }
 
-function SkeletonGrid({ count = 4 }) {
+/* -------- Utility Hooks & Components -------- */
+
+/**
+ * ScrollReveal Wrapper Component 
+ * Uses Intersection Observer to add 'opacity-100 translate-y-0' 
+ * smoothly when the user scrolls the element into view.
+ */
+const ScrollReveal = memo(function ScrollReveal({ children, className = "", as: Component = "div", delay = 0 }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      {
+        threshold: 0.1,
+        rootMargin: "0px 0px -50px 0px" // Trigger slightly before the element fully hits the viewport bottom
+      }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <Component
+      ref={ref}
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`transform transition-all duration-700 ease-out ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
+      } ${className}`}
+    >
+      {children}
+    </Component>
+  );
+});
+
+// Wrapped in memo to prevent it from re-rendering every single second when the timer ticks
+const SkeletonGrid = memo(function SkeletonGrid({ count = 4 }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
       {Array.from({ length: count }).map((_, i) => (
@@ -115,13 +169,14 @@ function SkeletonGrid({ count = 4 }) {
       ))}
     </div>
   );
-}
+});
 
-function FallbackState({ icon, message }) {
+// Wrapped in memo to prevent it from re-rendering every single second when the timer ticks
+const FallbackState = memo(function FallbackState({ icon, message }) {
   return (
     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-12 text-center text-slate-500 text-sm">
       <div className="mx-auto text-slate-300 mb-3 w-fit">{icon}</div>
       <p className="max-w-md mx-auto">{message}</p>
     </div>
   );
-}
+});

@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowRight, FiZap } from 'react-icons/fi';
 
-export default function HomeHeader() {
+const HomeHeader = memo(function HomeHeader() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
+  const [hasEntered, setHasEntered] = useState(false);
+  const ref = useRef(null);
 
   const slides = [
     {
@@ -43,12 +46,31 @@ export default function HomeHeader() {
 
   const slideDuration = 6000;
 
+  // Intersection Observer for Scroll Animation & Performance Pausing
   useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+        if (entry.isIntersecting) {
+          setHasEntered(true);
+        }
+      },
+      { threshold: 0.05 }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Interval logic — only runs when the component is actually on-screen
+  useEffect(() => {
+    if (!isVisible) return; // Pause slider when out of view to save CPU
+
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
     }, slideDuration);
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [slides.length, isVisible]);
 
   // Keep every animated property on the compositor (transform/opacity only)
   // so the slider's idle progress bar doesn't trigger layout on every frame.
@@ -59,102 +81,114 @@ export default function HomeHeader() {
   `;
 
   return (
-    <div className="relative w-full h-[90vh] lg:h-screen overflow-hidden bg-[#111111]">
-      <style>{customStyles}</style>
+    <div
+      ref={ref}
+      className={`transition-all duration-1000 ease-out transform ${
+        hasEntered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'
+      }`}
+    >
+      {/* Forces the browser to download the first massive image instantly for a fast LCP */}
+      <link rel="preload" as="image" href={slides[0].image} fetchpriority="high" />
 
-      {slides.map((slide, index) => {
-        const isActive = index === currentSlide;
-        return (
-          <div key={slide.id} className={`absolute inset-0 w-full h-full transition-all duration-1000 ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
-            
-            {/* Cinematic Background - Slow Zoom-in Scale */}
-            <div
-              className={`absolute inset-0 w-full h-full bg-cover bg-center transition-transform duration-[7000ms] ease-out ${isActive ? 'scale-110' : 'scale-100'}`}
-              style={{ backgroundImage: `url(${slide.image})` }}
-            />
+      <div className="relative w-full h-[90vh] lg:h-screen overflow-hidden bg-[#111111]">
+        <style>{customStyles}</style>
 
-            {/* Premium Dual Layer Gradients */}
-            <div className="absolute inset-0 bg-black/20" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
+        {slides.map((slide, index) => {
+          const isActive = index === currentSlide;
+          return (
+            <div key={slide.id} className={`absolute inset-0 w-full h-full transition-all duration-1000 ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}>
+              
+              {/* Cinematic Background - Slow Zoom-in Scale */}
+              <div
+                className={`absolute inset-0 w-full h-full bg-cover bg-center transition-transform duration-[7000ms] ease-out ${isActive ? 'scale-110' : 'scale-100'}`}
+                style={{ backgroundImage: `url(${slide.image})` }}
+              />
 
-            {/* Content Section - Centered & Premium */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 z-20">
-              <div className="max-w-4xl">
-                
-                {/* Brand Label */}
-                <div className={`inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-black tracking-[0.3em] uppercase mb-6 transition-all duration-1000 delay-300 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                   <FiZap className="text-[#007074] animate-pulse" /> {slide.brand}
-                </div>
+              {/* Premium Dual Layer Gradients */}
+              <div className="absolute inset-0 bg-black/20" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
 
-                {/* Main Title - Font Serif Black */}
-                <h1 className={`text-4xl sm:text-6xl  font-serif font-black text-white mb-6 tracking-tighter leading-tight drop-shadow-2xl transition-all duration-1000 delay-500 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
-                  {slide.title.split(' ')[0]} <span className="italic text-[#007074]">{slide.title.split(' ')[1]}</span>
-                </h1>
-
-                {/* Description - Focused & Modern */}
-                <p className={`text-sm md:text-base lg:text-lg text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed uppercase  transition-all duration-1000 delay-700 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
-                  {slide.description}
-                </p>
-
-                {/* Action Buttons */}
-                <div className={`flex flex-col sm:flex-row items-center justify-center gap-5 transition-all duration-1000 delay-[900ms] ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
+              {/* Content Section - Centered & Premium */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 z-20">
+                <div className="max-w-4xl">
                   
-                  <Link
-                    to={slide.primaryLink}
-                    className="group relative flex items-center justify-center gap-3 w-full sm:w-auto px-10 py-4 overflow-hidden rounded-full bg-[#007074] text-white font-black uppercase tracking-[0.2em] text-[11px] transition-all duration-500 hover:shadow-[0_15px_35px_rgba(0,112,116,0.4)] active:scale-95"
-                  >
-                    <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-                    <span className="relative z-10">{slide.primaryCta}</span>
-                    <FiArrowRight className="relative z-10 group-hover:translate-x-1.5 transition-transform" />
-                  </Link>
+                  {/* Brand Label */}
+                  <div className={`inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-[10px] font-black tracking-[0.3em] uppercase mb-6 transition-all duration-1000 delay-300 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                     <FiZap className="text-[#007074] animate-pulse" /> {slide.brand}
+                  </div>
 
-                  <Link
-                    to={slide.secondaryLink}
-                    className="group flex items-center justify-center w-full sm:w-auto px-10 py-4 rounded-full border border-white/30 bg-white/5 backdrop-blur-lg text-white font-black uppercase tracking-[0.2em] text-[11px] transition-all duration-500 hover:bg-white hover:text-[#222] active:scale-95 shadow-xl"
-                  >
-                    <span>{slide.secondaryCta}</span>
-                  </Link>
+                  {/* Main Title - Font Serif Black */}
+                  <h1 className={`text-4xl sm:text-6xl  font-serif font-black text-white mb-6 tracking-tighter leading-tight drop-shadow-2xl transition-all duration-1000 delay-500 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
+                    {slide.title.split(' ')[0]} <span className="italic text-[#007074]">{slide.title.split(' ')[1]}</span>
+                  </h1>
 
+                  {/* Description - Focused & Modern */}
+                  <p className={`text-sm md:text-base lg:text-lg text-gray-300 mb-10 max-w-2xl mx-auto leading-relaxed uppercase  transition-all duration-1000 delay-700 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
+                    {slide.description}
+                  </p>
+
+                  {/* Action Buttons */}
+                  <div className={`flex flex-col sm:flex-row items-center justify-center gap-5 transition-all duration-1000 delay-[900ms] ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
+                    
+                    <Link
+                      to={slide.primaryLink}
+                      className="group relative flex items-center justify-center gap-3 w-full sm:w-auto px-10 py-4 overflow-hidden rounded-full bg-[#007074] text-white font-black uppercase tracking-[0.2em] text-[11px] transition-all duration-500 hover:shadow-[0_15px_35px_rgba(0,112,116,0.4)] active:scale-95"
+                    >
+                      <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                      <span className="relative z-10">{slide.primaryCta}</span>
+                      <FiArrowRight className="relative z-10 group-hover:translate-x-1.5 transition-transform" />
+                    </Link>
+
+                    <Link
+                      to={slide.secondaryLink}
+                      className="group flex items-center justify-center w-full sm:w-auto px-10 py-4 rounded-full border border-white/30 bg-white/5 backdrop-blur-lg text-white font-black uppercase tracking-[0.2em] text-[11px] transition-all duration-500 hover:bg-white hover:text-[#222] active:scale-95 shadow-xl"
+                    >
+                      <span>{slide.secondaryCta}</span>
+                    </Link>
+
+                  </div>
                 </div>
               </div>
             </div>
+          );
+        })}
+
+        {/* Progress & Pagination Controls */}
+        <div className="absolute sm:flex hidden bottom-10 left-1/2 -translate-x-1/2 z-30 flex-col items-center gap-6">
+          
+          {/* Visual Progress Dots */}
+          <div className="flex items-center gap-4">
+            {slides.map((_, index) => {
+              const isCurrent = index === currentSlide;
+              return (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  aria-label={`Go to slide ${index + 1}`}
+                  aria-current={isCurrent ? 'true' : 'false'}
+                  className="group relative w-12 h-8 flex items-center justify-center"
+                >
+                  <div className={`h-[2px] transition-all duration-500 rounded-full ${isCurrent ? 'w-full bg-[#007074]' : 'w-4 bg-white/30 group-hover:bg-white/60'}`} />
+                  {isCurrent && isVisible && (
+                     <div
+                       className="absolute bottom-0 left-0 h-[2px] w-full bg-[#007074] animate-[progress_6s_linear_forwards] origin-left"
+                       aria-hidden="true"
+                     />
+                  )}
+                </button>
+              );
+            })}
           </div>
-        );
-      })}
 
-      {/* Progress & Pagination Controls */}
-      <div className="absolute sm:flex hidden bottom-10 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-6">
-        
-        {/* Visual Progress Dots */}
-        <div className="flex items-center gap-4">
-          {slides.map((_, index) => {
-            const isCurrent = index === currentSlide;
-            return (
-              <button
-                key={index}
-                onClick={() => setCurrentSlide(index)}
-                aria-label={`Go to slide ${index + 1}`}
-                aria-current={isCurrent ? 'true' : 'false'}
-                className="group relative w-12 h-8 flex items-center justify-center"
-              >
-                <div className={`h-[2px] transition-all duration-500 rounded-full ${isCurrent ? 'w-full bg-[#007074]' : 'w-4 bg-white/30 group-hover:bg-white/60'}`} />
-                {isCurrent && (
-                   <div
-                     className="absolute bottom-0 left-0 h-[2px] w-full bg-[#007074] animate-[progress_6s_linear_forwards] origin-left"
-                     aria-hidden="true"
-                   />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Counter */}
-        <div className="text-[10px] font-black text-white tracking-[0.4em] uppercase opacity-40">
-          0{currentSlide + 1} <span className="mx-2">/</span> 0{slides.length}
+          {/* Counter */}
+          <div className="text-[10px] font-black text-white tracking-[0.4em] uppercase opacity-40">
+            0{currentSlide + 1} <span className="mx-2">/</span> 0{slides.length}
+          </div>
         </div>
       </div>
     </div>
   );
-}
+});
+
+export default HomeHeader;

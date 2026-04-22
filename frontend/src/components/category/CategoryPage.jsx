@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   FiFilter, FiChevronRight, FiStar, FiLoader, FiPackage,
@@ -27,8 +27,6 @@ const formatPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 export default function CategoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Hydrate filters from URL so deep links from the navbar (e.g.
-  // ?category=<id> or ?search=<term>) land on a pre-filtered view.
   const [category, setCategory] = useState(() => searchParams.get('category') || '');
   const [brand, setBrand] = useState(() => searchParams.get('brand') || '');
   const [maxPrice, setMaxPrice] = useState('');
@@ -39,8 +37,6 @@ export default function CategoryPage() {
   const [page, setPage] = useState(1);
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
 
-  // Reflect user-driven category/brand/search changes back into the URL so
-  // the view is shareable and browser back/forward works naturally.
   useEffect(() => {
     const next = new URLSearchParams();
     if (category) next.set('category', category);
@@ -49,7 +45,6 @@ export default function CategoryPage() {
     setSearchParams(next, { replace: true });
   }, [category, brand, search, setSearchParams]);
 
-  // Pick up subsequent URL changes (e.g. clicking a different nav dropdown link).
   useEffect(() => {
     const urlCategory = searchParams.get('category') || '';
     const urlBrand = searchParams.get('brand') || '';
@@ -100,10 +95,10 @@ export default function CategoryPage() {
   };
 
   return (
-    <div className="w-full bg-white min-h-screen font-sans text-slate-900">
+    <div className="w-full bg-white min-h-screen font-sans text-slate-900 overflow-x-hidden">
       {/* Breadcrumbs */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-5">
-        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+        <ScrollReveal className="flex items-center gap-1.5 text-xs text-slate-500">
           <Link to="/" className="hover:text-[#007074]">Home</Link>
           <FiChevronRight size={11} />
           <span className="text-slate-900 font-medium">Shop</span>
@@ -113,19 +108,23 @@ export default function CategoryPage() {
               <span className="text-[#007074]">{activeCategoryName}</span>
             </>
           )}
-        </div>
+        </ScrollReveal>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 pb-20 flex flex-col lg:flex-row gap-8">
-        {/* Sidebar filters */}
-        <button
-          onClick={() => setFiltersOpenMobile(true)}
-          className="lg:hidden inline-flex items-center gap-2 self-start px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700"
-        >
-          <FiFilter size={15} /> Filters
-        </button>
+        
+        {/* Mobile Filters Toggle */}
+        <ScrollReveal>
+          <button
+            onClick={() => setFiltersOpenMobile(true)}
+            className="lg:hidden inline-flex items-center gap-2 self-start px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700"
+          >
+            <FiFilter size={15} /> Filters
+          </button>
+        </ScrollReveal>
 
-        <aside className={`
+        {/* Sidebar filters (ANIMATED ON SCROLL) */}
+        <ScrollReveal as="aside" delay={100} className={`
           ${filtersOpenMobile ? 'fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-0' : 'hidden'}
           lg:block lg:relative lg:inset-auto lg:z-auto
           lg:w-60 shrink-0
@@ -220,12 +219,13 @@ export default function CategoryPage() {
               </button>
             </div>
           </div>
-        </aside>
+        </ScrollReveal>
 
-        {/* Main */}
+        {/* Main Product Area */}
         <main className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-8">
+          
+          {/* Header (ANIMATED ON SCROLL) */}
+          <ScrollReveal delay={200} className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-8">
             <div>
               <h1 className="text-3xl font-semibold text-slate-900">
                 {search ? `Results for "${search}"` : activeCategoryName}
@@ -263,10 +263,10 @@ export default function CategoryPage() {
                 />
               </div>
             </div>
-          </div>
+          </ScrollReveal>
 
           {isError ? (
-            <div className="bg-white border border-slate-200 rounded-xl p-10 text-center">
+            <ScrollReveal className="bg-white border border-slate-200 rounded-xl p-10 text-center">
               <FiAlertCircle className="mx-auto text-red-500 mb-3" size={28} />
               <h3 className="text-sm font-semibold text-slate-900">Couldn't load products</h3>
               <button
@@ -275,7 +275,7 @@ export default function CategoryPage() {
               >
                 <FiRefreshCw size={14} /> Try again
               </button>
-            </div>
+            </ScrollReveal>
           ) : isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -287,7 +287,7 @@ export default function CategoryPage() {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-16 text-center">
+            <ScrollReveal className="bg-slate-50 border border-slate-200 rounded-xl p-16 text-center">
               <FiPackage size={28} className="mx-auto text-slate-300 mb-3" />
               <h3 className="text-base font-semibold text-slate-900">No products match your filters</h3>
               <p className="text-sm text-slate-500 mt-1">Try removing a filter or widening your price range.</p>
@@ -297,18 +297,21 @@ export default function CategoryPage() {
               >
                 Reset filters
               </button>
-            </div>
+            </ScrollReveal>
           ) : (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                 {items.map((p, idx) => (
-                  <ProductCard key={p._id} product={p} index={idx} />
+                  /* Wrap EACH item in ScrollReveal so they cascade as the user scrolls */
+                  <ScrollReveal key={p._id} delay={(idx % 4) * 100} className="h-full">
+                    <ProductCard product={p} />
+                  </ScrollReveal>
                 ))}
               </div>
 
               {/* Pagination */}
               {pagination && pagination.pages > 1 && (
-                <div className="mt-10 flex items-center justify-center gap-2">
+                <ScrollReveal className="mt-10 flex items-center justify-center gap-2">
                   <PagerBtn
                     disabled={page <= 1 || isFetching}
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -339,7 +342,7 @@ export default function CategoryPage() {
                     <FiChevronRight size={14} />
                   </PagerBtn>
                   {isFetching && <FiLoader className="animate-spin text-slate-400 ml-2" size={16} />}
-                </div>
+                </ScrollReveal>
               )}
             </>
           )}
@@ -349,7 +352,41 @@ export default function CategoryPage() {
   );
 }
 
-/* ----------- subcomponents ----------- */
+/* ----------- Utility Hooks & Components ----------- */
+
+/**
+ * ScrollReveal Wrapper Component
+ */
+function ScrollReveal({ children, className = "", as: Component = "div", delay = 0 }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.05, rootMargin: "0px 0px -50px 0px" }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <Component
+      ref={ref}
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`transform transition-all duration-700 ease-out ${
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
+      } ${className}`}
+    >
+      {children}
+    </Component>
+  );
+}
 
 function FilterSection({ title, children }) {
   return (
@@ -360,7 +397,8 @@ function FilterSection({ title, children }) {
   );
 }
 
-function FilterPill({ active, onClick, children }) {
+// React.memo speeds up re-renders when tweaking filters
+const FilterPill = memo(function FilterPill({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
@@ -371,11 +409,10 @@ function FilterPill({ active, onClick, children }) {
       {children}
     </button>
   );
-}
+});
 
-// Matches the home page's FeaturedProducts card: bordered image frame, hover
-// scale on the image, floating wishlist button, slide-up Quick Add bar.
-function ProductCard({ product, index = 0 }) {
+// React.memo drastically improves frontend speed when interacting with inputs
+const ProductCard = memo(function ProductCard({ product }) {
   const to = `/product/${product.slug}`;
   const discount =
     product.maxPrice && product.minPrice && product.maxPrice > product.minPrice
@@ -400,10 +437,7 @@ function ProductCard({ product, index = 0 }) {
   };
 
   return (
-    <div
-      className="group flex flex-col relative w-full animate-[slideUp_0.5s_ease-out_forwards]"
-      style={{ animationDelay: `${Math.min(index, 8) * 80}ms` }}
-    >
+    <div className="group flex flex-col relative w-full h-full">
       <div className="relative aspect-[6/4] sm:aspect-[3/4] sm:rounded-[1.75rem] bg-white border border-gray-100 p-2 shadow-sm transition-all duration-500 group-hover:shadow-xl group-hover:-translate-y-1 overflow-hidden">
         <div className="w-full h-full bg-[#F7F3F0] rounded-md sm:rounded-[1.25rem] overflow-hidden relative">
           <Link to={to} className="block w-full h-full">
@@ -484,11 +518,8 @@ function ProductCard({ product, index = 0 }) {
       </div>
     </div>
   );
-}
+});
 
-// A dressier replacement for <select> — supports a search box and renders the
-// options in a floating panel so the filter dropdowns feel consistent with the
-// rest of the admin-style controls.
 function FancyDropdown({ value, onChange, options, placeholder, searchable = false }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -585,7 +616,6 @@ function PagerBtn({ children, disabled, onClick }) {
   );
 }
 
-// Render a compact pager: first, current±1, last, with '…' collapses.
 function pageRange(current, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
 
