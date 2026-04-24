@@ -97,7 +97,7 @@ export const getOrder = async (req, res) => {
 };
 
 export const updateOrderStatus = async (req, res) => {
-  const { status } = req.body;
-  const order = await OrdersService.updateOrderStatus(req.params.id, status);
+  const { status, trackingCompany, trackingLink, trackingId } = req.body;
+  const order = await OrdersService.updateOrderStatus(req.params.id, status, trackingCompany, trackingLink, trackingId);
   res.status(200).json({ status: 'success', message: 'Order status updated', data: order });
 };

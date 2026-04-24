@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   FiSearch, FiEye, FiClock, FiCheckCircle, FiXCircle, FiTruck, FiPackage,
-  FiX, FiMapPin, FiUser, FiAlertCircle, FiRefreshCw, FiChevronLeft, FiChevronRight, FiLoader
+  FiX, FiMapPin, FiUser, FiAlertCircle, FiRefreshCw, FiChevronLeft, FiChevronRight, FiLoader, FiLink
 } from 'react-icons/fi';
 import { useAdminOrders, useUpdateOrderStatus } from '../../features/admin/useAdminHooks';
 
@@ -12,9 +12,9 @@ const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 const fmtDate = (iso) =>
   iso
     ? new Date(iso).toLocaleString('en-US', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      })
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    })
     : '—';
 
 export default function OrderLogs() {
@@ -133,8 +133,8 @@ export default function OrderLogs() {
                         </div>
                       </td>
                       <td className="px-5 py-3">
-                        <div className="text-sm text-slate-700">{o.user?.name || 'Guest'}</div>
-                        <div className="text-xs text-slate-400">{o.user?.email || ''}</div>
+                        <div className="text-sm text-slate-700">{o.user?.name || `${o.guest?.name || 'Guest'} (Guest)`}</div>
+                        <div className="text-xs text-slate-400">{o.user?.email || o.guest?.email}</div>
                       </td>
                       <td className="px-5 py-3 text-sm text-slate-600 whitespace-nowrap">{fmtDate(o.createdAt)}</td>
                       <td className="px-5 py-3 text-right text-sm font-medium text-slate-900 tabular-nums">
@@ -200,9 +200,8 @@ function FilterChip({ active, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${
-        active ? 'bg-[#007074] text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-      }`}
+      className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${active ? 'bg-[#007074] text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+        }`}
     >
       {children}
     </button>
@@ -211,12 +210,12 @@ function FilterChip({ active, onClick, children }) {
 
 function StatusBadge({ status }) {
   const map = {
-    pending:   { cls: 'bg-amber-50 text-amber-700 border-amber-100', icon: <FiClock size={11} /> },
+    pending: { cls: 'bg-amber-50 text-amber-700 border-amber-100', icon: <FiClock size={11} /> },
     confirmed: { cls: 'bg-blue-50 text-blue-700 border-blue-100', icon: <FiCheckCircle size={11} /> },
-    shipped:   { cls: 'bg-violet-50 text-violet-700 border-violet-100', icon: <FiTruck size={11} /> },
+    shipped: { cls: 'bg-violet-50 text-violet-700 border-violet-100', icon: <FiTruck size={11} /> },
     delivered: { cls: 'bg-emerald-50 text-emerald-700 border-emerald-100', icon: <FiCheckCircle size={11} /> },
     cancelled: { cls: 'bg-slate-100 text-slate-500 border-slate-200', icon: <FiXCircle size={11} /> },
-    returned:  { cls: 'bg-rose-50 text-rose-700 border-rose-100', icon: <FiXCircle size={11} /> },
+    returned: { cls: 'bg-rose-50 text-rose-700 border-rose-100', icon: <FiXCircle size={11} /> },
   };
   const s = map[status] || map.pending;
   return (
@@ -231,22 +230,59 @@ function OrderDetailModal({ order, onClose }) {
   const updateMut = useUpdateOrderStatus();
   const [pendingStatus, setPendingStatus] = useState(null);
 
-  const addr = order.shippingAddress;
-  const addressLine =
-    typeof addr === 'string'
-      ? addr
-      : addr
-        ? [addr.line1, addr.line2, addr.city, addr.state, addr.postalCode, addr.country]
-            .filter(Boolean)
-            .join(', ')
-        : '—';
+  // New State for tracking details
+  const [trackingCompany, setTrackingCompany] = useState(order.trackingCompany || '');
+  const [trackingLink, setTrackingLink] = useState(order.trackingLink || '');
+  const [trackingId, setTrackingId] = useState(order.trackingId || '');
 
+  // Logic to determine the correct address to display
+  const addr = order.shippingAddress || order.guestAddress;
+
+  let addressLine = '—';
+  if (typeof addr === 'string') {
+    addressLine = addr;
+  } else if (addr) {
+    addressLine = [
+      addr.addressLine1 || addr.line1,
+      addr.addressLine2 || addr.line2,
+      addr.city,
+      addr.state,
+      addr.postalCode,
+      addr.country
+    ]
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  // Updates both status AND tracking info
   const onChange = async (newStatus) => {
     if (newStatus === order.status) return;
     setPendingStatus(newStatus);
     try {
-      await updateMut.mutateAsync({ id: order._id, status: newStatus });
+      await updateMut.mutateAsync({
+        id: order._id,
+        status: newStatus,
+        trackingCompany: trackingCompany.trim(),
+        trackingLink: trackingLink.trim(),
+        trackingId: trackingId.trim()
+      });
       onClose();
+    } catch { /* hook toast */ }
+    finally { setPendingStatus(null); }
+  };
+
+  // Dedicated function just to save tracking info without changing the status
+  const onSaveTracking = async () => {
+    setPendingStatus('tracking');
+    try {
+      await updateMut.mutateAsync({
+        id: order._id,
+        status: order.status,
+        trackingCompany: trackingCompany.trim(),
+        trackingLink: trackingLink.trim(),
+        trackingId: trackingId.trim()
+      });
+      // Optionally show a success toast here
     } catch { /* hook toast */ }
     finally { setPendingStatus(null); }
   };
@@ -278,8 +314,16 @@ function OrderDetailModal({ order, onClose }) {
         <div className="p-6 overflow-y-auto space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <Panel icon={<FiUser size={14} />} title="Customer">
-              <div className="text-sm text-slate-800">{order.user?.name || 'Guest'}</div>
-              <div className="text-xs text-slate-500 mt-0.5">{order.user?.email || ''}</div>
+              <div className="text-sm text-slate-800">
+                {order.user?.name || order.guest?.name || 'Guest'}
+                {!order.user && <span className="ml-2 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">GUEST</span>}
+              </div>
+              <div className="text-xs text-slate-500 mt-0.5">
+                {order.user?.email || order.guest?.email || 'No email'}
+              </div>
+              {order.guest?.phone && (
+                <div className="text-xs text-slate-500 mt-0.5">{order.guest.phone}</div>
+              )}
             </Panel>
             <Panel icon={<FiMapPin size={14} />} title="Shipping">
               <div className="text-sm text-slate-700 leading-relaxed">{addressLine}</div>
@@ -295,7 +339,7 @@ function OrderDetailModal({ order, onClose }) {
                     <div className="text-xs text-slate-400">SKU {it.sku} · qty {it.quantity}</div>
                   </div>
                   <div className="text-slate-700 tabular-nums ml-3 flex-shrink-0">
-                    {fmtPKR(it.subtotal ?? it.total ?? it.price * it.quantity)}
+                    {fmtPKR(it.subtotal ?? it.total ?? (it.price * it.quantity))}
                   </div>
                 </div>
               ))}
@@ -304,6 +348,52 @@ function OrderDetailModal({ order, onClose }) {
               <Row label="Subtotal" value={fmtPKR(order.subtotal)} />
               <Row label="Shipping" value={fmtPKR(order.shippingFee)} />
               <Row label="Total" value={fmtPKR(order.totalAmount)} bold />
+            </div>
+          </Panel>
+
+          {/* New Tracking Panel */}
+          <Panel title="Tracking Information" icon={<FiLink size={14} />}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 uppercase mb-1">Courier Company</label>
+                <input
+                  type="text"
+                  value={trackingCompany}
+                  onChange={(e) => setTrackingCompany(e.target.value)}
+                  placeholder="e.g. TCS, Leopard"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-md text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074] transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 uppercase mb-1">Tracking ID</label>
+                <input
+                  type="text"
+                  value={trackingId}
+                  onChange={(e) => setTrackingId(e.target.value)}
+                  placeholder="e.g. 123456789"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-md text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074] transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 uppercase mb-1">Tracking Link</label>
+                <input
+                  type="url"
+                  value={trackingLink}
+                  onChange={(e) => setTrackingLink(e.target.value)}
+                  placeholder="https://"
+                  className="w-full px-3 py-1.5 border border-slate-200 rounded-md text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074] transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={onSaveTracking}
+                disabled={updateMut.isPending || (!trackingCompany && !trackingLink && !trackingId)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-md text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {pendingStatus === 'tracking' ? <FiLoader className="animate-spin" size={12} /> : <FiCheckCircle size={12} />}
+                Save Tracking
+              </button>
             </div>
           </Panel>
 
@@ -317,11 +407,10 @@ function OrderDetailModal({ order, onClose }) {
                     key={s}
                     onClick={() => onChange(s)}
                     disabled={isCurrent || updateMut.isPending}
-                    className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium border capitalize transition-colors ${
-                      isCurrent
-                        ? 'bg-[#007074] text-white border-[#007074]'
-                        : 'bg-white text-slate-700 border-slate-200 hover:border-[#007074] hover:text-[#007074]'
-                    } disabled:opacity-60 disabled:cursor-not-allowed`}
+                    className={`flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium border capitalize transition-colors ${isCurrent
+                      ? 'bg-[#007074] text-white border-[#007074]'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-[#007074] hover:text-[#007074]'
+                      } disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     {s}
                     {isPending ? (

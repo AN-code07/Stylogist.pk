@@ -80,6 +80,25 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
 
+    // --- NEW TRACKING FIELDS ---
+    trackingCompany: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    trackingLink: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    trackingId: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    // ---------------------------
+
     status: {
       type: String,
       enum: [

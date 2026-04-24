@@ -601,7 +601,7 @@ export default function ProductDetailsPage() {
             {matchedVariant?.weight && (
               <SpecRow label="Weight" value={`${matchedVariant.weight}g`} />
             )}
-            <SpecRow label="Total Stock" value={product.totalStock ?? 0} />
+            {/* <SpecRow label="Total Stock" value={product.totalStock ?? 0} /> */}
             <SpecRow label="Variants" value={variants.length} />
             <SpecRow
               label="Price"
