@@ -1,6 +1,17 @@
 {
   "rewrites": [
     {
+      "source": "/product/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(bot|crawler|spider|googlebot|google-structureddatatestingtool|google-richresultstest|google-inspectiontool|google-extended|bingbot|adsbot|yandex|duckduckbot|slurp|baiduspider|facebookexternalhit|facebot|twitterbot|linkedinbot|whatsapp|slackbot|discordbot|telegrambot|embedly|quora|outbrain|pinterest|skypeuripreview|vkshare|w3c_validator|validator|schema-markup-validator|lighthouse|chrome-lighthouse|headlesschrome|prerender|rendertron|petalbot|applebot|qwantbot|seznambot|mj12bot|ahrefsbot|semrushbot|dotbot|seokicks|sogou|naverbot).*"
+        }
+      ],
+      "destination": "https://stylogist-pk-api.onrender.com/prerender/product/:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }

@@ -264,7 +264,36 @@ export default function ProductDetailsPage() {
     toast.success(nowSaved ? 'Saved to wishlist' : 'Removed from wishlist');
   };
 
-  if (isLoading) return <SkeletonPage />;
+  // While the API is still resolving (cold-start, slow network) emit a
+  // minimal Product JSON-LD seeded from the slug + canonical URL. Validators
+  // and crawlers that capture the DOM mid-fetch then still see *some*
+  // schema, instead of bailing with "Product not found". The full schema
+  // overrides this once the product data lands.
+  if (isLoading) {
+    return (
+      <>
+        <Seo
+          title={`Loading product · Stylogist`}
+          description="Loading product details…"
+          type="product"
+          canonical={typeof window !== 'undefined' ? `${window.location.origin}/product/${slug}` : undefined}
+          jsonLd={{
+            '@context': 'https://schema.org',
+            '@type': 'Product',
+            name: (slug || '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+            url: typeof window !== 'undefined' ? `${window.location.origin}/product/${slug}` : undefined,
+            offers: {
+              '@type': 'Offer',
+              priceCurrency: 'PKR',
+              availability: 'https://schema.org/InStock',
+            },
+          }}
+          jsonLdId="product-loading"
+        />
+        <SkeletonPage />
+      </>
+    );
+  }
   if (isError || !product) return <ErrorPage slug={slug} />;
 
   return (
