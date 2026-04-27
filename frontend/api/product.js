@@ -156,9 +156,9 @@ const buildJsonLd = (product, slug, canonical, images, variants) => {
     name: productName,
     description: product
       ? (product.metaDescription?.trim() ||
-         stripHtml(product.shortDescription) ||
-         stripHtml(product.description) ||
-         productName).slice(0, 160)
+        stripHtml(product.shortDescription) ||
+        stripHtml(product.description) ||
+        productName).slice(0, 160)
       : `Shop ${productName} at Stylogist.pk — free shipping & cash on delivery in Pakistan.`,
     image: finalImages,
     sku: variants?.[0]?.sku || undefined,
@@ -170,12 +170,12 @@ const buildJsonLd = (product, slug, canonical, images, variants) => {
     ...(additionalProperty.length ? { additionalProperty } : {}),
     ...(product?.averageRating && product?.totalReviews
       ? {
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: product.averageRating,
-            reviewCount: product.totalReviews,
-          },
-        }
+        aggregateRating: {
+          '@type': 'AggregateRating',
+          ratingValue: product.averageRating,
+          reviewCount: product.totalReviews,
+        },
+      }
       : {}),
     ...(offers
       ? { offers: offers.length === 1 ? offers[0] : offers }
@@ -297,9 +297,14 @@ const stitchHtml = ({ shell, title, description, canonical, ogImage, jsonLdList,
 </body>
 </html>`;
 
-  const renderLd = (obj) =>
-    `<script type="application/ld+json">${JSON.stringify(obj).replace(/<\/script/gi, '<\\/script')}</script>`;
-  const ldHtml = jsonLdList.map(renderLd).join('\n  ');
+  const renderLd = (obj, id) =>
+    `<script type="application/ld+json" data-seo="${id}">
+    ${JSON.stringify(obj).replace(/<\/script/gi, '<\\/script')}
+  </script>`;
+  const ldHtml = [
+    renderLd(jsonLdList[0], 'breadcrumb-jsonld'),
+    renderLd(jsonLdList[1], 'product-jsonld')
+  ].join('\n');
 
   const metaHtml = [
     `<meta property="og:type" content="product" />`,
@@ -396,9 +401,9 @@ export default async function handler(req, res) {
     : `${titleFromSlug(slug)} | Stylogist`;
   const description = product
     ? (product.metaDescription?.trim() ||
-       stripHtml(product.shortDescription) ||
-       stripHtml(product.description) ||
-       `Shop ${product.name} on Stylogist.pk`).slice(0, 160)
+      stripHtml(product.shortDescription) ||
+      stripHtml(product.description) ||
+      `Shop ${product.name} on Stylogist.pk`).slice(0, 160)
     : `Shop ${titleFromSlug(slug)} on Stylogist.pk — free shipping & cash on delivery in Pakistan.`;
 
   const { productLd, breadcrumbLd, breadcrumbItems } =
@@ -415,7 +420,7 @@ export default async function handler(req, res) {
     // and OG cards look broken without one. Brand logo is a safe fallback
     // when product photos haven't loaded.
     ogImage: primaryImage || FALLBACK_IMAGE,
-    jsonLdList: [productLd, breadcrumbLd],
+    jsonLdList: [breadcrumbLd, productLd],
     bodyHtml,
     slug,
   });

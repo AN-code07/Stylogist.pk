@@ -1,12 +1,5 @@
 import { useEffect } from 'react';
 
-// Tiny helmet replacement. Keeps the bundle small — we only need document
-// head control for a handful of fields (title, description, Open Graph
-// canonical) so pulling react-helmet in isn't justified.
-//
-// Pass `jsonLd` to emit a <script type="application/ld+json"> block for
-// Google structured data (Product, BreadcrumbList, Article, …). Each Seo
-// instance owns a single tagged script so re-renders replace it cleanly.
 export default function Seo({ title, description, image, type = 'website', canonical, jsonLd, jsonLdId = 'seo-jsonld' }) {
   useEffect(() => {
     if (title) document.title = title;
@@ -30,18 +23,11 @@ export default function Seo({ title, description, image, type = 'website', canon
     setMeta('meta[property="og:type"]', 'content', type);
     setMeta('meta[property="og:image"]', 'content', image);
     setMeta('meta[name="twitter:card"]', 'content', image ? 'summary_large_image' : 'summary');
-    setMeta('meta[name="twitter:title"]', 'content', title);
-    setMeta('meta[name="twitter:description"]', 'content', description);
 
-    // Always emit a canonical so search engines never index two URLs (with
-    // and without query strings) as duplicates. Strip the query/hash so
-    // params like `?ref=…` don't fork the canonical surface.
     let canonicalHref = canonical;
     if (!canonicalHref && typeof window !== 'undefined') {
-      try {
-        const { origin, pathname } = window.location;
-        canonicalHref = `${origin}${pathname}`;
-      } catch { /* ignore */ }
+      const { origin, pathname } = window.location;
+      canonicalHref = `${origin}${pathname}`;
     }
 
     if (canonicalHref) {
@@ -54,22 +40,27 @@ export default function Seo({ title, description, image, type = 'website', canon
       link.setAttribute('href', canonicalHref);
     }
 
+    // JSON-LD HYDRATION LOGIC
+    let script = document.head.querySelector(`script[data-seo="${jsonLdId}"]`);
+    
     if (jsonLd) {
-      let script = document.head.querySelector(`script[data-seo="${jsonLdId}"]`);
       if (!script) {
         script = document.createElement('script');
         script.type = 'application/ld+json';
         script.setAttribute('data-seo', jsonLdId);
         document.head.appendChild(script);
       }
-      try {
-        script.textContent = JSON.stringify(jsonLd);
-      } catch {
-        /* ignore malformed payloads */
-      }
-      return () => script?.parentNode?.removeChild(script);
+      script.textContent = JSON.stringify(jsonLd);
+    } else if (script) {
+      // If jsonLd becomes null, remove the script tag
+      script.parentNode.removeChild(script);
     }
-    return undefined;
+
+    // Cleanup on unmount
+    return () => {
+      const activeScript = document.head.querySelector(`script[data-seo="${jsonLdId}"]`);
+      if (activeScript) activeScript.parentNode.removeChild(activeScript);
+    };
   }, [title, description, image, type, canonical, jsonLd, jsonLdId]);
 
   return null;

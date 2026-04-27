@@ -307,21 +307,11 @@ export default function ProductDetailsPage() {
           type="product"
           image={origin ? `${origin}/logo.png` : undefined}
           canonical={origin ? `${origin}/product/${slug}` : undefined}
-          jsonLd={{
-            '@context': 'https://schema.org',
-            '@type': 'Product',
-            name: placeholderName,
-            description: `Shop ${placeholderName} on Stylogist.pk — free shipping & cash on delivery in Pakistan.`,
-            // `image` is required by Google's Product / Merchant listings
-            // rich result. Always populate with the brand logo as a fallback
-            // so the validator doesn't flag a missing field.
-            image: origin ? [`${origin}/logo.png`] : undefined,
-            brand: { '@type': 'Brand', name: 'Stylogist' },
-            url: origin ? `${origin}/product/${slug}` : undefined,
-            // Offer is intentionally omitted while loading — emitting a
-            // placeholder `price: 0` would invalidate Merchant listings.
-          }}
-          jsonLdId="product-loading"
+          // CHANGE: We pass null for jsonLd here. 
+          // The Breadcrumb will still exist from the Vercel Prerender.
+          // This avoids the "Product Incomplete" error during the cold start.
+          jsonLd={null}
+          jsonLdId="product-jsonld"
         />
         <SkeletonPage />
       </>
@@ -336,18 +326,15 @@ export default function ProductDetailsPage() {
         description={seoDescription}
         image={images[0]}
         type="product"
-        canonical={
-          typeof window !== 'undefined'
-            ? `${window.location.origin}/product/${product.slug}`
-            : undefined
-        }
+        canonical={`${window.location.origin}/product/${product.slug}`}
         jsonLd={productJsonLd}
-        jsonLdId={`product-${product?._id}`}
+        // CHANGE: Must match the Vercel function's ID to replace the placeholder
+        jsonLdId="product-jsonld"
       />
       {breadcrumbJsonLd && (
         <Seo
           jsonLd={breadcrumbJsonLd}
-          jsonLdId={`breadcrumb-${product?._id}`}
+          jsonLdId="breadcrumb-jsonld"
         />
       )}
       {/* Top announcement bar */}
