@@ -1,88 +1,119 @@
-import { Quill } from 'react-quill-new';
+// shared.js
+import StarterKit from '@tiptap/starter-kit';
+import { Underline } from '@tiptap/extension-underline';
+import { Link } from '@tiptap/extension-link';
+import { Image } from '@tiptap/extension-image';
+import { TextAlign } from '@tiptap/extension-text-align';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { FontFamily } from '@tiptap/extension-font-family';
+import { Color } from '@tiptap/extension-color';
+import { Highlight } from '@tiptap/extension-highlight';
 
-// Extra font families exposed on the Quill picker. Must be kept in sync with
-// the `.ql-font-*` selectors in index.css.
 export const FONT_WHITELIST = [
   'sans-serif', 'serif', 'monospace', 'inter', 'poppins', 'playfair', 'roboto', 'lora',
 ];
 
-// Register both Font and Header on import. The default Quill build only ships
-// header levels 1/2 — explicitly registering the format with the levels we
-// want fixes the "headings have no effect" bug in the description editor.
-const Font = Quill.import('formats/font');
-Font.whitelist = FONT_WHITELIST;
-Quill.register(Font, true);
-
-const Header = Quill.import('formats/header');
-Quill.register(Header, true);
-
-// Block paste of inline `style="font-weight: bold"` runs from Word/Docs/etc.
-// Quill keeps semantic `<strong>` and class-based formatting; the style attr
-// was the source of the "every paste comes in bold" report.
-const Clipboard = Quill.import('modules/clipboard');
-const Delta = Quill.import('delta');
-
-export class CleanClipboard extends Clipboard {
-  onPaste(e) {
-    // Quill's default onPaste already runs through `convert()`; we hook the
-    // result via a paste matcher below. Nothing to do here.
-    super.onPaste(e);
-  }
-}
-
-// Strip any inline color/font-weight/size styles on paste so the editor
-// preserves heading/paragraph structure but not foreign theming. Whitelisted
-// formats survive (bold via <strong>, italic via <em>, lists, links, headings).
-const STRIPPABLE_INLINE_STYLES = ['font-weight', 'font-size', 'font-family', 'color', 'background-color', 'line-height'];
-
-export const PASTE_MATCHERS = [
-  // Strip inline styling on every element that comes through the paste pipe.
-  ['*', (node, delta) => {
-    if (!node.style) return delta;
-    STRIPPABLE_INLINE_STYLES.forEach((prop) => {
-      try { node.style.removeProperty(prop); } catch { /* noop */ }
-    });
-    return delta;
-  }],
-  // <span> with no remaining attributes adds noise — flatten to plain text.
-  ['SPAN', (node, delta) => {
-    if (!node.attributes || node.attributes.length === 0) {
-      return new Delta().insert(node.textContent || '');
-    }
-    return delta;
-  }],
+const STRIPPABLE_INLINE_STYLES = [
+  'font-weight', 'font-size', 'font-family', 'color', 'background-color', 'line-height'
 ];
 
-// Strip the bold attribute coming from pasted content into the *short*
-// description editor specifically — short descriptions should never be bold.
-export const SHORT_PASTE_MATCHERS = [
-  ...PASTE_MATCHERS,
-  ['*', (_node, delta) => {
-    delta.ops = (delta.ops || []).map((op) => {
-      if (op.attributes && op.attributes.bold) {
-        const { bold, ...rest } = op.attributes;
-        return Object.keys(rest).length ? { ...op, attributes: rest } : { insert: op.insert };
+/**
+ * Replaces Quill's CleanClipboard and PASTE_MATCHERS.
+ * Pass this to Tiptap's `editorProps.transformPastedHTML`
+ */
+export const transformStandardPaste = (html) => {
+  if (!html) return html;
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  // 1. Strip specific inline styles
+  doc.querySelectorAll('*').forEach((el) => {
+    if (el.style) {
+      STRIPPABLE_INLINE_STYLES.forEach((prop) => {
+        el.style.removeProperty(prop);
+      });
+      // Remove empty style attributes
+      if (!el.getAttribute('style')) {
+        el.removeAttribute('style');
       }
-      return op;
-    });
-    return delta;
-  }],
+    }
+  });
+
+  // 2. Flatten <span> tags that have no remaining attributes
+  doc.querySelectorAll('span').forEach((span) => {
+    if (!span.attributes || span.attributes.length === 0) {
+      span.replaceWith(...span.childNodes);
+    }
+  });
+
+  return doc.body.innerHTML;
+};
+
+/**
+ * Replaces SHORT_PASTE_MATCHERS.
+ * Strips bold tags completely for the short description editor.
+ */
+export const transformShortPaste = (html) => {
+  const standardHtml = transformStandardPaste(html);
+  const doc = new DOMParser().parseFromString(standardHtml, 'text/html');
+
+  // Strip bold/strong semantic tags, leaving just the text
+  doc.querySelectorAll('b, strong').forEach((el) => {
+    el.replaceWith(...el.childNodes);
+  });
+
+  return doc.body.innerHTML;
+};
+
+/**
+ * Replaces QUILL_FORMATS.
+ * Use this array as the `extensions` prop in your standard useEditor() hook.
+ */
+export const TIPTAP_EXTENSIONS = [
+  StarterKit.configure({
+    heading: {
+      levels: [1, 2, 3, 4, 5, 6], // Explicitly register header levels
+    },
+    strike: true,
+    bold: true,
+    italic: true,
+    bulletList: true,
+    orderedList: true,
+  }),
+  Underline,
+  TextStyle,
+  FontFamily,
+  Color,
+  Highlight.configure({ multicolor: true }), // For background colors
+  TextAlign.configure({ types: ['heading', 'paragraph'] }),
+  Link.configure({ openOnClick: false }),
+  Image,
+  // Note: Video usually requires a custom extension or @tiptap/extension-youtube depending on your needs.
 ];
 
-export const QUILL_FORMATS = [
-  'header', 'font', 'bold', 'italic', 'underline', 'strike',
-  'color', 'background', 'list', 'bullet', 'indent', 'align',
-  'link', 'image', 'video',
+/**
+ * Short-description toolbar set. Heading is disabled (one-line blurb), bold
+ * stays off by design (the previous Quill bug auto-bolded short descriptions
+ * — keeping bold off prevents the same regression). Italic, underline,
+ * lists, alignment and links are kept since admins want at least lightweight
+ * formatting for shop card teasers.
+ */
+export const SHORT_TIPTAP_EXTENSIONS = [
+  StarterKit.configure({
+    heading: false,
+    bold: false,
+    strike: false,
+    code: false,
+    codeBlock: false,
+    blockquote: false,
+    horizontalRule: false,
+  }),
+  Underline,
+  TextAlign.configure({ types: ['paragraph'] }),
+  Link.configure({ openOnClick: false }),
 ];
 
-// Short description deliberately excludes `header`, `font`, `align`, `color` —
-// it's a one-line blurb in listings. Excluding `bold` from this list ALSO
-// disables the toolbar bold button, which is intentional: the previous
-// behaviour was that `<p>` tags were getting auto-promoted to `<strong>` on
-// some browsers and there was no way to undo it from the toolbar.
-export const SHORT_QUILL_FORMATS = [
-  'italic', 'underline', 'list', 'bullet', 'link',
-];
+// --- The rest of your pure functions remain entirely unchanged ---
 
 export const slugify = (value) =>
   (value || '')

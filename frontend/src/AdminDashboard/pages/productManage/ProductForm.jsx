@@ -1,8 +1,7 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useRef } from 'react';
 import { FiBox, FiCheckCircle, FiHash, FiLoader, FiPackage, FiRefreshCw, FiTarget } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
+import TiptapEditor from "../../../components/editor/TiptapEditor";
 import axiosClient from '../../../api/axiosClient';
 import {
   CategoryMultiSelect,
@@ -16,11 +15,10 @@ import MediaUploader from './MediaUploader';
 import VariantsEditor from './VariantsEditor';
 import BulletListEditor from './BulletListEditor';
 import {
-  FONT_WHITELIST,
-  PASTE_MATCHERS,
-  QUILL_FORMATS,
-  SHORT_PASTE_MATCHERS,
-  SHORT_QUILL_FORMATS,
+  TIPTAP_EXTENSIONS,
+  SHORT_TIPTAP_EXTENSIONS,
+  transformStandardPaste,
+  transformShortPaste,
   inputCls,
   slugify,
   stripHtmlLen,
@@ -48,78 +46,50 @@ export default function ProductForm({
   onOpenCategory,
   onOpenBrand,
 }) {
-  const descriptionRef = useRef(null);
-  const shortRef = useRef(null);
 
-  const uploadQuillImage = async (editorRef) => {
+  // Tiptap image upload handler
+  // Note: Your custom <TiptapEditor> component will need to call this function 
+  // when its image toolbar button is clicked, passing its internal `editor` instance.
+  const handleImageUpload = async (editor) => {
+    if (!editor) return;
+
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
+      
       try {
         const fd = new FormData();
         fd.append('file', file);
         fd.append('role', 'editor');
         if (form.slug) fd.append('productSlug', form.slug);
         else if (form.name) fd.append('productSlug', slugify(form.name));
-        if (form.metaTitle) { fd.append('metaTitle', form.metaTitle); fd.append('alt', form.metaTitle); }
-        if (form.metaDescription) fd.append('metaDescription', form.metaDescription);
+        
+        if (form.metaTitle) { 
+          fd.append('metaTitle', form.metaTitle); 
+          fd.append('alt', form.metaTitle); 
+        }
+        if (form.metaDescription) {
+          fd.append('metaDescription', form.metaDescription);
+        }
+
         const { data } = await axiosClient.post('/uploads/image', fd, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
+        
         const url = data.data.url;
-        const editor = editorRef.current?.getEditor();
-        if (!editor) return;
-        const range = editor.getSelection(true);
-        editor.insertEmbed(range.index, 'image', url, 'user');
-        editor.setSelection(range.index + 1);
+        
+        // Tiptap command to insert the image
+        editor.chain().focus().setImage({ src: url, alt: 'Uploaded image' }).run();
+        
       } catch (err) {
         toast.error(err.response?.data?.message || 'Image upload failed');
       }
     };
     input.click();
   };
-
-  const descriptionModules = useMemo(() => ({
-    toolbar: {
-      container: [
-        [{ header: [1, 2, 3, 4, false] }],
-        [{ font: FONT_WHITELIST }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ color: [] }, { background: [] }],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        [{ indent: '-1' }, { indent: '+1' }],
-        [{ align: [] }],
-        ['link', 'image', 'video'],
-        ['clean'],
-      ],
-      handlers: { image: () => uploadQuillImage(descriptionRef) },
-    },
-    clipboard: {
-      matchVisual: false,
-      matchers: PASTE_MATCHERS,
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [form.slug, form.name, form.metaTitle, form.metaDescription]);
-
-  const shortModules = useMemo(() => ({
-    toolbar: {
-      container: [
-        ['italic', 'underline'],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        ['link'],
-        ['clean'],
-      ],
-      handlers: { image: () => uploadQuillImage(shortRef) },
-    },
-    clipboard: {
-      matchVisual: false,
-      matchers: SHORT_PASTE_MATCHERS,
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [form.slug, form.name, form.metaTitle, form.metaDescription]);
 
   const itemDetails = form.itemDetails || {};
   const setItemDetail = (key, val) =>
@@ -134,7 +104,7 @@ export default function ProductForm({
         <Field label="Product name" required>
           <input
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             placeholder="e.g. Silk Satin Slip Dress"
             className={inputCls}
           />
@@ -149,7 +119,7 @@ export default function ProductForm({
           <div className="flex items-stretch gap-2">
             <input
               value={form.slug}
-              onChange={(e) => setForm({ ...form, slug: slugify(e.target.value) })}
+              onChange={(e) => setForm((f) => ({ ...f, slug: slugify(e.target.value) }))}
               placeholder="silk-satin-slip-dress"
               className={`${inputCls} flex-1`}
             />
@@ -169,7 +139,7 @@ export default function ProductForm({
             hint="≤ 60 chars for Google snippets"
             value={form.metaTitle}
             max={60}
-            onChange={(v) => setForm({ ...form, metaTitle: v })}
+            onChange={(v) => setForm((f) => ({ ...f, metaTitle: v }))}
             placeholder="Silk Satin Slip Dress | Stylogist"
           />
           <CountedField
@@ -177,7 +147,7 @@ export default function ProductForm({
             hint="≤ 160 chars for Google snippets"
             value={form.metaDescription}
             max={160}
-            onChange={(v) => setForm({ ...form, metaDescription: v })}
+            onChange={(v) => setForm((f) => ({ ...f, metaDescription: v }))}
             placeholder="Featherlight silk slip dress in a minimal silhouette…"
           />
         </div>
@@ -191,10 +161,8 @@ export default function ProductForm({
             <input
               value={form.barcode || ''}
               onChange={(e) => {
-                // Strip non-digits as the user types and cap at 12 chars so
-                // invalid input never reaches the form state.
                 const next = (e.target.value || '').replace(/\D/g, '').slice(0, 12);
-                setForm({ ...form, barcode: next });
+                setForm((f) => ({ ...f, barcode: next }));
               }}
               placeholder="012345678905"
               maxLength={12}
@@ -215,38 +183,38 @@ export default function ProductForm({
         </Field>
 
         <Field
+          as="div"
           label="Short description"
           hint={`One-line blurb shown in listings · ${stripHtmlLen(form.shortDescription)} chars · bold disabled by design`}
         >
           <div className="bg-white rounded-lg relative border border-slate-200 focus-within:ring-2 focus-within:ring-[#007074]/20 focus-within:border-[#007074] z-20">
-            <ReactQuill
-              ref={shortRef}
-              theme="snow"
+            {/* Image upload deliberately omitted from the short description
+                — short blurbs should be plain text, never embedded media. */}
+            <TiptapEditor
               value={form.shortDescription}
-              onChange={(value) => setForm({ ...form, shortDescription: value })}
-              modules={shortModules}
-              formats={SHORT_QUILL_FORMATS}
+              onChange={(value) => setForm((f) => ({ ...f, shortDescription: value }))}
+              extensions={SHORT_TIPTAP_EXTENSIONS}
+              editorProps={{ transformPastedHTML: transformShortPaste }}
               placeholder="Featherlight silk in a minimal silhouette..."
-              className="short-quill"
+              minHeight={80}
             />
           </div>
         </Field>
 
         <Field
+          as="div"
           label="Description"
           required
           hint={`${stripHtmlLen(form.description)} / 300 recommended chars`}
         >
           <div className="bg-white rounded-lg relative border border-slate-200 focus-within:ring-2 focus-within:ring-[#007074]/20 focus-within:border-[#007074] z-10">
-            <ReactQuill
-              ref={descriptionRef}
-              theme="snow"
+            <TiptapEditor
               value={form.description}
-              onChange={(value) => setForm({ ...form, description: value })}
-              modules={descriptionModules}
-              formats={QUILL_FORMATS}
+              onChange={(value) => setForm((f) => ({ ...f, description: value }))}
+              extensions={TIPTAP_EXTENSIONS}
+              editorProps={{ transformPastedHTML: transformStandardPaste }}
               placeholder="Write a detailed product description..."
-              className="quill-editor"
+              onImageUpload={handleImageUpload} // Passed to your wrapper
             />
           </div>
         </Field>
@@ -258,7 +226,7 @@ export default function ProductForm({
           >
             <BulletListEditor
               value={form.benefits}
-              onChange={(next) => setForm({ ...form, benefits: next })}
+              onChange={(next) => setForm((f) => ({ ...f, benefits: next }))}
               placeholder="Strengthens nails and hair"
               addLabel="Add benefit"
             />
@@ -269,7 +237,7 @@ export default function ProductForm({
           >
             <BulletListEditor
               value={form.uses}
-              onChange={(next) => setForm({ ...form, uses: next })}
+              onChange={(next) => setForm((f) => ({ ...f, uses: next }))}
               placeholder="Take 1 capsule daily after meals"
               addLabel="Add use case"
             />
@@ -336,7 +304,7 @@ export default function ProductForm({
           <Field label="Status">
             <SelectInput
               value={form.status}
-              onChange={(v) => setForm({ ...form, status: v })}
+              onChange={(v) => setForm((f) => ({ ...f, status: v }))}
               options={[
                 { value: 'draft', label: 'Draft' },
                 { value: 'published', label: 'Published' },
@@ -345,8 +313,6 @@ export default function ProductForm({
           </Field>
         </div>
 
-        {/* Merchandising rails — drive the Home page sections. Keep in sync
-            with FeaturedProducts / TrendingProducts / DealsOfDay consumers. */}
         <div className="pt-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
             Storefront placement
@@ -356,19 +322,19 @@ export default function ProductForm({
               label="Featured"
               hint="Shown in Home → Featured Collection"
               checked={form.isFeatured}
-              onChange={(v) => setForm({ ...form, isFeatured: v })}
+              onChange={(v) => setForm((f) => ({ ...f, isFeatured: v }))}
             />
             <MerchFlag
               label="Trending"
               hint="Shown in Home / Deals → Trending Now"
               checked={form.isTrending}
-              onChange={(v) => setForm({ ...form, isTrending: v })}
+              onChange={(v) => setForm((f) => ({ ...f, isTrending: v }))}
             />
             <MerchFlag
               label="On deal"
               hint="Shown in Deals of the Day"
               checked={form.isDeal}
-              onChange={(v) => setForm({ ...form, isDeal: v })}
+              onChange={(v) => setForm((f) => ({ ...f, isDeal: v }))}
             />
           </div>
         </div>
@@ -427,9 +393,6 @@ function SmallField({ icon, label, children }) {
   );
 }
 
-// Segmented flag toggle: click-to-activate, shows an accent border + check
-// dot when active. Used for the Featured / Trending / Deal merchandising
-// rails so admins can tag a product into a home section in one click.
 function MerchFlag({ label, hint, checked, onChange }) {
   return (
     <button

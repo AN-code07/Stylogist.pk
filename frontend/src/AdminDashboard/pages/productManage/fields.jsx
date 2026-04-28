@@ -13,15 +13,19 @@ export function SectionTitle({ icon, children }) {
   );
 }
 
-export function Field({ label, hint, required, children }) {
+// `as="div"` is used by the rich-text editor wrappers — wrapping a
+// contenteditable inside a <label> causes the label to forward clicks to the
+// first form control inside (e.g. the toolbar's heading <select>), stealing
+// focus from the editor and making it impossible to type.
+export function Field({ label, hint, required, children, as: As = 'label' }) {
   return (
-    <label className="block">
+    <As className="block">
       <span className="text-xs font-medium text-slate-600 mb-1 inline-block">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </span>
       {children}
       {hint && <span className="text-[11px] text-slate-400 mt-1 block">{hint}</span>}
-    </label>
+    </As>
   );
 }
 

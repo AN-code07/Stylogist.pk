@@ -3,7 +3,7 @@ import { FiImage, FiLoader, FiUploadCloud, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { useCreateCategory } from '../../../features/categories/useCategoryHooks';
 import { useUploadImage } from '../../../features/uploads/useUploadHooks';
-import { Field, SelectInput } from './fields';
+import { CountedField, Field, SelectInput } from './fields';
 import { UploadHint } from './MediaUploader';
 import { inputCls, slugify } from './shared';
 
@@ -11,6 +11,8 @@ export default function CategoryOffcanvas({ categories, onClose, onCreated }) {
   const [name, setName] = useState('');
   const [parent, setParent] = useState('');
   const [description, setDescription] = useState('');
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaDescription, setMetaDescription] = useState('');
   const [image, setImage] = useState(null);
   const createCat = useCreateCategory();
   const uploadOne = useUploadImage();
@@ -34,11 +36,17 @@ export default function CategoryOffcanvas({ categories, onClose, onCreated }) {
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) return toast.error('Category name is required');
+    // Cap meta lengths client-side so the backend's 60/160 validators
+    // don't reject the whole form silently.
+    if (metaTitle.length > 60) return toast.error('Meta title must be 60 characters or fewer');
+    if (metaDescription.length > 160) return toast.error('Meta description must be 160 characters or fewer');
     try {
       const cat = await createCat.mutateAsync({
         name: name.trim(),
         parent: parent || null,
         description: description.trim() || undefined,
+        metaTitle: metaTitle.trim() || undefined,
+        metaDescription: metaDescription.trim() || undefined,
         image: image?.url || undefined,
       });
       onCreated(cat);
@@ -70,13 +78,29 @@ export default function CategoryOffcanvas({ categories, onClose, onCreated }) {
               placeholder="Top-level"
             />
           </Field>
-          <Field label="Description">
+            <CountedField
+              label="Meta title"
+              hint="≤ 60 chars · keep unique per category"
+              value={metaTitle}
+              max={60}
+              onChange={setMetaTitle}
+              placeholder="Women's Fashion | Stylogist"
+            />
+            <CountedField
+              label="Meta description"
+              hint="≤ 160 chars · summarises the category for Google"
+              value={metaDescription}
+              max={160}
+              onChange={setMetaDescription}
+              placeholder="Shop women's fashion at Stylogist — dresses, tops, accessories…"
+            />
+          <Field label="Description" hint="Rendered at the bottom of the public category page.">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               className={`${inputCls} resize-none`}
-              placeholder="Short internal description (optional)"
+              placeholder="Curated wardrobe staples for every season…"
             />
           </Field>
           <Field label="Cover image" hint="Shown on category tiles">

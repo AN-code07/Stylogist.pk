@@ -3,13 +3,15 @@ import { FiLoader, FiUploadCloud, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { useCreateBrand } from '../../../features/brands/useBrandHooks';
 import { useUploadImage } from '../../../features/uploads/useUploadHooks';
-import { Field } from './fields';
+import { CountedField, Field } from './fields';
 import { UploadHint } from './MediaUploader';
 import { inputCls, slugify } from './shared';
 
 export default function BrandOffcanvas({ onClose, onCreated }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [metaTitle, setMetaTitle] = useState('');
+  const [metaDescription, setMetaDescription] = useState('');
   const [website, setWebsite] = useState('');
   const [logo, setLogo] = useState(null);
   const uploadOne = useUploadImage();
@@ -32,10 +34,14 @@ export default function BrandOffcanvas({ onClose, onCreated }) {
   const submit = async (e) => {
     e.preventDefault();
     if (!name.trim()) return toast.error('Brand name is required');
+    if (metaTitle.length > 60) return toast.error('Meta title must be 60 characters or fewer');
+    if (metaDescription.length > 160) return toast.error('Meta description must be 160 characters or fewer');
     try {
       const brand = await createBrand.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
+        metaTitle: metaTitle.trim() || undefined,
+        metaDescription: metaDescription.trim() || undefined,
         website: website.trim() || undefined,
         logo: logo?.url || undefined,
       });
@@ -63,13 +69,29 @@ export default function BrandOffcanvas({ onClose, onCreated }) {
           <Field label="Website">
             <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://example.com" className={inputCls} />
           </Field>
-          <Field label="Description">
+            <CountedField
+              label="Meta title"
+              hint="≤ 60 chars · keep unique per brand"
+              value={metaTitle}
+              max={60}
+              onChange={setMetaTitle}
+              placeholder="Nike | Stylogist"
+            />
+            <CountedField
+              label="Meta description"
+              hint="≤ 160 chars · summarises the brand for Google"
+              value={metaDescription}
+              max={160}
+              onChange={setMetaDescription}
+              placeholder="Shop the latest Nike sneakers, apparel and accessories…"
+            />
+          <Field label="Description" hint="Rendered at the bottom of the public brand page.">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               className={`${inputCls} resize-none`}
-              placeholder="Short brand description (optional)"
+              placeholder="Brand story or positioning"
             />
           </Field>
           <Field label="Logo" hint="Uploaded and stored as webp">

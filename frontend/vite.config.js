@@ -33,10 +33,22 @@ export default defineConfig({
           icons: ['react-icons', 'lucide-react'],
           forms: ['react-hook-form', 'zod'],
           utils: ['axios', 'zustand', 'clsx', 'dayjs', 'react-hot-toast'],
-          // Quill is ~250 KB and only ever runs inside the admin dashboard.
-          // Pulling it into its own chunk means the storefront never downloads
-          // it, cutting the public LCP path significantly.
-          quill: ['react-quill-new', 'quill'],
+          // TipTap and its extensions only run inside the admin product
+          // form. Pulling them into their own chunk keeps the public
+          // storefront LCP bundle lean — the storefront never downloads
+          // any editor code.
+          tiptap: [
+            '@tiptap/react',
+            '@tiptap/starter-kit',
+            '@tiptap/extension-underline',
+            '@tiptap/extension-link',
+            '@tiptap/extension-image',
+            '@tiptap/extension-text-align',
+            '@tiptap/extension-text-style',
+            '@tiptap/extension-font-family',
+            '@tiptap/extension-color',
+            '@tiptap/extension-highlight',
+          ],
         },
       },
     },
