@@ -504,3 +504,11 @@ main:focus-visible {
 .tiptap img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 0.5rem 0; }
 .tiptap blockquote { border-left: 3px solid #007074; padding-left: 0.875rem; color: #475569; margin: 0.75rem 0; }
 .tiptap hr { border: 0; border-top: 1px solid #e2e8f0; margin: 1rem 0; }
+
+/* Paragraph baseline + alignment. TipTap emits `text-align: …` inline
+   styles for the TextAlign extension, but we still want a sane default
+   margin and reset alignment for the storefront read view. */
+.tiptap p { margin: 0.5rem 0; }
+.tiptap [style*="text-align: center"] { text-align: center; }
+.tiptap [style*="text-align: right"] { text-align: right; }
+.tiptap [style*="text-align: justify"] { text-align: justify; }

@@ -492,8 +492,11 @@ export default function ProductDetailsPage() {
           </div>
 
           {product.shortDescription && (
+            // Match the admin editor's rendering for the short description
+            // too. The font-size override (`prose-short`) keeps it visually
+            // smaller without losing any of the tiptap formatting cues.
             <div
-              className="product-rich text-sm text-gray-500 leading-relaxed"
+              className="tiptap product-rich text-sm text-gray-600 leading-relaxed"
               dangerouslySetInnerHTML={{ __html: product.shortDescription }}
             />
           )}
@@ -715,8 +718,12 @@ export default function ProductDetailsPage() {
         <ScrollReveal as="section">
           <h2 className="text-xl font-bold text-[#222] mb-4">Product Details</h2>
           {product.description ? (
+            // `.tiptap` shares the WYSIWYG-side stylesheet (index.css) so
+            // headings, lists, alignment, font family, color, links and
+            // embedded images render exactly as they did in the admin
+            // editor — no drift between authoring and storefront.
             <div
-              className="prose max-w-none text-gray-600 break-words"
+              className="tiptap max-w-none text-gray-700 leading-relaxed break-words"
               dangerouslySetInnerHTML={{ __html: product.description }}
             />
           ) : (
