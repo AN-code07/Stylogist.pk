@@ -501,6 +501,28 @@ export default function ProductDetailsPage() {
             />
           )}
 
+          {/* Ingredient chips — internal links to the ingredient SEO landing
+              pages. Crawlable + helpful for shoppers who care about a
+              specific active. Each chip routes to /ingredient/<slug>. */}
+          {product.ingredients?.length > 0 && (
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-500 mb-2">
+                Key ingredients
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {product.ingredients.map((ing) => (
+                  <Link
+                    key={ing._id || ing.slug}
+                    to={`/ingredient/${ing.slug}`}
+                    className="inline-flex items-center gap-1.5 bg-[#F7F3F0] text-[#007074] border border-[#007074]/15 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] hover:bg-[#007074] hover:text-white transition-colors"
+                  >
+                    {ing.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Variant selection */}
           {colors.length > 0 && (
             <div>

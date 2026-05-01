@@ -130,7 +130,7 @@ const route = createBrowserRouter([
         element: <HotDeals />
       },
       {
-        path: "/category",
+        path: "/products/all",
         element: <CategoryPage />
       },
       {
