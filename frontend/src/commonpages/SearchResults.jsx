@@ -1,15 +1,29 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import CategoryPage from '../components/category/CategoryPage';
+import ProductsPage from '../components/products/ProductsPage';
 import Seo from '../components/common/Seo';
+import useFilterStore from '../store/useFilterStore';
 
-// Dedicated /search route. Reuses the catalogue listing UI (CategoryPage
-// already understands the `?search=` query param) but layers on a
-// search-specific <title>, meta description, and `noindex` for empty queries
-// — Google penalises sites that surface thousands of empty/filter pages.
+// Dedicated /search route. The query lives in the URL as `?search=` only
+// because search is the *intent* of the page — the user typed/landed with
+// it. Once captured, it's pushed into the FilterStore which (per the
+// architecture rules) clears every other filter so the search isn't
+// silently narrowed by stale state.
+//
+// All other filter knobs are body-only and never enter the URL.
 export default function SearchResults() {
   const [params] = useSearchParams();
   const q = (params.get('search') || params.get('q') || '').trim();
+  const applySearch = useFilterStore((s) => s.applySearch);
+  const clearSearch = useFilterStore((s) => s.clearSearch);
+
+  // Sync the URL query into the FilterStore on mount + whenever it changes.
+  // applySearch resets every other filter (architecture rule 2).
+  useEffect(() => {
+    if (q) applySearch(q);
+    else clearSearch();
+    return () => { clearSearch(); };
+  }, [q, applySearch, clearSearch]);
 
   const seo = useMemo(() => {
     if (!q) {
@@ -24,8 +38,6 @@ export default function SearchResults() {
     };
   }, [q]);
 
-  // SearchResultsPage JSON-LD lets Google know this is a search results page
-  // (not a product/category landing) and includes the query for analytics.
   const jsonLd = useMemo(() => {
     if (!q) return null;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -56,18 +68,13 @@ export default function SearchResults() {
         jsonLd={jsonLd}
         jsonLdId="search-results"
       />
-      {/* Empty-query state: tell Google not to index. We can't render a
-          <meta name="robots" content="noindex"> via the helmet helper without
-          extending it, so this is a small inline injection. */}
       {!q && <NoIndexHint />}
-      <CategoryPage />
+      <ProductsPage scopeType="all" />
     </>
   );
 }
 
 function NoIndexHint() {
-  // Mount a robots noindex tag for empty/blank search pages and clean it up
-  // when the component unmounts (i.e., the user types a query).
   React.useEffect(() => {
     const tag = document.createElement('meta');
     tag.setAttribute('name', 'robots');

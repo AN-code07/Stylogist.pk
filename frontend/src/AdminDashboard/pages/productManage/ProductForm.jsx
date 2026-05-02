@@ -53,6 +53,7 @@ export default function ProductForm({
   uploadingMany,
   onOpenCategory,
   onOpenBrand,
+  onOpenIngredient,
 }) {
   const [showReviewModal, setShowReviewModal] = useState(false);
 
@@ -317,6 +318,8 @@ export default function ProductForm({
                 onChange={(next) => setForm((f) => ({ ...f, ingredients: next }))}
                 options={ingredients.map((i) => ({ value: i._id, label: i.name }))}
                 placeholder="Search ingredients…"
+                onAdd={onOpenIngredient}
+                addLabel="New ingredient"
               />
             </Field>
             <Field label="Status">

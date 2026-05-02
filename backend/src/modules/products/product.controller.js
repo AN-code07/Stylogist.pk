@@ -23,6 +23,23 @@ export const getAllProducts = async (req, res) => {
   res.status(200).json({ status: "success", results: items.length, pagination, data: items });
 };
 
+// Body-driven listing endpoint. Filters travel in the request body so the
+// browser URL stays clean (SEO requirement). Cache header set to public so
+// the CDN/varnish layer can deduplicate identical filter payloads coming
+// from many users — Vary on the body via a custom hash header from the
+// frontend if you need finer-grained control.
+export const searchProducts = async (req, res) => {
+  const result = await ProductService.searchProducts(req.validated.body);
+  res.set("Cache-Control", LIST_CACHE_HEADER);
+  res.status(200).json({
+    status: "success",
+    results: result.items.length,
+    pagination: result.pagination,
+    scope: result.scope,
+    data: result.items,
+  });
+};
+
 export const getProductBySlug = async (req, res) => {
   const result = await ProductService.getProductBySlug(req.params.slug);
   res.set("Cache-Control", DETAIL_CACHE_HEADER);

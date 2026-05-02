@@ -31,7 +31,7 @@ export default function PageNotFound() {
 
           {/* Continue Shopping */}
           <Link
-            to="/category"
+            to="/products"
             className="flex items-center justify-center gap-2 bg-[#007074] text-white px-8 py-4 rounded-full font-bold text-sm uppercase tracking-widest hover:bg-[#005d60] transition-all duration-300 shadow-lg"
           >
             <FiShoppingBag />

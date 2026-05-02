@@ -34,7 +34,7 @@ export default function IngredientPage() {
   // The crawlable filtered listing the CTA + "Explore More" links point to.
   // Uses CategoryPage's existing `?ingredients=` query param so search engines
   // can index the filtered URL without a duplicate route.
-  const filteredListingHref = `/category?ingredients=${encodeURIComponent(slug)}`;
+  const filteredListingHref = `/ingredient/${slug}`;
 
   const seoTitle = ingredient?.metaTitle?.trim() || (ingredient ? `${ingredient.name} — Skincare Products & Benefits | Stylogist` : '');
   const seoDescription = ingredient?.metaDescription?.trim() ||
@@ -110,7 +110,7 @@ export default function IngredientPage() {
           >
             <Link to="/" className="hover:text-[#007074]">Home</Link>
             <span>/</span>
-            <Link to="/category" className="hover:text-[#007074]">Ingredients</Link>
+            <Link to="/ingredients" className="hover:text-[#007074]">Ingredients</Link>
             <span>/</span>
             <span className="text-[#222]">{ingredient.name}</span>
           </nav>
@@ -467,10 +467,10 @@ function NotFound({ slug }) {
           We couldn't find an ingredient called <code className="text-[#222]">{slug}</code>.
         </p>
         <Link
-          to="/category"
+          to="/ingredients"
           className="inline-flex items-center gap-2 mt-6 px-5 py-3 bg-[#222] text-white rounded-xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-[#007074] transition-colors"
         >
-          Back to shop <FiArrowRight size={14} />
+          Back to ingredients <FiArrowRight size={14} />
         </Link>
       </div>
     </div>

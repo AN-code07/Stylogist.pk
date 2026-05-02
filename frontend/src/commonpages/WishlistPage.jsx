@@ -88,7 +88,7 @@ export default function WishlistPage() {
                   remove(p.productId);
                   toast.success('Removed from wishlist');
                 }}
-                onView={() => navigate(p.slug ? `/product/${p.slug}` : '/category')}
+                onView={() => navigate(p.slug ? `/product/${p.slug}` : '/products')}
               />
             ))}
           </ul>
@@ -99,7 +99,7 @@ export default function WishlistPage() {
 }
 
 function WishlistRow({ item, onRemove, onView }) {
-  const href = item.slug ? `/product/${item.slug}` : '/category';
+  const href = item.slug ? `/product/${item.slug}` : '/products';
   const hasDiscount = item.originalPrice && item.originalPrice > item.price;
 
   return (

@@ -114,7 +114,7 @@ export default function DealHeader() {
                                     {currentData.desc}
                                 </p>
                                 <div className='flex gap-7 mt-3 justify-start'>
-                                    <Link to='/category'>
+                                    <Link to='/products'>
                                         <button className="bg-[#007074] text-white px-6 py-2 rounded-md cursor-pointer hover:bg-[#005a5a] transition-colors duration-300">
                                             Shop Now
                                         </button>

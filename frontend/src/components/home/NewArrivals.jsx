@@ -171,7 +171,7 @@ export default function NewArrivals() {
         {/* Global CTA */}
         <div className="mt-6 text-center mx-auto items-center justify-center lg:flex hidden sm:mt-12">
           <Link
-            to="/category"
+            to="/products"
             className="inline-flex justify-center items-center sm:gap-3 text-[11px] sm:font-black uppercase tracking-[0.3em] text-[#222] hover:text-[#007074] transition-all group"
           >
             View Full Collection

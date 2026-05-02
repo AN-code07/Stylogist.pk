@@ -16,7 +16,7 @@ const HomeHeader = memo(function HomeHeader() {
       title: 'Signature Style',
       description: 'Elevate your wardrobe with our latest pieces. Meticulously crafted for the modern individual who values cutting-edge aesthetics.',
       primaryCta: 'Shop New Arrivals',
-      primaryLink: '/category',
+      primaryLink: '/products',
       secondaryCta: 'View Lookbook',
       secondaryLink: '/lookbook'
     },
@@ -27,7 +27,7 @@ const HomeHeader = memo(function HomeHeader() {
       title: 'Pure Radiance',
       description: 'Transform your daily routine into a luxurious ritual. Dermatologist-approved formulas designed to nourish and protect.',
       primaryCta: 'Explore Skincare',
-      primaryLink: '/category',
+      primaryLink: '/products',
       secondaryCta: 'Read Reviews',
       secondaryLink: '/reviews'
     },

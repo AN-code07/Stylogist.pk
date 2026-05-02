@@ -4,6 +4,7 @@ import ProductList from './productManage/ProductList';
 import ProductForm from './productManage/ProductForm';
 import CategoryOffcanvas from './productManage/CategoryOffcanvas';
 import BrandOffcanvas from './productManage/BrandOffcanvas';
+import IngredientOffcanvas from './productManage/IngredientOffcanvas';
 import useProductManage from './productManage/useProductManage';
 
 export default function ProductManage() {
@@ -51,6 +52,7 @@ export default function ProductManage() {
           uploadingMany={ctl.uploadMany.isPending}
           onOpenCategory={() => ctl.setOffcanvas('category')}
           onOpenBrand={() => ctl.setOffcanvas('brand')}
+          onOpenIngredient={() => ctl.setOffcanvas('ingredient')}
         />
       )}
 
@@ -83,6 +85,19 @@ export default function ProductManage() {
           onClose={() => ctl.setOffcanvas(null)}
           onCreated={(brand) => {
             ctl.setForm((f) => ({ ...f, brand: brand._id }));
+            ctl.setOffcanvas(null);
+          }}
+        />
+      )}
+
+      {ctl.offcanvas === 'ingredient' && (
+        <IngredientOffcanvas
+          onClose={() => ctl.setOffcanvas(null)}
+          onCreated={(ingredient) => {
+            ctl.setForm((f) => ({
+              ...f,
+              ingredients: [...new Set([...(f.ingredients || []), ingredient._id])],
+            }));
             ctl.setOffcanvas(null);
           }}
         />

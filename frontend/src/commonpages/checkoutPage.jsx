@@ -407,7 +407,7 @@ export default function CheckoutPage() {
                 <FiAlertCircle className="mx-auto text-slate-300 mb-2" size={28} />
                 <p className="text-sm text-slate-500">Your cart is empty.</p>
                 <Link
-                  to="/category"
+                  to="/products"
                   className="inline-block mt-3 text-sm text-[#007074] hover:underline"
                 >
                   Continue shopping

@@ -179,7 +179,7 @@ export default function ProductDetailsPage() {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const items = [
       { name: 'Home', item: `${origin}/` },
-      { name: 'Shop', item: `${origin}/category` },
+      { name: 'Shop', item: `${origin}/products` },
     ];
     if (product.category?.slug) {
       items.push({ name: product.category.name, item: `${origin}/category/${product.category.slug}` });
@@ -361,7 +361,7 @@ export default function ProductDetailsPage() {
         <nav aria-label="Breadcrumb" className="flex items-center flex-wrap gap-1.5 text-[10px] uppercase tracking-[0.2em] text-gray-500 font-semibold">
           <Link to="/" className="hover:text-[#007074]">Home</Link>
           <FiChevronRight size={11} />
-          <Link to="/category" className="hover:text-[#007074]">Shop</Link>
+          <Link to="/products" className="hover:text-[#007074]">Shop</Link>
           {product.category?.slug && (
             <>
               <FiChevronRight size={11} />
@@ -1027,7 +1027,7 @@ function ErrorPage({ slug }) {
         We couldn't find a product for <code className="text-[#222]">{slug}</code>.
       </p>
       <Link
-        to="/category"
+        to="/products"
         className="inline-flex items-center gap-2 mt-6 px-5 py-3 bg-[#222] text-white rounded-xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-[#007074] transition-colors"
       >
         Back to shop

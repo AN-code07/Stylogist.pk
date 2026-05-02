@@ -517,6 +517,208 @@ export const getProductBySlug = async (slug) => {
   return loadProductPayload(product);
 };
 
+// Body-driven search endpoint backing the new ProductsPage. The frontend
+// FilterStore submits its full state here so the URL never leaks filter
+// query params. Resolves slug-based scopes (category/brand/ingredient) to
+// IDs so we can hit the existing indexes in `getAllProducts`.
+export const searchProducts = async (body = {}) => {
+  const {
+    categorySlug,
+    brandSlug,
+    ingredientSlug,
+    brands = [],
+    ingredients = [],
+    ingredientLogic,
+    minPrice,
+    maxPrice,
+    rating,
+    inStock,
+    onSale,
+    sort,
+    page,
+    limit,
+    search,
+  } = body;
+
+  // Search nukes everything except the SEO scope (rule: applying a search
+  // resets all filters). The service enforces this so it's not bypassable
+  // from a misbehaving client.
+  const useSearchOverride = !!(search && search.trim());
+
+  // Resolve scope slugs → IDs with a single round-trip per scope.
+  let categoryId;
+  if (categorySlug) {
+    const cat = await Category.findOne({ slug: categorySlug }).select("_id").lean();
+    if (!cat) {
+      return {
+        items: [],
+        pagination: { page: 1, limit: Number(limit) || 12, total: 0, pages: 0 },
+        scope: { type: "category", slug: categorySlug, notFound: true },
+      };
+    }
+    categoryId = cat._id;
+  }
+
+  let brandIdAnchor;
+  if (brandSlug) {
+    const br = await Brand.findOne({ slug: brandSlug }).select("_id name").lean();
+    if (!br) {
+      return {
+        items: [],
+        pagination: { page: 1, limit: Number(limit) || 12, total: 0, pages: 0 },
+        scope: { type: "brand", slug: brandSlug, notFound: true },
+      };
+    }
+    brandIdAnchor = br._id;
+  }
+
+  // The multi-select brand filter goes through brand slugs; resolve them all
+  // in one query so the downstream filter takes ObjectIds.
+  let brandIds;
+  if (!useSearchOverride && brands.length) {
+    const brandDocs = await Brand.find({ slug: { $in: brands } }).select("_id").lean();
+    brandIds = brandDocs.map((b) => b._id);
+  }
+
+  // Compose the ingredient slug list: anchor + multi-select. Keep them as
+  // slugs because `getAllProducts` already accepts CSV-of-slugs.
+  const ingredientSlugList = useSearchOverride
+    ? (ingredientSlug ? [ingredientSlug] : [])
+    : [
+        ...(ingredientSlug ? [ingredientSlug] : []),
+        ...(Array.isArray(ingredients) ? ingredients : []),
+      ];
+
+  const query = {
+    sort,
+    page,
+    limit,
+    search: useSearchOverride ? search.trim() : undefined,
+  };
+
+  if (categoryId) query.category = categoryId;
+  if (brandIdAnchor) query.brand = brandIdAnchor;
+  // Multi-brand filter is OR-style by passing `$in` brand IDs through the
+  // existing `brand` filter. When both anchor + multi exist, the multi
+  // overrides — admins shouldn't combine them in the UI.
+  if (!brandIdAnchor && brandIds && brandIds.length === 1) query.brand = brandIds[0];
+
+  if (!useSearchOverride) {
+    if (minPrice != null) query.minPrice = minPrice;
+    if (maxPrice != null) query.maxPrice = maxPrice;
+    if (rating) query.rating = rating;
+    if (inStock) query.inStock = "true";
+    if (onSale) query.deal = "true";
+  }
+  if (ingredientSlugList.length) {
+    query.ingredients = [...new Set(ingredientSlugList)].join(",");
+    if (!useSearchOverride && ingredientLogic === "and") query.ingredientLogic = "and";
+  }
+
+  const result = await getAllProducts(query);
+
+  // Multi-brand path that needs $in (more than one brand selected) — we
+  // handle it here in a dedicated branch so we don't have to touch the
+  // shared filter builder.
+  if (!brandIdAnchor && brandIds && brandIds.length > 1) {
+    // Re-run with a custom filter. We piggyback on getAllProducts by passing
+    // a single brand and then post-filtering, but that would double-query.
+    // Instead, do a lean direct query mirroring getAllProducts shape.
+    return searchProductsMultiBrand({ ...body, brandIds });
+  }
+
+  return result;
+};
+
+// Direct query path for the rare case the user picks 2+ brands at once.
+// Kept narrow on purpose — we only support the multi-brand projection,
+// nothing else. All other filters re-use the same building blocks.
+const searchProductsMultiBrand = async ({
+  brandIds,
+  categorySlug,
+  ingredientSlug,
+  ingredients = [],
+  ingredientLogic,
+  minPrice,
+  maxPrice,
+  rating,
+  inStock,
+  onSale,
+  sort,
+  page = 1,
+  limit = 12,
+}) => {
+  const filter = { status: "published", brand: { $in: brandIds } };
+
+  if (categorySlug) {
+    const cat = await Category.findOne({ slug: categorySlug }).select("_id").lean();
+    if (!cat) return { items: [], pagination: { page: 1, limit, total: 0, pages: 0 } };
+    const ids = await getDescendantCategoryIds(cat._id);
+    filter.$or = [{ category: { $in: ids } }, { categories: { $in: ids } }];
+  }
+
+  if (minPrice != null || maxPrice != null) {
+    filter.minPrice = {};
+    if (minPrice != null) filter.minPrice.$gte = Number(minPrice);
+    if (maxPrice != null) filter.minPrice.$lte = Number(maxPrice);
+  }
+  if (rating) filter.averageRating = { $gte: Number(rating) };
+  if (inStock) filter.totalStock = { $gt: 0 };
+  if (onSale) filter.$and = [...(filter.$and || []), { $or: [{ isDeal: true }, { isDealActive: true }] }];
+
+  const slugList = [...(ingredientSlug ? [ingredientSlug] : []), ...ingredients];
+  if (slugList.length) {
+    const docs = await Ingredient.find({ slug: { $in: [...new Set(slugList)] } }).select("_id").lean();
+    if (!docs.length) return { items: [], pagination: { page: 1, limit, total: 0, pages: 0 } };
+    const op = ingredientLogic === "and" ? "$all" : "$in";
+    filter.ingredients = { [op]: docs.map((d) => d._id) };
+  }
+
+  const sortMap = {
+    priceLow: { minPrice: 1 },
+    priceHigh: { minPrice: -1 },
+    newest: { createdAt: -1 },
+    rating: { averageRating: -1 },
+    bestSelling: { totalSales: -1 },
+  };
+  const sortSpec = sort && sortMap[sort] ? sortMap[sort] : { createdAt: -1 };
+
+  const pageNum = Math.max(Number(page), 1);
+  const pageSize = Math.min(Math.max(Number(limit), 1), 100);
+  const LIST_PROJECTION =
+    "name slug category categories brand status averageRating minPrice maxPrice totalStock discountPercentage totalReviews totalSales createdAt";
+
+  const [items, total] = await Promise.all([
+    Product.find(filter)
+      .select(LIST_PROJECTION)
+      .sort(sortSpec)
+      .skip((pageNum - 1) * pageSize)
+      .limit(pageSize)
+      .populate("category", "name slug")
+      .populate("brand", "name slug logo")
+      .lean(),
+    Product.countDocuments(filter),
+  ]);
+
+  if (items.length) {
+    const ids = items.map((p) => p._id);
+    const mediaRows = await ProductMedia.aggregate([
+      { $match: { product: { $in: ids }, type: "image" } },
+      { $sort: { isThumbnail: -1, position: 1, createdAt: 1 } },
+      { $group: { _id: "$product", url: { $first: "$url" } } },
+    ]);
+    const byProduct = new Map(mediaRows.map((m) => [m._id.toString(), m.url]));
+    items.forEach((p) => {
+      p.image = byProduct.get(p._id.toString()) || null;
+    });
+  }
+
+  return {
+    items,
+    pagination: { page: pageNum, limit: pageSize, total, pages: Math.ceil(total / pageSize) },
+  };
+};
+
 export const deleteProduct = async (id) => {
   const product = await Product.findById(id);
   if (!product) throw new ApiError(404, "Product not found");

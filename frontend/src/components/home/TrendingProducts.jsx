@@ -38,7 +38,7 @@ export default function TrendingProducts() {
           {/* ANIMATED LINK */}
           <ScrollReveal delay={100} className="lg:mt-6 md:mt-0 flex justify-center">
             <Link
-              to="/category"
+              to="/products"
               className="inline-flex items-center gap-3 text-[9px] lg:text-[11px] font-black uppercase tracking-[0.3em] text-[#222] hover:text-[#007074] transition-all group pb-1 border-b border-gray-100"
             >
               Explore Trending

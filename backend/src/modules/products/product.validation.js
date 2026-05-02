@@ -122,3 +122,32 @@ export const productSlugParamSchema = z.object({
     slug: z.string().min(1),
   }),
 });
+
+// `POST /products/search` body schema. Mirrors the FilterStore payload —
+// every consumer goes through this endpoint so the contract is one place.
+export const productSearchSchema = z.object({
+  body: z.object({
+    // SEO scope (one at a time, mutually exclusive in practice)
+    categorySlug: z.string().trim().optional(),
+    brandSlug: z.string().trim().optional(),
+    ingredientSlug: z.string().trim().optional(),
+
+    // Body-only filters
+    brands: z.array(z.string().trim().min(1)).optional(),
+    ingredients: z.array(z.string().trim().min(1)).optional(),
+    ingredientLogic: z.enum(["and", "or"]).optional(),
+    minPrice: z.number().nonnegative().optional(),
+    maxPrice: z.number().nonnegative().optional(),
+    rating: z.number().min(0).max(5).optional(),
+    inStock: z.boolean().optional(),
+    onSale: z.boolean().optional(),
+
+    // Pagination + sort
+    sort: z.enum(["newest", "priceLow", "priceHigh", "rating", "bestSelling"]).optional(),
+    page: z.number().int().positive().optional(),
+    limit: z.number().int().positive().max(100).optional(),
+
+    // Search (overrides all other filters except scope; service enforces this)
+    search: z.string().trim().optional(),
+  }),
+});

@@ -87,7 +87,7 @@ export default function DealsOfDay() {
         {/* ANIMATED BOTTOM LINK */}
         <ScrollReveal delay={200} className="mt-10 text-center">
           <Link
-            to="/category?deal=true"
+            to="/deals"
             className="inline-flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] text-[#222] hover:text-[#007074] transition-all group"
           >
             Discover All Active Deals

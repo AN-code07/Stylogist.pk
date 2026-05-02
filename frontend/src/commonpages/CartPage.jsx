@@ -51,7 +51,7 @@ export default function CartPage() {
             Browse the shop and add a few items to get started.
           </p>
           <Link
-            to="/category"
+            to="/products"
             className="mt-6 inline-flex items-center justify-center gap-2 w-full bg-[#007074] text-white py-2.5 rounded-lg text-sm font-medium hover:bg-[#005a5d]"
           >
             Shop products <FiArrowRight size={14} />
@@ -82,7 +82,7 @@ export default function CartPage() {
           </div>
 
           <Link
-            to="/category"
+            to="/products"
             className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 self-start md:self-auto"
           >
             <FiChevronLeft size={14} /> Continue shopping
@@ -171,7 +171,7 @@ export default function CartPage() {
 
 function CartLine({ item, onDec, onInc, onRemove, onSave }) {
   const subtotal = item.price * item.quantity;
-  const productHref = item.slug ? `/product/${item.slug}` : '/category';
+  const productHref = item.slug ? `/product/${item.slug}` : '/products';
 
   return (
     <article className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex gap-4">

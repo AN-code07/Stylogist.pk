@@ -277,7 +277,7 @@ function OrdersTab() {
             title={status === 'all' ? 'No orders yet' : `No ${status} orders`}
             body={
               <Link
-                to="/category"
+                to="/products"
                 className="inline-block mt-3 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d]"
               >
                 Browse products

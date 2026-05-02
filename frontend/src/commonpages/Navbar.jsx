@@ -114,12 +114,21 @@ export default function Navbar() {
                 {link.isShop && topCategories.length > 0 && (
                   <div className="absolute left-1/2 -translate-x-1/2 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible translate-y-2 group-hover:translate-y-0 transition-all duration-200">
                     <div className="bg-white border border-slate-200 rounded-lg shadow-xl p-2 min-w-[220px]">
-                      <Link to="/products/all" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]">
+                      <Link to="/products" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]">
                         <FiGrid size={14} className="text-slate-400" /> All products
+                      </Link>
+                      <Link to="/categories" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]">
+                        <FiGrid size={14} className="text-slate-400" /> All categories
+                      </Link>
+                      <Link to="/brands" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]">
+                        <FiGrid size={14} className="text-slate-400" /> All brands
+                      </Link>
+                      <Link to="/ingredients" className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]">
+                        <FiGrid size={14} className="text-slate-400" /> All ingredients
                       </Link>
                       <div className="h-px bg-slate-100 my-1" />
                       {topCategories.map((c) => (
-                        <Link key={c._id} to={`/category?category=${c._id}`} className="block px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]">
+                        <Link key={c._id} to={`/category/${c.slug}`} className="block px-3 py-2 rounded-md text-sm text-slate-700 hover:bg-slate-50 hover:text-[#007074]">
                           {c.name}
                         </Link>
                       ))}
@@ -411,7 +420,7 @@ function MobileMenu({ open, onClose, links, categories, user, isAuthenticated, o
                 {categories.map((c) => (
                   <Link
                     key={c._id}
-                    to={`/category?category=${c._id}`}
+                    to={`/category/${c.slug}`}
                     className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm text-slate-600 hover:text-[#007074] transition-colors"
                   >
                     <div className="w-1.5 h-1.5 rounded-full bg-slate-200" />

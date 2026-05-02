@@ -26,6 +26,28 @@ export const useProducts = (params = {}) => {
     });
 };
 
+// Body-driven product search. Pairs with the new `POST /products/search`
+// endpoint so filter state never enters the URL. The query key includes
+// the payload so React Query treats different filter combinations as
+// different queries (correct cache hits without URL params).
+export const useProductsSearch = (payload = {}, options = {}) => {
+    return useQuery({
+        queryKey: [...PRODUCTS_KEY, 'search', payload],
+        queryFn: async () => {
+            const { data } = await axiosClient.post('/products/search', payload);
+            return {
+                items: data.data,
+                pagination: data.pagination,
+                scope: data.scope,
+            };
+        },
+        placeholderData: keepPreviousData,
+        staleTime: PRODUCT_LIST_STALE_MS,
+        gcTime: PRODUCT_LIST_GC_MS,
+        ...options,
+    });
+};
+
 // Shared query options factory used by both `useProduct` and the React
 // Router loader for /product/:slug. Letting the loader call
 // `queryClient.prefetchQuery(productBySlugQuery(slug))` means by the time

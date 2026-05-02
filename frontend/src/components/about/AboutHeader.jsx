@@ -106,7 +106,7 @@ export default function AboutHeader() {
           }`}
         >
           <Link
-            to="/category"
+            to="/products"
             className="group bg-white text-[#111] px-8 py-3 rounded-full font-black text-[11px] uppercase tracking-[0.2em] hover:bg-[#007074] hover:text-white transition-all duration-500 shadow-xl active:scale-95 flex items-center gap-2"
           >
             Explore Collection

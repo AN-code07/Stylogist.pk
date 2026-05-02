@@ -15,8 +15,14 @@ import Seo from './components/common/Seo'
 // Everything below is lazy-loaded. Only the home page ships in the initial
 // bundle — category/product detail and the rest load on demand so the
 // landing-page TTI stays tight.
-const CategoryPage = lazy(() => import('./components/category/CategoryPage'))
+// Unified listing page — powers /products, /category/:slug, /brand/:slug,
+// /ingredient/:slug. Filters travel via body (FilterStore → POST
+// /products/search) so URLs stay clean for SEO.
+const ProductsPage = lazy(() => import('./components/products/ProductsPage'))
 const ProductDetailsPage = lazy(() => import('./commonpages/SingleProductPage'))
+const AllCategoriesPage = lazy(() => import('./commonpages/AllCategoriesPage'))
+const AllBrandsPage = lazy(() => import('./commonpages/AllBrandsPage'))
+const AllIngredientsPage = lazy(() => import('./commonpages/AllIngredientsPage'))
 const About = lazy(() => import('./commonpages/About'))
 const Contact = lazy(() => import('./commonpages/Contact'))
 const HotDeals = lazy(() => import('./commonpages/HotDeals'))
@@ -26,7 +32,6 @@ const WishlistPage = lazy(() => import('./commonpages/WishlistPage'))
 const CheckoutPage = lazy(() => import('./commonpages/checkoutPage'))
 const PageNotFound = lazy(() => import('./commonpages/PageNotFound'))
 const SearchResults = lazy(() => import('./commonpages/SearchResults'))
-const IngredientPage = lazy(() => import('./commonpages/IngredientPage'))
 const Login = lazy(() => import('./commonpages/Login'))
 const Signup = lazy(() => import('./commonpages/Signup'))
 const ForgotPassword = lazy(() => import('./commonpages/ForgotPassword'))
@@ -129,17 +134,50 @@ const route = createBrowserRouter([
         path: "/deals",
         element: <HotDeals />
       },
+      // ── 4 canonical SEO product routes ───────────────────────────
+      // Each renders the same ProductsPage component but with a
+      // different scope. Filters are body-only (POST /products/search)
+      // so these URLs stay clean and crawlable.
       {
-        path: "/products/all",
-        element: <CategoryPage />
+        path: "/products",
+        element: <ProductsPage scopeType="all" />,
       },
       {
-        path: "/search",
-        element: <SearchResults />
+        path: "/category/:slug",
+        element: <ProductsPage scopeType="category" />,
+      },
+      {
+        path: "/brand/:slug",
+        element: <ProductsPage scopeType="brand" />,
       },
       {
         path: "/ingredient/:slug",
-        element: <IngredientPage />
+        element: <ProductsPage scopeType="ingredient" />,
+      },
+
+      // ── Listing index pages ──────────────────────────────────────
+      {
+        path: "/categories",
+        element: <AllCategoriesPage />,
+      },
+      {
+        path: "/brands",
+        element: <AllBrandsPage />,
+      },
+      {
+        path: "/ingredients",
+        element: <AllIngredientsPage />,
+      },
+
+      // Legacy aliases — keep crawlers from 404'ing existing inbound links.
+      {
+        path: "/products/all",
+        element: <ProductsPage scopeType="all" />,
+      },
+
+      {
+        path: "/search",
+        element: <SearchResults />
       },
       {
         path: "/terms",

@@ -9,6 +9,7 @@ import {
   updateProductSchema,
   productSlugParamSchema,
   productIdParamSchema,
+  productSearchSchema,
 } from "./product.validation.js";
 
 const router = Router();
@@ -21,6 +22,8 @@ const adminWrite = [
 
 router.get("/filters/meta", catchAsync(ProductController.getFilterMetadata));
 router.get("/", catchAsync(ProductController.getAllProducts));
+// Body-driven listing — filters never leak into the URL.
+router.post("/search", validate(productSearchSchema), catchAsync(ProductController.searchProducts));
 router.get("/id/:id", validate(productIdParamSchema), catchAsync(ProductController.getProductById));
 router.get("/:slug", validate(productSlugParamSchema), catchAsync(ProductController.getProductBySlug));
 

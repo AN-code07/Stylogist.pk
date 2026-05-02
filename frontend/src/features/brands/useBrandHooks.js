@@ -4,6 +4,21 @@ import toast from 'react-hot-toast';
 
 const BRANDS_KEY = ['brands'];
 
+// Resolve a brand by slug for /brand/:slug. Reuses the cached brand list
+// instead of spinning a dedicated endpoint — small list, cheap scan.
+export const useBrandBySlug = (slug) => {
+    return useQuery({
+        queryKey: [...BRANDS_KEY, 'slug', slug],
+        queryFn: async () => {
+            const { data } = await axiosClient.get('/brands');
+            const list = data.data || [];
+            return list.find((b) => b.slug === slug) || null;
+        },
+        enabled: !!slug,
+        staleTime: 5 * 60 * 1000,
+    });
+};
+
 export const useBrands = (params = {}) => {
     return useQuery({
         queryKey: [...BRANDS_KEY, params],

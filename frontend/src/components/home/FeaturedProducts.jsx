@@ -125,7 +125,7 @@ export default function FeaturedProducts() {
         {/* BOTTOM LINK (ANIMATED) */}
         <ScrollReveal delay={200} className="text-center mt-8">
           <Link
-            to="/category"
+            to="/products"
             className="inline-flex items-center gap-3 text-[11px] font-black uppercase tracking-[0.3em] text-[#222] hover:text-[#007074] transition-all group"
           >
             Explore All Products

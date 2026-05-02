@@ -14,6 +14,24 @@ export const useCategories = (params = {}) => {
     });
 };
 
+// Resolve a single category by its slug. Used by /category/:slug to
+// translate the URL anchor into the category record (name, image, meta).
+// We grab the full list (with the existing 5-min cache) and pick the slug
+// rather than spinning a new endpoint — the backend doesn't expose a
+// /categories/slug/:slug route and the list is small enough to scan.
+export const useCategoryBySlug = (slug) => {
+    return useQuery({
+        queryKey: [...CATEGORIES_KEY, 'slug', slug],
+        queryFn: async () => {
+            const { data } = await axiosClient.get('/categories', { params: { active: 'all' } });
+            const list = data.data || [];
+            return list.find((c) => c.slug === slug) || null;
+        },
+        enabled: !!slug,
+        staleTime: 5 * 60 * 1000,
+    });
+};
+
 export const useCategoryTree = () => {
     return useQuery({
         queryKey: [...CATEGORIES_KEY, 'tree'],
