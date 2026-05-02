@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, memo } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   FiFilter, FiChevronRight, FiLoader, FiPackage,
   FiChevronLeft, FiX, FiRefreshCw, FiAlertCircle, FiHeart, FiShoppingCart,
@@ -43,7 +43,6 @@ const formatPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 export default function ProductsPage({ scopeType = 'all' }) {
   const params = useParams();
   const slug = params.slug || '';
-  const navigate = useNavigate();
 
   // Scope record lookups (used for the hero copy + SEO meta).
   const { data: categoryRecord } = useCategoryBySlug(scopeType === 'category' ? slug : null);
@@ -69,6 +68,9 @@ export default function ProductsPage({ scopeType = 'all' }) {
   /* ── Mirror FilterStore values into local consts (read-only views) ── */
   const f = useFilterStore();
   const {
+    brands: storeBrands,
+    ingredients: storeIngredients,
+    ingredientLogic,
     maxPrice,
     inStock,
     onSale,
@@ -202,28 +204,56 @@ export default function ProductsPage({ scopeType = 'all' }) {
                 </div>
               </FilterSection>
 
-              {/* Brand — searchable dropdown (same UX as before). Selecting
-                  a brand navigates to /brand/:slug; clearing returns to
-                  /products. The redirection is scope-driven, not body. */}
+              {/* Brand filter — always rendered. Two interaction models:
+                  - On /brand/:slug, this is a radio-style scope switcher.
+                    The active brand reflects the URL; clicking another
+                    item navigates to its /brand/:slug page (single-
+                    select by navigation).
+                  - Everywhere else, this is a multi-select checkbox list
+                    that writes to FilterStore.brands and travels via the
+                    request body. */}
               <FilterSection title="Brand">
-                <FancyDropdown
-                  value={scopeType === 'brand' ? slug : ''}
-                  onChange={(brandSlug) => navigate(brandSlug ? `/brand/${brandSlug}` : '/products')}
-                  placeholder="All brands"
-                  searchable
-                  options={brands.map((b) => ({ value: b.slug, label: b.name }))}
-                />
+                {scopeType === 'brand' ? (
+                  <ScopeRadioList
+                    options={brands.map((b) => ({ value: b.slug, label: b.name }))}
+                    activeValue={slug}
+                    hrefFor={(v) => `/brand/${v}`}
+                    allHref="/products"
+                    searchPlaceholder="Search brands"
+                  />
+                ) : (
+                  <CheckboxList
+                    options={brands.map((b) => ({ value: b.slug, label: b.name }))}
+                    selected={storeBrands}
+                    onToggle={(s) => f.toggleBrand(s)}
+                    onClear={() => f.setBrands([])}
+                    searchPlaceholder="Search brands"
+                  />
+                )}
               </FilterSection>
 
+              {/* Ingredient filter — same dual model. On /ingredient/:slug
+                  it switches scope by navigation; everywhere else it's a
+                  multi-select with Any/All logic that travels via body. */}
               {ingredients.length > 0 && (
                 <FilterSection title="Ingredients">
-                  <FancyDropdown
-                    value={scopeType === 'ingredient' ? slug : ''}
-                    onChange={(ingSlug) => navigate(ingSlug ? `/ingredient/${ingSlug}` : '/products')}
-                    placeholder="All ingredients"
-                    searchable
-                    options={ingredients.map((i) => ({ value: i.slug, label: i.name }))}
-                  />
+                  {scopeType === 'ingredient' ? (
+                    <ScopeRadioList
+                      options={ingredients.map((i) => ({ value: i.slug, label: i.name }))}
+                      activeValue={slug}
+                      hrefFor={(v) => `/ingredient/${v}`}
+                      allHref="/products"
+                      searchPlaceholder="Search ingredients"
+                    />
+                  ) : (
+                    <IngredientFilter
+                      options={ingredients}
+                      selected={storeIngredients}
+                      onToggle={(s) => f.toggleIngredient(s)}
+                      logic={ingredientLogic}
+                      onLogicChange={(l) => f.setIngredientLogic(l)}
+                    />
+                  )}
                 </FilterSection>
               )}
 
@@ -503,6 +533,191 @@ function FilterSection({ title, children }) {
     <div>
       <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3">{title}</h3>
       {children}
+    </div>
+  );
+}
+
+// Scope switcher with the SAME checkbox visual as `CheckboxList`. Each
+// row is a `<Link>` — selecting a different item navigates to that
+// scope's URL (single-select via navigation). Used on /brand/:slug and
+// /ingredient/:slug so the user can switch the active scope without
+// leaving the listing surface.
+function ScopeRadioList({ options, activeValue, hrefFor, allHref, searchPlaceholder = 'Search' }) {
+  const [q, setQ] = useState('');
+  const filtered = useMemo(() => {
+    if (!q.trim()) return options;
+    const needle = q.trim().toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(needle));
+  }, [options, q]);
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <FiSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={searchPlaceholder}
+          className="w-full pl-8 pr-2 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074]"
+        />
+      </div>
+      <ul className="space-y-1 max-h-56 overflow-y-auto pr-1 -mr-1">
+        {filtered.length === 0 ? (
+          <li className="text-xs text-slate-400 py-2">No matches.</li>
+        ) : (
+          filtered.map((o) => {
+            const active = o.value === activeValue;
+            return (
+              <li key={o.value}>
+                <Link
+                  to={active ? allHref : hrefFor(o.value)}
+                  className="flex items-center gap-2 text-sm rounded px-1 py-0.5 hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    readOnly
+                    className="w-4 h-4 accent-[#007074] pointer-events-none"
+                  />
+                  <span className={`flex-1 truncate ${active ? 'text-[#007074] font-medium' : 'text-slate-700'}`}>
+                    {o.label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </div>
+  );
+}
+
+// Multi-select checkbox list with optional search box. Used on the
+// /products page for body-driven brand filtering. Selections are owned
+// by the parent (FilterStore) — this component is purely presentational.
+function CheckboxList({ options, selected, onToggle, onClear, searchPlaceholder = 'Search' }) {
+  const [q, setQ] = useState('');
+  const filtered = useMemo(() => {
+    if (!q.trim()) return options;
+    const needle = q.trim().toLowerCase();
+    return options.filter((o) => o.label.toLowerCase().includes(needle));
+  }, [options, q]);
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <FiSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={searchPlaceholder}
+          className="w-full pl-8 pr-2 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074]"
+        />
+      </div>
+      {selected.length > 0 && onClear && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-[11px] text-[#007074] hover:underline"
+        >
+          Clear ({selected.length})
+        </button>
+      )}
+      <ul className="space-y-1 max-h-56 overflow-y-auto pr-1 -mr-1">
+        {filtered.length === 0 ? (
+          <li className="text-xs text-slate-400 py-2">No matches.</li>
+        ) : (
+          filtered.map((o) => {
+            const checked = selected.includes(o.value);
+            return (
+              <li key={o.value}>
+                <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggle(o.value)}
+                    className="w-4 h-4 accent-[#007074]"
+                  />
+                  <span className={`flex-1 truncate ${checked ? 'text-[#007074] font-medium' : 'text-slate-700'}`}>
+                    {o.label}
+                  </span>
+                </label>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </div>
+  );
+}
+
+// Ingredient multi-select with Any/All logic toggle. Same UX as the
+// original CategoryPage — search box, Any/All pills, scrollable list
+// with product counts. Selections + logic are owned by FilterStore.
+function IngredientFilter({ options, selected, onToggle, logic, onLogicChange }) {
+  const [q, setQ] = useState('');
+  const filtered = useMemo(() => {
+    if (!q.trim()) return options;
+    const needle = q.trim().toLowerCase();
+    return options.filter((o) => o.name.toLowerCase().includes(needle));
+  }, [options, q]);
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <FiSearch size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search ingredients"
+          className="w-full pl-8 pr-2 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074]"
+        />
+      </div>
+      <div className="inline-flex bg-slate-100 rounded-md p-0.5 text-[10px] font-semibold uppercase tracking-wider">
+        <button
+          type="button"
+          onClick={() => onLogicChange('or')}
+          className={`px-2.5 py-1 rounded ${logic === 'or' ? 'bg-white text-[#007074] shadow-sm' : 'text-slate-500'}`}
+          title="Match products that contain ANY of the selected ingredients"
+        >
+          Any
+        </button>
+        <button
+          type="button"
+          onClick={() => onLogicChange('and')}
+          className={`px-2.5 py-1 rounded ${logic === 'and' ? 'bg-white text-[#007074] shadow-sm' : 'text-slate-500'}`}
+          title="Match products that contain ALL of the selected ingredients"
+        >
+          All
+        </button>
+      </div>
+      <ul className="space-y-1 max-h-56 overflow-y-auto pr-1 -mr-1">
+        {filtered.length === 0 ? (
+          <li className="text-xs text-slate-400 py-2">No matches.</li>
+        ) : (
+          filtered.map((ing) => {
+            const checked = selected.includes(ing.slug);
+            return (
+              <li key={ing._id}>
+                <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggle(ing.slug)}
+                    className="w-4 h-4 accent-[#007074]"
+                  />
+                  <span className={`flex-1 truncate ${checked ? 'text-[#007074] font-medium' : 'text-slate-700'}`}>
+                    {ing.name}
+                  </span>
+                  {typeof ing.productCount === 'number' && (
+                    <span className="text-[10px] text-slate-400 tabular-nums">{ing.productCount}</span>
+                  )}
+                </label>
+              </li>
+            );
+          })
+        )}
+      </ul>
     </div>
   );
 }
