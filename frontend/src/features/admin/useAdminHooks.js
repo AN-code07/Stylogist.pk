@@ -121,3 +121,24 @@ export const useUpdateOrderStatus = () => {
         },
     });
 };
+
+// Free-form order edit — items / contact / address / shipping fee. The
+// backend service computes the new totals from the patched items + fee
+// so we just forward whatever the editor produced.
+export const useEditOrder = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id, patch }) => {
+            const { data } = await axiosClient.patch(`/admin/orders/${id}`, patch);
+            return data.data;
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ORDERS_KEY });
+            qc.invalidateQueries({ queryKey: ['admin', 'overview'] });
+            toast.success('Order updated');
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.message || 'Failed to update order');
+        },
+    });
+};

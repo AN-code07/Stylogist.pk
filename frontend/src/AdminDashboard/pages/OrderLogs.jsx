@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FiSearch, FiEye, FiClock, FiCheckCircle, FiXCircle, FiTruck, FiPackage,
-  FiX, FiMapPin, FiUser, FiAlertCircle, FiRefreshCw, FiChevronLeft, FiChevronRight, FiLoader, FiLink
+  FiX, FiMapPin, FiUser, FiAlertCircle, FiRefreshCw, FiChevronLeft, FiChevronRight, FiLoader, FiLink,
+  FiEdit2, FiPlus, FiMinus, FiTrash2, FiSave
 } from 'react-icons/fi';
 import { FaWhatsapp } from 'react-icons/fa';
 import toast from 'react-hot-toast';
-import { useAdminOrders, useUpdateOrderStatus } from '../../features/admin/useAdminHooks';
+import { useAdminOrders, useUpdateOrderStatus, useEditOrder } from '../../features/admin/useAdminHooks';
+import { useProductsSearch } from '../../features/products/useProductHooks';
+import axiosClient from '../../api/axiosClient';
 import { buildCustomerWhatsAppUrl } from '../../utils/whatsapp';
 
 const STATUSES = ['pending', 'confirmed', 'shipped', 'partially_shipped', 'delivered', 'cancelled', 'returned'];
@@ -239,6 +242,11 @@ function OrderDetailModal({ order, onClose }) {
   // lets them tick exactly which line items are going out in this shipment.
   const [shipmentDraft, setShipmentDraft] = useState(null); // { status, indexes }
 
+  // Free-form edit mode toggles a different layout that exposes editable
+  // inputs for items / contact / address / shipping fee. Status & tracking
+  // stay on their own dedicated control underneath.
+  const [editMode, setEditMode] = useState(false);
+
   // New State for tracking details
   const [trackingCompany, setTrackingCompany] = useState(order.trackingCompany || '');
   const [trackingLink, setTrackingLink] = useState(order.trackingLink || '');
@@ -414,6 +422,15 @@ function OrderDetailModal({ order, onClose }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {!editMode && (
+              <button
+                onClick={() => setEditMode(true)}
+                title="Edit order details"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:border-[#007074] hover:text-[#007074] transition-colors"
+              >
+                <FiEdit2 size={13} /> Edit order
+              </button>
+            )}
             {/* Send shipment details on customer's WhatsApp. Visible once
                 the order has at least one shipped item or its overall
                 status is a shipping state — admins can re-send any time. */}
@@ -436,6 +453,13 @@ function OrderDetailModal({ order, onClose }) {
         </header>
 
         <div className="p-6 overflow-y-auto space-y-5">
+          {editMode && (
+            <OrderEditor
+              order={order}
+              onSaved={() => setEditMode(false)}
+              onCancel={() => setEditMode(false)}
+            />
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <Panel icon={<FiUser size={14} />} title="Customer">
               <div className="text-sm text-slate-800">
@@ -780,6 +804,418 @@ function ErrorState({ onRetry }) {
       >
         <FiRefreshCw size={14} /> Try again
       </button>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------
+ * OrderEditor — free-form admin edit panel rendered inside the modal.
+ * Patches: line items (add/remove/quantity), shipping fee, customer
+ * contact, and the shipping address snapshot. Subtotal + total are
+ * recomputed server-side; we mirror the math in the preview strip.
+ * -------------------------------------------------------------------- */
+
+function emptyAddress() {
+  return {
+    label: 'Home', addressLine1: '', addressLine2: '',
+    city: '', state: '', postalCode: '', country: 'Pakistan',
+  };
+}
+
+function OrderEditor({ order, onSaved, onCancel }) {
+  const editMut = useEditOrder();
+
+  const [items, setItems] = useState(() => (order.items || []).map((it) => ({
+    product: typeof it.product === 'object' ? it.product?._id : it.product,
+    name: it.name,
+    sku: it.sku,
+    price: Number(it.price || 0),
+    quantity: Number(it.quantity || 1),
+    shipped: !!it.shipped,
+  })));
+  const [shippingFee, setShippingFee] = useState(Number(order.shippingFee || 0));
+  const [guest, setGuest] = useState(() => ({
+    name: order.guest?.name || order.user?.name || '',
+    email: order.guest?.email || order.user?.email || '',
+    phone: order.guest?.phone || '',
+  }));
+  const [address, setAddress] = useState(() => {
+    // Order can carry either a snapshot (`guestAddress`) or a populated ref
+    // (`shippingAddress`). Prefer the snapshot; fall back to the populated
+    // ref so registered-customer orders show their saved address as a
+    // starting point. Saving will null the ref and persist the snapshot.
+    const a = order.guestAddress || order.shippingAddress || emptyAddress();
+    return {
+      label: a.label || 'Home',
+      addressLine1: a.addressLine1 || a.line1 || '',
+      addressLine2: a.addressLine2 || a.line2 || '',
+      city: a.city || '',
+      state: a.state || '',
+      postalCode: a.postalCode || '',
+      country: a.country || 'Pakistan',
+    };
+  });
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const subtotal = useMemo(
+    () => items.reduce((sum, it) => sum + Number(it.price || 0) * Number(it.quantity || 0), 0),
+    [items]
+  );
+  const total = subtotal + Number(shippingFee || 0);
+
+  const updateQty = (idx, next) => {
+    const q = Math.max(1, Number(next) || 1);
+    setItems((arr) => arr.map((row, i) => (i === idx ? { ...row, quantity: q } : row)));
+  };
+  const removeItem = (idx) => setItems((arr) => arr.filter((_, i) => i !== idx));
+
+  const addPicked = (picked) => {
+    // Same product+SKU? bump qty instead of duplicating the row.
+    setItems((arr) => {
+      const at = arr.findIndex(
+        (r) => String(r.product) === String(picked.product) && r.sku === picked.sku
+      );
+      if (at >= 0) {
+        return arr.map((r, i) => (i === at ? { ...r, quantity: r.quantity + 1 } : r));
+      }
+      return [...arr, { ...picked, quantity: 1, shipped: false }];
+    });
+    setPickerOpen(false);
+  };
+
+  const submit = async () => {
+    if (!items.length) return toast.error('At least one item is required');
+    if (!guest.name.trim() || !guest.email.trim() || !guest.phone.trim()) {
+      return toast.error('Customer name, email, and phone are required');
+    }
+    if (!address.addressLine1.trim() || !address.city.trim() || !address.state.trim()
+      || !address.postalCode.trim() || !address.country.trim()) {
+      return toast.error('Address line, city, state, postal code, and country are required');
+    }
+    try {
+      await editMut.mutateAsync({
+        id: order._id,
+        patch: {
+          items: items.map((it) => ({ product: it.product, sku: it.sku, quantity: it.quantity })),
+          shippingFee: Number(shippingFee) || 0,
+          guest: {
+            name: guest.name.trim(),
+            email: guest.email.trim(),
+            phone: guest.phone.trim(),
+          },
+          guestAddress: address,
+        },
+      });
+      onSaved();
+    } catch { /* hook toast */ }
+  };
+
+  return (
+    <section className="bg-amber-50/40 border border-amber-200 rounded-xl p-4 space-y-5">
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-amber-800">
+          <FiEdit2 size={14} />
+          <h3 className="text-[11px] font-bold uppercase tracking-wider">Edit order</h3>
+        </div>
+        <button onClick={onCancel} className="text-xs text-slate-600 hover:text-slate-900">
+          Cancel edit
+        </button>
+      </header>
+
+      <div className="bg-white rounded-lg border border-slate-200 p-3">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Items</span>
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-[#007074] hover:underline"
+          >
+            <FiPlus size={12} /> Add product
+          </button>
+        </div>
+        {items.length === 0 ? (
+          <p className="text-xs text-slate-400 py-3">No items. Click Add product to insert one.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100">
+            {items.map((it, idx) => (
+              <li key={`${it.product}-${it.sku}-${idx}`} className="py-2 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-slate-800 truncate flex items-center gap-2">
+                    {it.name}
+                    {it.shipped && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-full">
+                        <FiTruck size={9} /> Shipped
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-400">SKU {it.sku} · {fmtPKR(it.price)} ea</div>
+                </div>
+                <div className="inline-flex items-center border border-slate-200 rounded-md overflow-hidden">
+                  <button
+                    onClick={() => updateQty(idx, it.quantity - 1)}
+                    disabled={it.quantity <= 1}
+                    className="w-7 h-7 inline-flex items-center justify-center text-slate-500 hover:bg-slate-50 disabled:opacity-30"
+                  >
+                    <FiMinus size={12} />
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={it.quantity}
+                    onChange={(e) => updateQty(idx, e.target.value)}
+                    className="w-10 text-center text-sm tabular-nums focus:outline-none"
+                  />
+                  <button
+                    onClick={() => updateQty(idx, it.quantity + 1)}
+                    className="w-7 h-7 inline-flex items-center justify-center text-slate-500 hover:bg-slate-50"
+                  >
+                    <FiPlus size={12} />
+                  </button>
+                </div>
+                <div className="w-20 text-right text-sm tabular-nums text-slate-700 font-medium">
+                  {fmtPKR(it.price * it.quantity)}
+                </div>
+                <button
+                  onClick={() => removeItem(idx)}
+                  disabled={it.shipped}
+                  title={it.shipped ? 'Cannot remove a shipped item' : 'Remove item'}
+                  className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <FiTrash2 size={13} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg border border-slate-200 p-3 space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Customer</div>
+          <FieldInput label="Name" value={guest.name} onChange={(v) => setGuest((g) => ({ ...g, name: v }))} />
+          <FieldInput label="Email" type="email" value={guest.email} onChange={(v) => setGuest((g) => ({ ...g, email: v }))} />
+          <FieldInput label="Phone" value={guest.phone} onChange={(v) => setGuest((g) => ({ ...g, phone: v }))} />
+        </div>
+
+        <div className="bg-white rounded-lg border border-slate-200 p-3 space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Shipping address</div>
+          <FieldInput label="Label" value={address.label} onChange={(v) => setAddress((a) => ({ ...a, label: v }))} />
+          <FieldInput label="Address line 1" value={address.addressLine1} onChange={(v) => setAddress((a) => ({ ...a, addressLine1: v }))} />
+          <FieldInput label="Address line 2" value={address.addressLine2} onChange={(v) => setAddress((a) => ({ ...a, addressLine2: v }))} />
+          <div className="grid grid-cols-2 gap-2">
+            <FieldInput label="City" value={address.city} onChange={(v) => setAddress((a) => ({ ...a, city: v }))} />
+            <FieldInput label="State" value={address.state} onChange={(v) => setAddress((a) => ({ ...a, state: v }))} />
+            <FieldInput label="Postal code" value={address.postalCode} onChange={(v) => setAddress((a) => ({ ...a, postalCode: v }))} />
+            <FieldInput label="Country" value={address.country} onChange={(v) => setAddress((a) => ({ ...a, country: v }))} />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-200 p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <FieldInput
+          label="Shipping fee"
+          type="number"
+          value={shippingFee}
+          onChange={(v) => setShippingFee(Number(v) || 0)}
+        />
+        <div className="text-sm">
+          <div className="text-[11px] uppercase tracking-wider text-slate-500">Subtotal</div>
+          <div className="font-medium text-slate-900 tabular-nums">{fmtPKR(subtotal)}</div>
+        </div>
+        <div className="text-sm">
+          <div className="text-[11px] uppercase tracking-wider text-slate-500">New total</div>
+          <div className="font-bold text-[#007074] tabular-nums">{fmtPKR(total)}</div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-white"
+        >
+          Discard
+        </button>
+        <button
+          onClick={submit}
+          disabled={editMut.isPending}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#007074] text-white rounded-lg text-sm font-medium hover:bg-[#005a5d] disabled:opacity-60"
+        >
+          {editMut.isPending ? <FiLoader className="animate-spin" size={14} /> : <FiSave size={14} />}
+          Save changes
+        </button>
+      </div>
+
+      {pickerOpen && (
+        <ProductPickerModal onClose={() => setPickerOpen(false)} onPick={addPicked} />
+      )}
+    </section>
+  );
+}
+
+function FieldInput({ label, value, onChange, type = 'text' }) {
+  return (
+    <label className="block">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full px-3 py-1.5 border border-slate-200 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074]"
+      />
+    </label>
+  );
+}
+
+/* Product picker — opens on top of the order edit panel.
+ * Lists searchable products via the body-driven /products/search hook.
+ * After picking a product, fetches its variants so the admin can pick
+ * the exact SKU before the line is added to the order. */
+function ProductPickerModal({ onClose, onPick }) {
+  const [search, setSearch] = useState('');
+  const [activeProductId, setActiveProductId] = useState(null);
+  const [activeProduct, setActiveProduct] = useState(null);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+  const [variants, setVariants] = useState([]);
+
+  const { data, isLoading } = useProductsSearch(
+    { search: search.trim() || undefined, limit: 20, sort: 'newest' },
+  );
+  const products = data?.items ?? [];
+
+  // Detail fetch when a product is picked — list payload is lean and
+  // doesn't carry variants, so we hit /products/id/:id here.
+  useEffect(() => {
+    if (!activeProductId) return;
+    let cancelled = false;
+    setLoadingVariants(true);
+    axiosClient
+      .get(`/products/id/${activeProductId}`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setActiveProduct(data?.data?.product || null);
+        setVariants(data?.data?.variants || []);
+      })
+      .catch(() => { if (!cancelled) toast.error('Failed to load variants'); })
+      .finally(() => { if (!cancelled) setLoadingVariants(false); });
+    return () => { cancelled = true; };
+  }, [activeProductId]);
+
+  const handlePick = (variant) => {
+    if (!activeProduct) return;
+    onPick({
+      product: activeProduct._id,
+      name: activeProduct.name,
+      sku: variant.sku,
+      price: Number(variant.salePrice),
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
+        <header className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {activeProductId && (
+              <button
+                onClick={() => { setActiveProductId(null); setActiveProduct(null); setVariants([]); }}
+                className="text-slate-400 hover:text-slate-700"
+                title="Back to product list"
+              >
+                <FiChevronLeft size={16} />
+              </button>
+            )}
+            <h3 className="text-sm font-semibold text-slate-900">
+              {activeProductId ? 'Pick a variant' : 'Add product to order'}
+            </h3>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+            <FiX size={16} />
+          </button>
+        </header>
+
+        {!activeProductId ? (
+          <>
+            <div className="p-3 border-b border-slate-100">
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search products by name"
+                  className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074]"
+                />
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {isLoading ? (
+                <div className="p-10 text-center text-slate-400 text-sm">Loading…</div>
+              ) : products.length === 0 ? (
+                <div className="p-10 text-center text-slate-400 text-sm">No products match.</div>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {products.map((p) => (
+                    <li key={p._id}>
+                      <button
+                        onClick={() => setActiveProductId(p._id)}
+                        className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 text-left"
+                      >
+                        <div className="w-10 h-10 rounded-md bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {p.image ? (
+                            <img src={p.image} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <FiPackage size={14} className="text-slate-300" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-slate-800 truncate">{p.name}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {p.brand?.name || '—'} · {fmtPKR(p.minPrice)}
+                          </div>
+                        </div>
+                        <FiChevronRight size={14} className="text-slate-300" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="overflow-y-auto flex-1">
+            {loadingVariants ? (
+              <div className="p-10 text-center text-slate-400 text-sm">Loading variants…</div>
+            ) : variants.length === 0 ? (
+              <div className="p-10 text-center text-slate-400 text-sm">This product has no variants.</div>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {variants.map((v) => (
+                  <li key={v._id || v.sku}>
+                    <button
+                      onClick={() => handlePick(v)}
+                      className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50 text-left"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-slate-800 truncate">{activeProduct?.name}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">
+                          {[v.size, v.color, v.packSize].filter(Boolean).join(' · ') || 'Default'} · SKU {v.sku}
+                        </div>
+                      </div>
+                      <div className="text-sm tabular-nums text-slate-700 font-medium">
+                        {fmtPKR(v.salePrice)}
+                      </div>
+                      {v.stock != null && (
+                        <span className={`text-[10px] font-semibold tabular-nums ${v.stock === 0 ? 'text-red-500' : 'text-slate-400'}`}>
+                          {v.stock} in stock
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

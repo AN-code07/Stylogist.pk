@@ -54,5 +54,9 @@ router.patch('/customers/:id/unblock', hasPermission('customers:manage'), catchA
 router.get('/orders', hasPermission('orders:read'), catchAsync(adminController.listOrders));
 router.get('/orders/:id', hasPermission('orders:read'), catchAsync(adminController.getOrder));
 router.patch('/orders/:id/status', hasPermission('orders:update'), catchAsync(adminController.updateOrderStatus));
+// Full edit endpoint — items / address / contact / shipping fee. Same
+// permission as status updates so we don't add a new flag to the staff
+// permissions UI for what is effectively the same kind of mutation.
+router.patch('/orders/:id', hasPermission('orders:update'), catchAsync(adminController.editOrder));
 
 export default router;

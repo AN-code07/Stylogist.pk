@@ -1,5 +1,8 @@
+import mongoose from "mongoose";
 import Order from "../orders/order.model.js";
 import { User } from "../users/user.model.js";
+import { Variant } from "../products/variant.model.js";
+import { Product } from "../products/product.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { sendEmail } from '../../utils/email.js';
 
@@ -273,5 +276,164 @@ export const updateOrderStatus = async (id, status, trackingCompany, trackingLin
     }
   }
 
+  return order.toObject();
+};
+
+// Sanitize a free-form admin payload into a single, fully-validated
+// patch the order can absorb. Designed to be called from a single
+// `PATCH /admin/orders/:id` endpoint so the admin UI can submit any
+// subset of editable fields in one request.
+//
+// Editable fields:
+//   - items[]         — add / remove / change quantity (price is preserved
+//                       on existing rows; new rows resolve their price
+//                       from the live Variant + Product snapshot)
+//   - shippingFee     — flat fee adjustment
+//   - guest           — name / email / phone for guest orders
+//   - guestAddress    — full address snapshot (works for *both* guest and
+//                       registered orders; converts a registered order to
+//                       a snapshot when the admin edits the address)
+//   - status / tracking fields are still owned by updateOrderStatus.
+export const editOrder = async (id, patch = {}) => {
+  if (!mongoose.isValidObjectId(id)) throw new ApiError(400, "Invalid order id");
+
+  const order = await Order.findById(id).populate("user", "name email");
+  if (!order) throw new ApiError(404, "Order not found");
+
+  // ── ITEMS ─────────────────────────────────────────────────────────
+  // Authoritative replace when an `items` array is supplied. Each row
+  // must reference an existing Product + Variant SKU so we can lock in
+  // a fresh price snapshot for new lines.
+  if (Array.isArray(patch.items)) {
+    if (!patch.items.length) {
+      throw new ApiError(400, "An order must have at least one item.");
+    }
+
+    const nextItems = [];
+    for (const [idx, raw] of patch.items.entries()) {
+      const productId = raw?.product;
+      const sku = (raw?.sku || "").toString().trim();
+      const quantity = Number(raw?.quantity);
+
+      if (!mongoose.isValidObjectId(productId)) {
+        throw new ApiError(400, `Item ${idx + 1}: invalid product id`);
+      }
+      if (!sku) throw new ApiError(400, `Item ${idx + 1}: SKU is required`);
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        throw new ApiError(400, `Item ${idx + 1}: quantity must be ≥ 1`);
+      }
+
+      // Reuse the existing line when the product+SKU pair matches —
+      // preserves the original price + shipped flag (admins editing an
+      // already-dispatched order shouldn't lose dispatch history).
+      const existing = order.items.find(
+        (it) => String(it.product) === String(productId) && it.sku === sku
+      );
+
+      if (existing) {
+        const price = Number(existing.price);
+        nextItems.push({
+          product: existing.product,
+          name: existing.name,
+          sku: existing.sku,
+          price,
+          quantity,
+          subtotal: price * quantity,
+          shipped: !!existing.shipped,
+          shippedAt: existing.shippedAt || null,
+        });
+        continue;
+      }
+
+      // New line — pull current price + name from the live catalogue.
+      const [variant, product] = await Promise.all([
+        Variant.findOne({ product: productId, sku }).lean(),
+        Product.findById(productId).select("name").lean(),
+      ]);
+      if (!variant) throw new ApiError(404, `Item ${idx + 1}: SKU ${sku} not found on the product`);
+      if (!product) throw new ApiError(404, `Item ${idx + 1}: product not found`);
+      if (variant.stock != null && variant.stock < quantity) {
+        throw new ApiError(409, `Item ${idx + 1}: only ${variant.stock} in stock`);
+      }
+
+      const price = Number(variant.salePrice);
+      nextItems.push({
+        product: product._id,
+        name: product.name,
+        sku: variant.sku,
+        price,
+        quantity,
+        subtotal: price * quantity,
+        shipped: false,
+        shippedAt: null,
+      });
+    }
+
+    order.items = nextItems;
+  }
+
+  // ── SHIPPING FEE ──────────────────────────────────────────────────
+  if (patch.shippingFee !== undefined) {
+    const fee = Number(patch.shippingFee);
+    if (!Number.isFinite(fee) || fee < 0) {
+      throw new ApiError(400, "Shipping fee must be a non-negative number");
+    }
+    order.shippingFee = fee;
+  }
+
+  // ── GUEST CONTACT (name / email / phone) ──────────────────────────
+  // We allow editing the guest block on registered orders too — admins
+  // sometimes need to override the contact for a delivery without
+  // touching the customer's own profile. The user link stays intact.
+  if (patch.guest && typeof patch.guest === "object") {
+    const { name, email, phone } = patch.guest;
+    const next = {
+      name: (name ?? order.guest?.name ?? order.user?.name ?? "").toString().trim(),
+      email: (email ?? order.guest?.email ?? order.user?.email ?? "").toString().trim().toLowerCase(),
+      phone: (phone ?? order.guest?.phone ?? "").toString().trim(),
+    };
+    if (!next.name) throw new ApiError(400, "Customer name is required");
+    if (!next.email) throw new ApiError(400, "Customer email is required");
+    if (!next.phone) throw new ApiError(400, "Customer phone is required");
+    order.guest = next;
+  }
+
+  // ── ADDRESS SNAPSHOT ──────────────────────────────────────────────
+  // `guestAddress` is the inline, self-contained snapshot. Editing it
+  // works for both guest and registered orders; for the latter we also
+  // null the `shippingAddress` ref so the snapshot becomes the source
+  // of truth (the customer's saved address is never mutated from here).
+  if (patch.guestAddress && typeof patch.guestAddress === "object") {
+    const a = patch.guestAddress;
+    const required = ["addressLine1", "city", "state", "postalCode", "country"];
+    for (const key of required) {
+      if (!(a[key] || "").toString().trim()) {
+        throw new ApiError(400, `Address field "${key}" is required`);
+      }
+    }
+    order.guestAddress = {
+      label: (a.label || "Home").toString().trim(),
+      addressLine1: a.addressLine1.toString().trim(),
+      addressLine2: (a.addressLine2 || "").toString().trim(),
+      city: a.city.toString().trim(),
+      state: a.state.toString().trim(),
+      postalCode: a.postalCode.toString().trim(),
+      country: a.country.toString().trim(),
+    };
+    order.shippingAddress = null;
+  }
+
+  // ── RECOMPUTE TOTALS ─────────────────────────────────────────────
+  // Always re-derive from the current items + shippingFee. This keeps
+  // the persisted totals coherent regardless of which fields the admin
+  // touched in this patch.
+  const subtotal = order.items.reduce(
+    (sum, it) => sum + Number(it.subtotal ?? it.price * it.quantity),
+    0
+  );
+  order.subtotal = subtotal;
+  order.totalAmount = subtotal + Number(order.shippingFee || 0);
+
+  await order.save();
   return order.toObject();
 };

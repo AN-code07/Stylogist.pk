@@ -1,14 +1,15 @@
 {
   "permissions": {
-    "additionalDirectories": [
-      "D:\\COMAPNY PORJECTS\\INNOVISTA_DHA\\Stylogist.pk\\backend\\src\\modules"
-    ],
     "allow": [
       "Bash(node --check src/modules/ingredients/ingredient.model.js)",
       "Bash(node --check src/modules/ingredients/ingredient.service.js)",
       "Bash(node --check src/modules/ingredients/ingredient.controller.js)",
       "Bash(node --check src/modules/ingredients/ingredient.validation.js)",
-      "Bash(node --check src/modules/ingredients/ingredient.routes.js)"
+      "Bash(node --check src/modules/ingredients/ingredient.routes.js)",
+      "Bash(node --check \"D:/COMAPNY PORJECTS/INNOVISTA_DHA/Stylogist.pk/backend/src/modules/admin/admin.orders.service.js\")"
+    ],
+    "additionalDirectories": [
+      "D:\\COMAPNY PORJECTS\\INNOVISTA_DHA\\Stylogist.pk\\backend\\src\\modules"
     ]
   }
 }

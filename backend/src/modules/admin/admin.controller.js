@@ -128,3 +128,11 @@ export const updateOrderStatus = async (req, res) => {
   );
   res.status(200).json({ status: 'success', message: 'Order status updated', data: order });
 };
+
+// Free-form admin edit: items, contact, address, shipping fee. Status +
+// tracking still flow through `updateOrderStatus` so the per-item shipped
+// flags stay coherent.
+export const editOrder = async (req, res) => {
+  const order = await OrdersService.editOrder(req.params.id, req.body);
+  res.status(200).json({ status: 'success', message: 'Order updated', data: order });
+};
