@@ -11,6 +11,7 @@ import RouteLoader from './components/common/RouteLoader'
 import PageLoader from './components/common/PageLoader'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import Seo from './components/common/Seo'
+import WhatsAppFab from './components/common/WhatsAppFab'
 
 // Everything below is lazy-loaded. Only the home page ships in the initial
 // bundle — category/product detail and the rest load on demand so the
@@ -110,6 +111,7 @@ const MainLayout = () => {
         </PageSuspense>
       </main>
       <Footer />
+      <WhatsAppFab />
     </div>
   )
 }

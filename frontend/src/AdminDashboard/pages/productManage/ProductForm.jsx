@@ -18,6 +18,7 @@ import {
 import MediaUploader from './MediaUploader';
 import VariantsEditor from './VariantsEditor';
 import BulletListEditor from './BulletListEditor';
+import FaqEditor from './FaqEditor';
 import {
   TIPTAP_EXTENSIONS,
   SHORT_TIPTAP_EXTENSIONS,
@@ -250,6 +251,19 @@ export default function ProductForm({
               />
             </Field>
           </div>
+
+          {/* FAQ — surfaces as an accordion on the product page and emits
+              Schema.org FAQPage JSON-LD for rich-result eligibility.
+              Empty rows are dropped before submit. */}
+          <Field
+            label="FAQ"
+            hint="Question + answer pairs shown on the product page and exposed as FAQPage structured data."
+          >
+            <FaqEditor
+              value={form.faq}
+              onChange={(next) => setForm((f) => ({ ...f, faq: next }))}
+            />
+          </Field>
 
           <Field label="Item details" hint="Structured spec block — surfaces as a table on the product page.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

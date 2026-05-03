@@ -104,6 +104,7 @@ export const createProduct = async (payload) => {
     barcode = "",
     benefits = [],
     uses = [],
+    faq = [],
     itemDetails = {},
     ingredients: ingredientIds = [],
     ...rest
@@ -159,6 +160,14 @@ export const createProduct = async (payload) => {
     barcode,
     benefits: Array.isArray(benefits) ? benefits.filter(Boolean) : [],
     uses: Array.isArray(uses) ? uses.filter(Boolean) : [],
+    faq: Array.isArray(faq)
+      ? faq
+          .map((q) => ({
+            question: (q?.question || "").toString().trim(),
+            answer: (q?.answer || "").toString().trim(),
+          }))
+          .filter((q) => q.question && q.answer)
+      : [],
     itemDetails: itemDetails || {},
     ingredients: Array.isArray(ingredientIds) ? [...new Set(ingredientIds)] : [],
     category,
@@ -224,6 +233,7 @@ export const updateProduct = async (id, payload) => {
     barcode,
     benefits,
     uses,
+    faq,
     itemDetails,
     ingredients: ingredientIds,
     ...rest
@@ -276,6 +286,16 @@ export const updateProduct = async (id, payload) => {
   if (barcode !== undefined) product.barcode = barcode;
   if (Array.isArray(benefits)) product.benefits = benefits.filter(Boolean);
   if (Array.isArray(uses)) product.uses = uses.filter(Boolean);
+  if (Array.isArray(faq)) {
+    // Authoritative replace + sanity trim. Empty rows get dropped so
+    // the public FAQPage JSON-LD never emits incomplete entries.
+    product.faq = faq
+      .map((q) => ({
+        question: (q?.question || "").toString().trim(),
+        answer: (q?.answer || "").toString().trim(),
+      }))
+      .filter((q) => q.question && q.answer);
+  }
   if (itemDetails !== undefined) {
     // Replace as a whole so removing a key on the client clears it server-side.
     product.itemDetails = itemDetails || {};

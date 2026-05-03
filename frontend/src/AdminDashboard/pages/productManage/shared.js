@@ -152,6 +152,9 @@ export const emptyForm = {
   barcode: '',
   benefits: [],
   uses: [],
+  // Per-product FAQ. Stored as [{ question, answer }] in form state and
+  // POSTed verbatim — service layer drops empty rows.
+  faq: [],
   itemDetails: emptyItemDetails(),
   category: '',
   categories: [],

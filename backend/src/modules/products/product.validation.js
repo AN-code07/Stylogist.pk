@@ -28,6 +28,11 @@ const itemDetailsSchema = z.object({
   dosageForm: z.string().trim().optional(),
 }).optional();
 
+const faqEntrySchema = z.object({
+  question: z.string().trim().min(1, "FAQ question is required"),
+  answer: z.string().trim().min(1, "FAQ answer is required"),
+});
+
 const mediaSchema = z.object({
   url: z.string().url("Media url must be a valid URL"),
   filename: z.string().optional(),
@@ -56,6 +61,7 @@ export const createProductSchema = z.object({
       .or(z.literal("")),
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
+    faq: z.array(faqEntrySchema).optional(),
     itemDetails: itemDetailsSchema,
     // Many-to-many ingredient tagging. Accepts ObjectIds — frontend resolves
     // names to ids via the ingredient autocomplete.
@@ -95,6 +101,7 @@ export const updateProductSchema = z.object({
       .or(z.literal("")),
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
+    faq: z.array(faqEntrySchema).optional(),
     itemDetails: itemDetailsSchema,
     ingredients: z.array(z.string().regex(objectId, "Invalid ingredient id")).optional(),
     category: z.string().regex(objectId).optional(),

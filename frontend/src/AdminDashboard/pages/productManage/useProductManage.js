@@ -88,6 +88,9 @@ export default function useProductManage() {
       barcode: product.barcode || '',
       benefits: Array.isArray(product.benefits) ? [...product.benefits] : [],
       uses: Array.isArray(product.uses) ? [...product.uses] : [],
+      faq: Array.isArray(product.faq)
+        ? product.faq.map((q) => ({ question: q?.question || '', answer: q?.answer || '' }))
+        : [],
       itemDetails: {
         ...emptyItemDetails(),
         ...(product.itemDetails || {}),
@@ -289,6 +292,15 @@ export default function useProductManage() {
     const benefits = (form.benefits || []).map((s) => (s || '').trim()).filter(Boolean);
     const uses = (form.uses || []).map((s) => (s || '').trim()).filter(Boolean);
 
+    // Same defensiveness for FAQ — both fields are required server-side,
+    // so half-filled rows are dropped before submit.
+    const faq = (form.faq || [])
+      .map((q) => ({
+        question: (q?.question || '').trim(),
+        answer: (q?.answer || '').trim(),
+      }))
+      .filter((q) => q.question && q.answer);
+
     const itemDetails = Object.fromEntries(
       Object.entries(form.itemDetails || {}).map(([k, v]) => [k, (v || '').trim()])
     );
@@ -303,6 +315,7 @@ export default function useProductManage() {
       barcode: (form.barcode || '').trim() || undefined,
       benefits,
       uses,
+      faq,
       itemDetails,
       category: form.category || form.categories[0],
       categories: form.categories?.length ? form.categories : undefined,

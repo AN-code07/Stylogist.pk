@@ -3,7 +3,10 @@ import {
   FiSearch, FiEye, FiClock, FiCheckCircle, FiXCircle, FiTruck, FiPackage,
   FiX, FiMapPin, FiUser, FiAlertCircle, FiRefreshCw, FiChevronLeft, FiChevronRight, FiLoader, FiLink
 } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 import { useAdminOrders, useUpdateOrderStatus } from '../../features/admin/useAdminHooks';
+import { buildCustomerWhatsAppUrl } from '../../utils/whatsapp';
 
 const STATUSES = ['pending', 'confirmed', 'shipped', 'partially_shipped', 'delivered', 'cancelled', 'returned'];
 
@@ -260,6 +263,61 @@ function OrderDetailModal({ order, onClose }) {
       .join(', ');
   }
 
+  // Build the "Shipment dispatched" WhatsApp message and open a chat with
+  // the customer pre-filled. We pull the phone from the most reliable
+  // source available (guest.phone for guest checkouts, the shipping
+  // address for registered users that didn't store one on the user doc).
+  // If the phone can't be normalized into PK E.164 we toast instead of
+  // shipping a broken wa.me link.
+  const handleNotifyCustomer = () => {
+    const rawPhone =
+      order.guest?.phone ||
+      order.shippingAddress?.phone ||
+      order.guestAddress?.phone ||
+      order.user?.phone ||
+      '';
+
+    const shippedItems = (order.items || []).filter((it) => it.shipped);
+    // If the admin opens this on a "shipped" order whose individual items
+    // weren't ticked yet (e.g. legacy data), fall back to the full list.
+    const itemsForMessage = shippedItems.length ? shippedItems : (order.items || []);
+
+    const orderRef = String(order._id).slice(-6).toUpperCase();
+    const customerName = order.user?.name || order.guest?.name || 'Customer';
+
+    const lines = [
+      `Hi ${customerName}! 📦`,
+      '',
+      `Great news — your Stylogist order #${orderRef} has been shipped.`,
+      '',
+      'Items in this shipment:',
+      ...itemsForMessage.map((it) => {
+        const variant = [it.size, it.color, it.packSize].filter(Boolean).join(' / ');
+        const variantStr = variant ? ` (${variant})` : '';
+        return `• ${it.name}${variantStr} × ${it.quantity}`;
+      }),
+      '',
+    ];
+
+    if (order.trackingCompany || order.trackingId || order.trackingLink) {
+      lines.push('Tracking details:');
+      if (order.trackingCompany) lines.push(`• Courier: ${order.trackingCompany}`);
+      if (order.trackingId) lines.push(`• Tracking ID: ${order.trackingId}`);
+      if (order.trackingLink) lines.push(`• Track here: ${order.trackingLink}`);
+      lines.push('');
+    }
+
+    lines.push(`Order total: ${fmtPKR(order.totalAmount)}`);
+    lines.push('Thanks for shopping with Stylogist! Reply if you need anything.');
+
+    const url = buildCustomerWhatsAppUrl(rawPhone, lines.join('\n'));
+    if (!url) {
+      toast.error("Couldn't read a valid customer phone for this order");
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   // Updates both status AND tracking info
   const onChange = async (newStatus) => {
     if (newStatus === order.status) return;
@@ -343,7 +401,7 @@ function OrderDetailModal({ order, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white w-full max-w-2xl rounded-xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
-        <header className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-start justify-between">
+        <header className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-[#007074] text-white flex items-center justify-center">
               <FiPackage size={18} />
@@ -355,12 +413,26 @@ function OrderDetailModal({ order, onClose }) {
               <p className="text-xs text-slate-500 mt-0.5">{fmtDate(order.createdAt)}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100"
-          >
-            <FiX size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Send shipment details on customer's WhatsApp. Visible once
+                the order has at least one shipped item or its overall
+                status is a shipping state — admins can re-send any time. */}
+            {(SHIPMENT_STATUSES.has(order.status) || (order.items || []).some((it) => it.shipped)) && (
+              <button
+                onClick={handleNotifyCustomer}
+                title="Send shipment details on customer's WhatsApp"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-colors shadow-sm"
+              >
+                <FaWhatsapp size={14} /> Notify on WhatsApp
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-md inline-flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100"
+            >
+              <FiX size={16} />
+            </button>
+          </div>
         </header>
 
         <div className="p-6 overflow-y-auto space-y-5">

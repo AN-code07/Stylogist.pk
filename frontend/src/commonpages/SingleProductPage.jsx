@@ -3,15 +3,18 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   FiChevronRight, FiStar, FiHeart, FiMinus, FiPlus, FiShoppingCart,
   FiTruck, FiShield, FiRefreshCw, FiLock, FiAlertCircle, FiPackage, FiZap, FiCheck,
-  FiShare2, FiClock, FiAward, FiCopy
+  FiShare2, FiClock, FiAward, FiCopy, FiChevronDown
 } from 'react-icons/fi';
+import { FaWhatsapp } from 'react-icons/fa';
 import toast from 'react-hot-toast';
-import { useProduct } from '../features/products/useProductHooks';
+import { useProduct, useProductsSearch } from '../features/products/useProductHooks';
 import useCartStore from '../store/useCartStore';
 import useWishlistStore from '../store/useWishlistStore';
 import Seo from '../components/common/Seo';
 import ReviewsSection from '../components/product/ReviewsSection';
+import StorefrontProductCard from '../components/common/StorefrontProductCard';
 import { resolveImageUrl } from '../utils/imageUrl';
+import { buildWhatsAppUrl } from '../utils/whatsapp';
 
 const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
@@ -253,6 +256,37 @@ export default function ProductDetailsPage() {
       packSize: matchedVariant.packSize,
     });
     navigate('/checkout');
+  };
+
+  // Build a pre-filled WhatsApp message for the active variant + qty so
+  // the merchant gets every detail they need to confirm the order in
+  // one shot. The link opens wa.me in a new tab; the user reviews the
+  // text in WhatsApp Web/app and hits send themselves — we never send
+  // automatically, so this stays well within Meta's policies.
+  const handleOrderOnWhatsApp = () => {
+    if (!product) return;
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const variantBits = [];
+    if (matchedVariant?.size) variantBits.push(`Size: ${matchedVariant.size}`);
+    if (matchedVariant?.color) variantBits.push(`Color: ${matchedVariant.color}`);
+    if (matchedVariant?.packSize) variantBits.push(`Pack size: ${matchedVariant.packSize}`);
+    if (matchedVariant?.sku) variantBits.push(`SKU: ${matchedVariant.sku}`);
+
+    const lines = [
+      "Hi Stylogist! I'd like to place an order:",
+      '',
+      `🛍️ Product: ${product.name}`,
+      url ? `🔗 ${url}` : null,
+      ...variantBits.map((b) => `• ${b}`),
+      `• Quantity: ${quantity}`,
+      `• Unit price: ${fmtPKR(price)}`,
+      `• Total: ${fmtPKR(price * quantity)}`,
+      '',
+      'Please confirm availability and share the next steps. Thank you!',
+    ].filter(Boolean);
+
+    const waUrl = buildWhatsAppUrl(lines.join('\n'));
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleShare = async () => {
@@ -635,6 +669,16 @@ export default function ProductDetailsPage() {
             >
               <FiZap size={14} /> Order with Cash on Delivery
             </button>
+            {/* WhatsApp express order — opens a chat with the full product
+                detail block pre-typed. Disabled when the variant is out
+                of stock so we don't ping support for unavailable SKUs. */}
+            <button
+              onClick={handleOrderOnWhatsApp}
+              disabled={outOfStock}
+              className="w-full bg-[#25D366] text-white py-3.5 rounded-xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-[#1ebe5d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2 shadow-sm hover:shadow-lg"
+            >
+              <FaWhatsapp size={16} /> Order on WhatsApp
+            </button>
             <div className="grid grid-cols-[1fr_auto_auto] gap-2">
               <button
                 onClick={handleAddToCart}
@@ -903,8 +947,144 @@ export default function ProductDetailsPage() {
           <ReviewsSection product={product} />
         </ScrollReveal>
 
+        {/* ✅ PRODUCT FAQ — accordion + FAQPage JSON-LD. Auto-hides
+             when the product has no FAQ entries. */}
+        <ProductFaq product={product} />
+
+        {/* ✅ RELATED PRODUCTS — sourced from the same category and
+             ranked by best-selling so the carousel is a curated up-sell,
+             not a random fallback. Excludes the current product so the
+             user always sees something new. */}
+        <RelatedProducts product={product} />
+
       </div>
     </div>
+  );
+}
+
+// Product FAQ — accordion UI matching the ingredient page's FAQ
+// section. Emits Schema.org FAQPage JSON-LD when at least one entry
+// exists so Google can surface it as a rich result. Auto-hides on
+// products with no FAQ.
+function ProductFaq({ product }) {
+  const [openIdx, setOpenIdx] = useState(0);
+  const faq = product?.faq || [];
+  const jsonLd = useMemo(() => {
+    if (!faq.length) return null;
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faq.map((q) => ({
+        '@type': 'Question',
+        name: q.question,
+        acceptedAnswer: { '@type': 'Answer', text: q.answer },
+      })),
+    };
+  }, [faq]);
+
+  if (!faq.length) return null;
+
+  return (
+    <ScrollReveal as="section" className="mt-16">
+      {jsonLd && (
+        <Seo
+          jsonLd={jsonLd}
+          jsonLdId={`product-faq-${product?._id || product?.slug}`}
+        />
+      )}
+      <header className="text-center max-w-2xl mx-auto mb-7">
+        <span className="inline-block bg-[#F7F3F0] text-[#007074] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[0.25em] mb-3">
+          Got questions?
+        </span>
+        <h2 className="font-serif text-2xl md:text-3xl font-black text-[#222] tracking-tight">
+          Frequently asked <span className="italic text-[#007074]">questions</span>
+        </h2>
+      </header>
+      <div className="bg-white border border-gray-100 rounded-2xl divide-y divide-gray-100 shadow-sm overflow-hidden max-w-3xl mx-auto">
+        {faq.map((q, idx) => {
+          const open = openIdx === idx;
+          return (
+            <div key={idx}>
+              <button
+                type="button"
+                onClick={() => setOpenIdx(open ? -1 : idx)}
+                className="w-full text-left px-6 py-5 flex items-center justify-between gap-4 hover:bg-[#F7F3F0]/50 transition-colors"
+                aria-expanded={open}
+              >
+                <span className="text-sm font-bold text-[#222] leading-snug pr-4">{q.question}</span>
+                <span
+                  className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                    open ? 'bg-[#007074] text-white rotate-180' : 'bg-[#F7F3F0] text-[#007074]'
+                  }`}
+                >
+                  <FiChevronDown size={14} />
+                </span>
+              </button>
+              {open && (
+                <div className="px-6 pb-6 text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                  {q.answer}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </ScrollReveal>
+  );
+}
+
+// Related products rail. Lives inside SingleProductPage so it can read
+// the active product without prop drilling and so it shares the same
+// React Query cache as the rest of the page. Hits the body-driven
+// `/products/search` endpoint with the current category as scope.
+function RelatedProducts({ product }) {
+  const categorySlug = product?.category?.slug;
+  const { data, isLoading } = useProductsSearch(
+    categorySlug
+      ? { categorySlug, sort: 'bestSelling', page: 1, limit: 8 }
+      : { sort: 'bestSelling', page: 1, limit: 8 },
+    { enabled: !!product },
+  );
+
+  const items = (data?.items ?? []).filter((p) => p._id !== product?._id).slice(0, 8);
+  if (!items.length && !isLoading) return null;
+
+  return (
+    <ScrollReveal as="section" className="mt-16">
+      <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
+        <div>
+          <span className="inline-block bg-[#F7F3F0] text-[#007074] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[0.25em] mb-3">
+            You may also like
+          </span>
+          <h2 className="font-serif text-2xl md:text-3xl font-black text-[#222] tracking-tight">
+            Related products
+          </h2>
+        </div>
+        {product?.category?.slug && (
+          <Link
+            to={`/category/${product.category.slug}`}
+            className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#222] hover:text-[#007074] transition-colors group self-start md:self-auto"
+          >
+            View all in {product.category.name}
+            <FiChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          </Link>
+        )}
+      </header>
+
+      {isLoading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="aspect-[3/4] bg-gray-100 rounded-[1.75rem] animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          {items.map((p, idx) => (
+            <StorefrontProductCard key={p._id} product={p} index={idx} />
+          ))}
+        </div>
+      )}
+    </ScrollReveal>
   );
 }
 

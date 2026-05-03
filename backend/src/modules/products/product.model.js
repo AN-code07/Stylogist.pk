@@ -10,6 +10,17 @@ const itemDetailsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Per-product FAQ entry. Same shape as the Ingredient FAQ block so the
+// storefront can emit a uniform Schema.org FAQPage JSON-LD on either
+// surface. Subdoc kept embedded (no _id) to keep the wire payload small.
+const productFaqSchema = new mongoose.Schema(
+  {
+    question: { type: String, required: true, trim: true },
+    answer: { type: String, required: true, trim: true },
+  },
+  { _id: false }
+);
+
 const productSchema = new mongoose.Schema(
   {
     name: {
@@ -65,6 +76,12 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+
+    // Per-product FAQ. Surfaces on the product page as an accordion AND
+    // is emitted as Schema.org FAQPage JSON-LD for rich-result eligibility.
+    // Stored as an embedded array because we always read it with the
+    // product and never query individual entries.
+    faq: { type: [productFaqSchema], default: [] },
 
     // Structured spec block. Embedded (rather than a separate collection)
     // because it's always read with the product and never queried in isolation.
