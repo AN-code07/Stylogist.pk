@@ -58,12 +58,23 @@ const productSchema = new mongoose.Schema(
     },
 
     // Global product identifier (ISBN / UPC / EAN / GTIN). Surfaced to Google
-    // via the `gtin` JSON-LD field for richer search results.
+    // via the `gtin` JSON-LD field for richer search results. We persist the
+    // raw value here and a discriminator on `gtinType` so the storefront
+    // can emit the correct schema.org property (gtin12 / gtin13 / isbn).
     barcode: {
       type: String,
       trim: true,
       default: "",
       index: true,
+    },
+
+    // Identifier type. Drives both server-side validation (length / charset)
+    // and the client-side input mask. Empty string means the admin hasn't
+    // assigned a code yet.
+    gtinType: {
+      type: String,
+      enum: ["", "upc", "ean", "isbn"],
+      default: "",
     },
 
     // Bullet-style copy rendered as <ul> on the storefront under H2 sections.

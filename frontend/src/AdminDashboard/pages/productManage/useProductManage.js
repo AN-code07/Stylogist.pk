@@ -86,6 +86,7 @@ export default function useProductManage() {
       metaTitle: product.metaTitle || '',
       metaDescription: product.metaDescription || '',
       barcode: product.barcode || '',
+      gtinType: product.gtinType || '',
       benefits: Array.isArray(product.benefits) ? [...product.benefits] : [],
       uses: Array.isArray(product.uses) ? [...product.uses] : [],
       faq: Array.isArray(product.faq)
@@ -257,11 +258,25 @@ export default function useProductManage() {
     if (!plainDesc || plainDesc.length < 5) return toast.error('Description must be at least 5 characters');
     if (!form.category && !(form.categories?.length)) return toast.error('Select at least one category');
 
-    // UPC is optional, but when supplied it must be exactly 12 digits — the
-    // backend validator rejects anything else with a 400.
-    const upc = (form.barcode || '').trim();
-    if (upc && !/^\d{12}$/.test(upc)) {
-      return toast.error('UPC must be exactly 12 digits');
+    // GTIN identifier is optional, but when supplied it must match the
+    // chosen type's format. Mirrors the backend cross-field refine so the
+    // user gets a friendly error before the network round-trip.
+    const code = (form.barcode || '').trim();
+    const type = form.gtinType || '';
+    if (code) {
+      if (!type) return toast.error('Select an identifier type (UPC / EAN / ISBN)');
+      const re =
+        type === 'upc' ? /^\d{12}$/
+          : type === 'ean' ? /^\d{13}$/
+            : type === 'isbn' ? /^\d{9}[\dXx]$/
+              : null;
+      if (!re || !re.test(code)) {
+        return toast.error(
+          type === 'upc' ? 'UPC must be exactly 12 digits'
+            : type === 'ean' ? 'EAN must be exactly 13 digits'
+              : 'ISBN must be 10 characters: 9 digits + check digit (0–9 or X)',
+        );
+      }
     }
 
     const variants = form.variants.map((v) => {
@@ -313,6 +328,9 @@ export default function useProductManage() {
       metaTitle: form.metaTitle.trim() || undefined,
       metaDescription: form.metaDescription.trim() || undefined,
       barcode: (form.barcode || '').trim() || undefined,
+      // Only emit gtinType when there's an actual code; backend strips
+      // orphan types but we keep the wire payload tidy.
+      gtinType: (form.barcode || '').trim() ? (form.gtinType || undefined) : undefined,
       benefits,
       uses,
       faq,

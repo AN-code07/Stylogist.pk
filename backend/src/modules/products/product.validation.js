@@ -33,6 +33,53 @@ const faqEntrySchema = z.object({
   answer: z.string().trim().min(1, "FAQ answer is required"),
 });
 
+// Per-type GTIN validators. We persist `barcode` as the raw string and
+// `gtinType` as a discriminator so the frontend can mask the input and
+// the storefront can emit the right schema.org property.
+//   upc  → GTIN-12 (12 digits)
+//   ean  → GTIN-13 (13 digits, international retail)
+//   isbn → GTIN-10 (9 digits + 0-9 or X check digit)
+const GTIN_VALIDATORS = {
+  upc: /^\d{12}$/,
+  ean: /^\d{13}$/,
+  isbn: /^\d{9}[\dXx]$/,
+};
+
+const GTIN_LABELS = {
+  upc: "UPC must be exactly 12 digits",
+  ean: "EAN must be exactly 13 digits",
+  isbn: "ISBN must be 10 characters: 9 digits + a check digit (0–9 or X)",
+};
+
+// Cross-field check: when a barcode is provided, gtinType must be set
+// and the barcode must match its format. When the barcode is empty,
+// gtinType is allowed to be empty too.
+const refineBarcode = (data, ctx) => {
+  const code = (data.barcode || "").trim();
+  const type = data.gtinType || "";
+
+  if (!code) {
+    // Allow the gtinType to linger when the field is cleared — UI lives.
+    return;
+  }
+  if (!type) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["gtinType"],
+      message: "Select an identifier type (UPC / EAN / ISBN)",
+    });
+    return;
+  }
+  const re = GTIN_VALIDATORS[type];
+  if (!re || !re.test(code)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["barcode"],
+      message: GTIN_LABELS[type] || "Invalid identifier",
+    });
+  }
+};
+
 const mediaSchema = z.object({
   url: z.string().url("Media url must be a valid URL"),
   filename: z.string().optional(),
@@ -53,12 +100,9 @@ export const createProductSchema = z.object({
     shortDescription: z.string().trim().optional(),
     metaTitle: z.string().trim().max(60, "Meta title must be 60 characters or fewer").optional(),
     metaDescription: z.string().trim().max(160, "Meta description must be 160 characters or fewer").optional(),
-    barcode: z
-      .string()
-      .trim()
-      .regex(/^\d{12}$/, "UPC must be exactly 12 digits")
-      .optional()
-      .or(z.literal("")),
+    // Raw identifier; format is enforced via the cross-field refine below.
+    barcode: z.string().trim().optional().or(z.literal("")),
+    gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
     faq: z.array(faqEntrySchema).optional(),
@@ -79,7 +123,7 @@ export const createProductSchema = z.object({
     variants: z.array(variantSchema).min(1, "At least one variant is required"),
     media: z.array(mediaSchema).optional(),
     thumbnail: mediaSchema.optional(),
-  }),
+  }).superRefine(refineBarcode),
 });
 
 export const updateProductSchema = z.object({
@@ -93,12 +137,8 @@ export const updateProductSchema = z.object({
     shortDescription: z.string().trim().optional(),
     metaTitle: z.string().trim().max(60).optional(),
     metaDescription: z.string().trim().max(160).optional(),
-    barcode: z
-      .string()
-      .trim()
-      .regex(/^\d{12}$/, "UPC must be exactly 12 digits")
-      .optional()
-      .or(z.literal("")),
+    barcode: z.string().trim().optional().or(z.literal("")),
+    gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
     faq: z.array(faqEntrySchema).optional(),
@@ -115,7 +155,7 @@ export const updateProductSchema = z.object({
     variants: z.array(variantSchema).optional(),
     media: z.array(mediaSchema).optional(),
     thumbnail: mediaSchema.nullable().optional(),
-  }),
+  }).superRefine(refineBarcode),
 });
 
 export const productIdParamSchema = z.object({

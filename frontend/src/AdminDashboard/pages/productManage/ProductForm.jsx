@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { 
-  FiBox, FiCheckCircle, FiHash, FiLoader, FiPackage, 
-  FiRefreshCw, FiTarget, FiMessageSquare, FiPlus, FiX, FiStar 
+import {
+  FiBox, FiCheckCircle, FiHash, FiLoader, FiPackage,
+  FiRefreshCw, FiTarget, FiMessageSquare, FiPlus, FiX, FiStar,
+  FiChevronDown
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import TiptapEditor from "../../../components/editor/TiptapEditor";
@@ -163,33 +164,19 @@ export default function ProductForm({
           </div>
 
           <Field
-            label="UPC"
-            hint="Universal Product Code — exactly 12 digits. Surfaces as `gtin12` in the JSON-LD Product schema for Google Shopping rich results."
+            label="Global product identifier"
+            hint="Optional. Pick the type and enter the matching code. Surfaces as the right schema.org property (gtin12 / gtin13 / isbn) in the JSON-LD Product schema."
           >
-            <div className="relative">
-              <FiHash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-              <input
-                value={form.barcode || ''}
-                onChange={(e) => {
-                  const next = (e.target.value || '').replace(/\D/g, '').slice(0, 12);
-                  setForm((f) => ({ ...f, barcode: next }));
-                }}
-                placeholder="012345678905"
-                maxLength={12}
-                inputMode="numeric"
-                pattern="\d{12}"
-                className={`${inputCls} pl-9 ${
-                  form.barcode && form.barcode.length !== 12
-                    ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
-                    : ''
-                }`}
-              />
-              {form.barcode && form.barcode.length > 0 && form.barcode.length !== 12 && (
-                <p className="text-[11px] text-red-500 mt-1">
-                  UPC must be exactly 12 digits ({form.barcode.length}/12).
-                </p>
-              )}
-            </div>
+            <GtinPicker
+              type={form.gtinType || ''}
+              value={form.barcode || ''}
+              onTypeChange={(t) => {
+                // Switching types resets the value so we never persist a
+                // 12-digit code with `ean` set, etc.
+                setForm((f) => ({ ...f, gtinType: t, barcode: '' }));
+              }}
+              onValueChange={(v) => setForm((f) => ({ ...f, barcode: v }))}
+            />
           </Field>
 
           <Field
@@ -452,6 +439,111 @@ export default function ProductForm({
 }
 
 /* ------------ Subcomponents ------------ */
+
+// GTIN picker — type dropdown + dynamic input. Keeps the value masked
+// according to the selected type:
+//   upc  → 12 digits (digits-only mask)
+//   ean  → 13 digits (digits-only mask)
+//   isbn → 9 digits + check digit (0–9 or X). We let the trailing X
+//          through but keep the body strictly numeric.
+const GTIN_OPTIONS = [
+  { value: 'upc', label: 'GTIN-12 → UPC' },
+  { value: 'ean', label: 'GTIN-13 → EAN (international retail)' },
+  { value: 'isbn', label: 'GTIN-10 → ISBN (books)' },
+];
+
+const GTIN_RULES = {
+  upc: { length: 12, placeholder: '012345678905', describe: 'Universal Product Code — exactly 12 digits.' },
+  ean: { length: 13, placeholder: '4006381333931', describe: 'European Article Number — exactly 13 digits.' },
+  isbn: { length: 10, placeholder: '0306406152', describe: 'ISBN-10 — 9 digits + a check digit (0–9 or X).' },
+};
+
+function GtinPicker({ type, value, onTypeChange, onValueChange }) {
+  const rule = GTIN_RULES[type];
+
+  // Per-type input mask. ISBN's last position accepts X; everything
+  // else is digits-only. Trailing characters past the rule length are
+  // sliced off so the user can't paste an over-long string.
+  const handleInput = (raw) => {
+    if (!type) return; // input is disabled, this branch is defensive only
+    if (type === 'isbn') {
+      // Strip everything but digits + (uppercase) X. Cap at 10 chars.
+      const cleaned = raw
+        .toUpperCase()
+        .replace(/[^0-9X]/g, '')
+        .slice(0, 10);
+      onValueChange(cleaned);
+      return;
+    }
+    const digits = raw.replace(/\D/g, '').slice(0, rule.length);
+    onValueChange(digits);
+  };
+
+  // Live validity check used to colour the input + render the error line.
+  const isInvalid =
+    !!value &&
+    (!type ||
+      (type === 'upc' && !/^\d{12}$/.test(value)) ||
+      (type === 'ean' && !/^\d{13}$/.test(value)) ||
+      (type === 'isbn' && !/^\d{9}[\dX]$/.test(value)));
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-[260px_1fr] gap-2">
+        <div className="relative">
+          <select
+            value={type}
+            onChange={(e) => onTypeChange(e.target.value)}
+            className={`${inputCls} appearance-none pr-9 cursor-pointer`}
+          >
+            <option value="">Select identifier type…</option>
+            {GTIN_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <FiChevronDown
+            size={14}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+          />
+        </div>
+        <div className="relative">
+          <FiHash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+          <input
+            value={value}
+            onChange={(e) => handleInput(e.target.value)}
+            placeholder={type ? rule.placeholder : 'Pick a type first'}
+            disabled={!type}
+            inputMode={type === 'isbn' ? 'text' : 'numeric'}
+            maxLength={type ? rule.length : undefined}
+            className={`${inputCls} pl-9 disabled:bg-slate-50 disabled:text-slate-400 ${
+              isInvalid ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''
+            }`}
+          />
+        </div>
+      </div>
+      {type && (
+        <p className="text-[11px] text-slate-500">
+          {rule.describe}
+          {value && (
+            <span className={`ml-2 tabular-nums ${isInvalid ? 'text-red-500' : 'text-emerald-600'}`}>
+              {value.length}/{rule.length}
+            </span>
+          )}
+        </p>
+      )}
+      {value && !type && (
+        <p className="text-[11px] text-red-500">Select an identifier type so we can validate this code.</p>
+      )}
+      {isInvalid && type && (
+        <p className="text-[11px] text-red-500">
+          {type === 'upc' && 'UPC must be exactly 12 digits.'}
+          {type === 'ean' && 'EAN must be exactly 13 digits.'}
+          {type === 'isbn' && 'ISBN-10 must be 10 characters: 9 digits + check digit (0–9 or X).'}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function SmallField({ icon, label, children }) {
   return (

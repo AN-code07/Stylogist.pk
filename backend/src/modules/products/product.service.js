@@ -102,6 +102,7 @@ export const createProduct = async (payload) => {
     metaTitle = "",
     metaDescription = "",
     barcode = "",
+    gtinType = "",
     benefits = [],
     uses = [],
     faq = [],
@@ -158,6 +159,9 @@ export const createProduct = async (payload) => {
     metaTitle: finalMetaTitle,
     metaDescription: finalMetaDescription,
     barcode,
+    // Persist the discriminator only when there's an actual code; an empty
+    // gtinType keeps the index entry tidy.
+    gtinType: barcode && gtinType ? gtinType : "",
     benefits: Array.isArray(benefits) ? benefits.filter(Boolean) : [],
     uses: Array.isArray(uses) ? uses.filter(Boolean) : [],
     faq: Array.isArray(faq)
@@ -231,6 +235,8 @@ export const updateProduct = async (id, payload) => {
     metaTitle,
     metaDescription,
     barcode,
+    barcode: nextBarcode,
+    gtinType: nextGtinType,
     benefits,
     uses,
     faq,
@@ -283,7 +289,12 @@ export const updateProduct = async (id, payload) => {
 
   if (metaTitle !== undefined) product.metaTitle = metaTitle;
   if (metaDescription !== undefined) product.metaDescription = metaDescription;
-  if (barcode !== undefined) product.barcode = barcode;
+  if (nextBarcode !== undefined) product.barcode = nextBarcode;
+  if (nextGtinType !== undefined) {
+    // Clear the discriminator when the code itself is empty so we never
+    // end up with `gtinType=ean, barcode=""` orphan rows.
+    product.gtinType = product.barcode && nextGtinType ? nextGtinType : "";
+  }
   if (Array.isArray(benefits)) product.benefits = benefits.filter(Boolean);
   if (Array.isArray(uses)) product.uses = uses.filter(Boolean);
   if (Array.isArray(faq)) {

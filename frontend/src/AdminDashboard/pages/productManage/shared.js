@@ -150,6 +150,9 @@ export const emptyForm = {
   metaTitle: '',
   metaDescription: '',
   barcode: '',
+  // Identifier type for `barcode`. Drives the input mask + the schema.org
+  // property the storefront emits (gtin12 / gtin13 / isbn).
+  gtinType: '',
   benefits: [],
   uses: [],
   // Per-product FAQ. Stored as [{ question, answer }] in form state and
