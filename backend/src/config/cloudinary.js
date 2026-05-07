@@ -26,24 +26,28 @@ if (!env.cloudinary.cloudName || !env.cloudinary.apiKey || !env.cloudinary.apiSe
 // slug-based filename convention so the asset URL stays human-readable.
 export const uploadBufferToCloudinary = (buffer, options = {}) =>
   new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: options.folder || env.cloudinary.folder,
-        resource_type: options.resource_type || "image",
-        public_id: options.public_id,
-        format: options.format,
-        overwrite: options.overwrite ?? false,
-        unique_filename: options.unique_filename ?? true,
-        // Even with a webp buffer we let Cloudinary keep the original
-        // format header (`format: 'webp'`) so the delivered URL stays
-        // .webp rather than re-encoding to whatever Cloudinary defaults to.
-      },
-      (err, result) => {
-        if (err) return reject(err);
-        if (!result) return reject(new Error("Cloudinary upload returned no result"));
-        resolve(result);
-      },
-    );
+    const uploadOptions = {
+      folder: options.folder || env.cloudinary.folder,
+      resource_type: options.resource_type || "image",
+      public_id: options.public_id,
+      format: options.format,
+      // Default to overwrite so admins can re-upload the same slug
+      // without hitting a 409. Callers can opt out by passing false.
+      overwrite: options.overwrite ?? true,
+      // Invalidate the CDN edge cache when overwriting so the new
+      // image is served immediately instead of after the TTL window.
+      invalidate: options.invalidate ?? true,
+      // unique_filename only applies when use_filename is true; keep
+      // it explicit so we get reproducible URLs from our slug.
+      unique_filename: false,
+      use_filename: false,
+    };
+    const stream = cloudinary.uploader.upload_stream(uploadOptions, (err, result) => {
+      if (err) return reject(err);
+      if (!result) return reject(new Error("Cloudinary upload returned no result"));
+      resolve(result);
+    });
+    stream.on("error", reject);
     stream.end(buffer);
   });
 

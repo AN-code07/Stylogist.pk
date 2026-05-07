@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { uploadImage, processImageToWebp } from "../../middlewares/upload.middleware.js";
+import {
+  uploadSingleImage,
+  uploadArrayImages,
+  processImageToWebp,
+} from "../../middlewares/upload.middleware.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { restrictTo } from "../../middlewares/role.middleware.js";
 import { ApiError } from "../../utils/ApiError.js";
@@ -18,7 +22,7 @@ router.post(
   "/image",
   authMiddleware,
   restrictTo("Super Admin", "Staff"),
-  uploadImage.single("file"),
+  uploadSingleImage("file"),
   catchAsync(async (req, res, next) => {
     if (!req.file) return next(new ApiError(400, "No file uploaded. Attach a 'file' field."));
 
@@ -61,7 +65,7 @@ router.post(
   "/images",
   authMiddleware,
   restrictTo("Super Admin", "Staff"),
-  uploadImage.array("files", 12),
+  uploadArrayImages("files", 12),
   catchAsync(async (req, res, next) => {
     if (!req.files?.length) return next(new ApiError(400, "No files uploaded. Attach 'files' fields."));
 

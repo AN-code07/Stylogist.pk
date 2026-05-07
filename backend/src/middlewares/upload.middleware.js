@@ -9,6 +9,28 @@ import {
   deleteFromCloudinary,
 } from "../config/cloudinary.js";
 
+// Multer surfaces its own `MulterError` class for things like
+// LIMIT_FILE_SIZE — those aren't ApiError instances and would otherwise
+// hit the prod fallback ("Something went very wrong!"). This helper runs
+// the multer parser and rewrites every failure as an operational
+// ApiError so the admin sees the actual cause.
+const runMulter = (multerHandler) => (req, res, next) =>
+  multerHandler(req, res, (err) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      const map = {
+        LIMIT_FILE_SIZE: "Image too large. Maximum allowed size is 10 MB per file.",
+        LIMIT_FILE_COUNT: "Too many files. Upload up to 12 at a time.",
+        LIMIT_UNEXPECTED_FILE: `Unexpected file field "${err.field}".`,
+      };
+      const message = map[err.code] || `Upload failed: ${err.message}`;
+      return next(new ApiError(400, message));
+    }
+    if (err instanceof ApiError) return next(err);
+    return next(new ApiError(400, err.message || "Upload failed"));
+  });
+
+
 const ALLOWED_MIME = new Set([
   "image/jpeg",
   "image/png",
@@ -35,6 +57,14 @@ export const uploadImage = multer({
   fileFilter,
   limits: { fileSize: 10 * 1024 * 1024 },
 });
+
+// Convenience wrappers for routes — translate Multer's raw errors into
+// ApiError so the global error handler sends the actual cause to the
+// client instead of the generic prod fallback.
+export const uploadSingleImage = (field = "file") =>
+  runMulter(uploadImage.single(field));
+export const uploadArrayImages = (field = "files", max = 12) =>
+  runMulter(uploadImage.array(field, max));
 
 const slugifyBase = (value, fallback = "image") => {
   if (!value || typeof value !== "string") return fallback;
@@ -68,27 +98,57 @@ export const processImageToWebp = async (
 ) => {
   if (!file?.buffer) throw new ApiError(400, "Invalid upload buffer");
 
+  // Fail-fast with an *operational* error when Cloudinary creds are
+  // missing. Without this the SDK returns an opaque 401 that the global
+  // error handler renders as the generic "Something went very wrong!"
+  // page in production.
+  if (
+    !process.env.CLOUDINARY_CLOUD_NAME ||
+    !process.env.CLOUDINARY_API_KEY ||
+    !process.env.CLOUDINARY_API_SECRET
+  ) {
+    throw new ApiError(
+      500,
+      "Image storage is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in the backend env.",
+    );
+  }
+
   // 1. Sharp pipeline — rotate (EXIF), cap longest side at 2000px so
   //    camera-dump uploads (6000×4000) compress down to a sensible
   //    150–350 KB, and re-encode as webp at quality 85 / effort 6.
-  const webpBuffer = await sharp(file.buffer)
-    .rotate()
-    .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 85, effort: 6, smartSubsample: true, alphaQuality: 100 })
-    .toBuffer();
+  let webpBuffer;
+  try {
+    webpBuffer = await sharp(file.buffer)
+      .rotate()
+      .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 85, effort: 6, smartSubsample: true, alphaQuality: 100 })
+      .toBuffer();
+  } catch (err) {
+    throw new ApiError(400, `Image processing failed: ${err?.message || "unknown error"}`);
+  }
 
-  // 2. Cloudinary upload via stream — public_id mirrors our slug
-  //    naming convention so the delivered URL is human-readable.
-  //    `unique_filename` tells Cloudinary to append a short hash if
-  //    the public_id collides, so admins can't accidentally overwrite
-  //    a sibling product's asset.
+  // 2. Cloudinary upload via stream. We set `overwrite: true` so re-
+  //    uploading under the same slug replaces the previous asset
+  //    (otherwise Cloudinary returns a 409 which the SDK throws as a
+  //    raw error). `invalidate: true` purges the CDN edge cache so
+  //    admins see the new image immediately.
   const baseSlug = buildImageSlug({ explicitSlug: slug, productSlug, role, index });
-  const result = await uploadBufferToCloudinary(webpBuffer, {
-    public_id: baseSlug,
-    format: "webp",
-    unique_filename: true,
-    overwrite: false,
-  });
+  let result;
+  try {
+    result = await uploadBufferToCloudinary(webpBuffer, {
+      public_id: baseSlug,
+      format: "webp",
+      overwrite: true,
+      invalidate: true,
+    });
+  } catch (err) {
+    // Cloudinary errors carry a `message` plus a `http_code`. Surface
+    // them as an operational ApiError so the admin sees the real cause.
+    const msg = err?.message || err?.error?.message || "Unknown Cloudinary error";
+    const status = err?.http_code || 500;
+    console.error("[cloudinary] upload failed:", err);
+    throw new ApiError(status, `Image upload failed: ${msg}`);
+  }
 
   return {
     filename: result.public_id,
