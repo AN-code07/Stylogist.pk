@@ -20,6 +20,7 @@ import MediaUploader from './MediaUploader';
 import VariantsEditor from './VariantsEditor';
 import BulletListEditor from './BulletListEditor';
 import FaqEditor from './FaqEditor';
+import HowToUseBlockEditor from './HowToUseBlockEditor';
 import {
   TIPTAP_EXTENSIONS,
   SHORT_TIPTAP_EXTENSIONS,
@@ -238,6 +239,22 @@ export default function ProductForm({
               />
             </Field>
           </div>
+
+          {/* Standalone "How to use" block — short rich-text body + a
+              single optional image. Distinct from the Uses bullet list:
+              this is the long-form how-to copy that surfaces under its
+              own H2 on the product page. */}
+          <Field
+            as="div"
+            label="How to use"
+            hint="Short rich-text instructions shown on the product page. Add an optional image below."
+          >
+            <HowToUseBlockEditor
+              value={form.howToUse}
+              onChange={(next) => setForm((f) => ({ ...f, howToUse: next }))}
+              productSlug={form.slug || form.name}
+            />
+          </Field>
 
           {/* FAQ — surfaces as an accordion on the product page and emits
               Schema.org FAQPage JSON-LD for rich-result eligibility.

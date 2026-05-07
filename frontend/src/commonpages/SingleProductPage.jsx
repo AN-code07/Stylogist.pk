@@ -815,23 +815,56 @@ export default function ProductDetailsPage() {
           </ScrollReveal>
         )}
 
-        {/* USES */}
-        {Array.isArray(product.uses) && product.uses.length > 0 && (
+        {/* USES — plain bullet list. Tolerates legacy {text, image}
+             entries by reading their `text` so older docs render. */}
+        {Array.isArray(product.uses) && product.uses.length > 0 && (() => {
+          const bullets = product.uses
+            .map((u) => (typeof u === 'string' ? u : (u?.text || '')))
+            .filter(Boolean);
+          if (!bullets.length) return null;
+          return (
+            <ScrollReveal as="section">
+              <h2 className="text-xl font-bold text-[#222] mb-4">Uses</h2>
+              <ul className="space-y-2">
+                {bullets.map((u, idx) => (
+                  <li
+                    key={idx}
+                    className="flex items-start gap-3 text-sm text-gray-700"
+                  >
+                    <span className="mt-1 w-5 h-5 rounded-full bg-[#007074]/10 text-[#007074] text-[10px] font-bold flex items-center justify-center shrink-0">
+                      {idx + 1}
+                    </span>
+                    <span className="leading-relaxed">{u}</span>
+                  </li>
+                ))}
+              </ul>
+            </ScrollReveal>
+          );
+        })()}
+
+        {/* HOW TO USE — short rich-text body + an optional image. We
+             only render the section when at least one of the two is
+             populated; otherwise the heading would float over nothing. */}
+        {(product.howToUse?.text || product.howToUse?.image) && (
           <ScrollReveal as="section">
-            <h2 className="text-xl font-bold text-[#222] mb-4">Uses</h2>
-            <ul className="space-y-2">
-              {product.uses.map((u, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-start gap-3 text-sm text-gray-700"
-                >
-                  <span className="mt-1 w-5 h-5 rounded-full bg-[#007074]/10 text-[#007074] text-[10px] font-bold flex items-center justify-center shrink-0">
-                    {idx + 1}
-                  </span>
-                  <span className="leading-relaxed">{u}</span>
-                </li>
-              ))}
-            </ul>
+            <h2 className="text-xl font-bold text-[#222] mb-4">How to use</h2>
+            <div className="bg-white border border-gray-100 rounded-xl p-5 grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5 items-start">
+              {product.howToUse.image && (
+                <img
+                  src={product.howToUse.image}
+                  alt="How to use"
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full md:w-44 aspect-square object-cover rounded-lg bg-[#F7F3F0]"
+                />
+              )}
+              {product.howToUse.text && (
+                <div
+                  className="product-rich tiptap text-sm text-gray-700 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: product.howToUse.text }}
+                />
+              )}
+            </div>
           </ScrollReveal>
         )}
 

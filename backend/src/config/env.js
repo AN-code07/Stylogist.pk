@@ -18,6 +18,14 @@ const env = {
   // Public URL of the storefront, used by the sitemap generator and the
   // robots.txt response. Falls back to a sensible default for dev.
   siteUrl: (process.env.SITE_URL || 'https://stylogist.pk').replace(/\/$/, ''),
+
+  // Cloudinary — storage for every uploaded media asset.
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+    folder: process.env.CLOUDINARY_FOLDER || 'stylogist',
+  },
 };
 
 // Fail-fast validation

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { uploadImage, buildPublicUrl, processImageToWebp } from "../../middlewares/upload.middleware.js";
+import { uploadImage, processImageToWebp } from "../../middlewares/upload.middleware.js";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { restrictTo } from "../../middlewares/role.middleware.js";
 import { ApiError } from "../../utils/ApiError.js";
@@ -33,15 +33,17 @@ router.post(
       alt,
     });
 
-    const url = buildPublicUrl(req, processed.filename);
     res.status(201).json({
       status: "success",
       data: {
-        url,
+        url: processed.url,
         filename: processed.filename,
+        publicId: processed.publicId,
         slug: processed.slug,
         size: processed.size,
         mimetype: processed.mimetype,
+        width: processed.width,
+        height: processed.height,
         metaTitle: processed.metaTitle,
         metaDescription: processed.metaDescription,
         alt: processed.alt,
@@ -78,11 +80,14 @@ router.post(
         alt: metaTitle,
       });
       files.push({
-        url: buildPublicUrl(req, processed.filename),
+        url: processed.url,
         filename: processed.filename,
+        publicId: processed.publicId,
         slug: processed.slug,
         size: processed.size,
         mimetype: processed.mimetype,
+        width: processed.width,
+        height: processed.height,
         metaTitle: processed.metaTitle,
         metaDescription: processed.metaDescription,
         alt: processed.alt,

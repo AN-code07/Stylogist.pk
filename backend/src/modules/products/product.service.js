@@ -44,6 +44,17 @@ const normalizeVariant = (v) => {
 const stripHtml = (html) =>
   String(html ?? "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
 
+// Single "How to use" block — short rich-text/HTML copy + an optional
+// image URL. Empty fields are tolerated; both blank means "don't render
+// the section on the storefront".
+const normalizeHowToUse = (raw) => {
+  if (!raw || typeof raw !== "object") return { text: "", image: "" };
+  return {
+    text: (raw.text ?? "").toString().trim(),
+    image: (raw.image ?? "").toString().trim(),
+  };
+};
+
 // Build SEO defaults from the product. We only fill these in when the admin
 // left the corresponding field blank — explicit input always wins.
 const deriveSeoDefaults = ({ name, description, shortDescription, brandName }) => {
@@ -105,6 +116,7 @@ export const createProduct = async (payload) => {
     gtinType = "",
     benefits = [],
     uses = [],
+    howToUse,
     faq = [],
     itemDetails = {},
     ingredients: ingredientIds = [],
@@ -163,7 +175,8 @@ export const createProduct = async (payload) => {
     // gtinType keeps the index entry tidy.
     gtinType: barcode && gtinType ? gtinType : "",
     benefits: Array.isArray(benefits) ? benefits.filter(Boolean) : [],
-    uses: Array.isArray(uses) ? uses.filter(Boolean) : [],
+    uses: Array.isArray(uses) ? uses.map((s) => s.toString().trim()).filter(Boolean) : [],
+    howToUse: normalizeHowToUse(howToUse),
     faq: Array.isArray(faq)
       ? faq
           .map((q) => ({
@@ -239,6 +252,7 @@ export const updateProduct = async (id, payload) => {
     gtinType: nextGtinType,
     benefits,
     uses,
+    howToUse: howToUsePatch,
     faq,
     itemDetails,
     ingredients: ingredientIds,
@@ -296,7 +310,14 @@ export const updateProduct = async (id, payload) => {
     product.gtinType = product.barcode && nextGtinType ? nextGtinType : "";
   }
   if (Array.isArray(benefits)) product.benefits = benefits.filter(Boolean);
-  if (Array.isArray(uses)) product.uses = uses.filter(Boolean);
+  if (Array.isArray(uses)) {
+    product.uses = uses.map((s) => s.toString().trim()).filter(Boolean);
+  }
+  if (howToUsePatch !== undefined) {
+    // Authoritative replace — sending {} clears the block. Empty fields
+    // tell the storefront to hide the section.
+    product.howToUse = normalizeHowToUse(howToUsePatch);
+  }
   if (Array.isArray(faq)) {
     // Authoritative replace + sanity trim. Empty rows get dropped so
     // the public FAQPage JSON-LD never emits incomplete entries.

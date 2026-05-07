@@ -33,6 +33,15 @@ const faqEntrySchema = z.object({
   answer: z.string().trim().min(1, "FAQ answer is required"),
 });
 
+// "How to use" block — short rich-text/HTML copy + a single image URL.
+// The frontend uses TipTap so the body comes through as HTML; we keep the
+// shape generic (string + url string) so future plain-text submissions
+// also pass through.
+const howToUseSchema = z.object({
+  text: z.string().trim().optional().default(""),
+  image: z.string().trim().optional().default(""),
+});
+
 // Per-type GTIN validators. We persist `barcode` as the raw string and
 // `gtinType` as a discriminator so the frontend can mask the input and
 // the storefront can emit the right schema.org property.
@@ -105,6 +114,7 @@ export const createProductSchema = z.object({
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
+    howToUse: howToUseSchema.optional(),
     faq: z.array(faqEntrySchema).optional(),
     itemDetails: itemDetailsSchema,
     // Many-to-many ingredient tagging. Accepts ObjectIds — frontend resolves
@@ -141,6 +151,7 @@ export const updateProductSchema = z.object({
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
+    howToUse: howToUseSchema.optional(),
     faq: z.array(faqEntrySchema).optional(),
     itemDetails: itemDetailsSchema,
     ingredients: z.array(z.string().regex(objectId, "Invalid ingredient id")).optional(),

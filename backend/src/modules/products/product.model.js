@@ -83,9 +83,24 @@ const productSchema = new mongoose.Schema(
       default: [],
     },
 
+    // Short bullet list rendered as <ul> on the product page.
     uses: {
       type: [String],
       default: [],
+    },
+
+    // "How to use" block — a short description-style copy + a single
+    // optional image. Distinct from `uses` (which is bullets). Renders
+    // as a body paragraph + thumbnail on the product page.
+    howToUse: {
+      type: new mongoose.Schema(
+        {
+          text: { type: String, default: "", trim: true },
+          image: { type: String, default: "", trim: true },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
     },
 
     // Per-product FAQ. Surfaces on the product page as an accordion AND

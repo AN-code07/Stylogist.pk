@@ -88,7 +88,21 @@ export default function useProductManage() {
       barcode: product.barcode || '',
       gtinType: product.gtinType || '',
       benefits: Array.isArray(product.benefits) ? [...product.benefits] : [],
-      uses: Array.isArray(product.uses) ? [...product.uses] : [],
+      // Bullet list (string[]). Legacy `[{text, image}]` rows from the
+      // brief experiment with structured uses are flattened back to
+      // their text so existing data still loads cleanly.
+      uses: Array.isArray(product.uses)
+        ? product.uses
+            .map((u) =>
+              typeof u === 'string' ? u : (u?.text || ''),
+            )
+            .filter(Boolean)
+        : [],
+      // "How to use" block — short rich-text + a single image URL.
+      howToUse: {
+        text: product.howToUse?.text || '',
+        image: product.howToUse?.image || '',
+      },
       faq: Array.isArray(product.faq)
         ? product.faq.map((q) => ({ question: q?.question || '', answer: q?.answer || '' }))
         : [],
@@ -305,7 +319,20 @@ export default function useProductManage() {
     // Drop empty bullets so the server-side schema (which requires min(1))
     // doesn't reject the whole array because of trailing blank rows.
     const benefits = (form.benefits || []).map((s) => (s || '').trim()).filter(Boolean);
-    const uses = (form.uses || []).map((s) => (s || '').trim()).filter(Boolean);
+    // Uses is back to a plain string bullet list. Trim + drop blanks so
+    // the backend's `min(1)` schema doesn't reject the array because of
+    // a trailing empty row.
+    const uses = (form.uses || [])
+      .map((u) => (u || '').toString().trim())
+      .filter(Boolean);
+
+    // How-to-use block — rich-text + single image. Empty `text` AND empty
+    // `image` together signal the storefront should hide the section,
+    // but we still send them so the server-side replace clears stale data.
+    const howToUse = {
+      text: (form.howToUse?.text || '').trim(),
+      image: (form.howToUse?.image || '').trim(),
+    };
 
     // Same defensiveness for FAQ — both fields are required server-side,
     // so half-filled rows are dropped before submit.
@@ -333,6 +360,7 @@ export default function useProductManage() {
       gtinType: (form.barcode || '').trim() ? (form.gtinType || undefined) : undefined,
       benefits,
       uses,
+      howToUse,
       faq,
       itemDetails,
       category: form.category || form.categories[0],

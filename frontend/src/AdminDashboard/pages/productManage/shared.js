@@ -155,6 +155,10 @@ export const emptyForm = {
   gtinType: '',
   benefits: [],
   uses: [],
+  // Single "How to use" block — short rich-text body + an optional image
+  // URL. Stored as `{ text, image }`. Distinct from `uses` (which is a
+  // bullet list).
+  howToUse: { text: '', image: '' },
   // Per-product FAQ. Stored as [{ question, answer }] in form state and
   // POSTed verbatim — service layer drops empty rows.
   faq: [],

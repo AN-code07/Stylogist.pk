@@ -1,14 +1,13 @@
 import multer from "multer";
 import path from "node:path";
-import fs from "node:fs";
-import fsp from "node:fs/promises";
 import crypto from "node:crypto";
 import sharp from "sharp";
 import slugify from "slugify";
 import { ApiError } from "../utils/ApiError.js";
-
-const UPLOAD_ROOT = path.resolve(process.cwd(), "uploads");
-if (!fs.existsSync(UPLOAD_ROOT)) fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
+import {
+  uploadBufferToCloudinary,
+  deleteFromCloudinary,
+} from "../config/cloudinary.js";
 
 const ALLOWED_MIME = new Set([
   "image/jpeg",
@@ -18,9 +17,10 @@ const ALLOWED_MIME = new Set([
   "image/avif",
 ]);
 
-// We now buffer uploads in memory and encode them to webp on the fly so we
-// never persist the original format. This keeps the disk clean and gives us
-// consistent, storage-efficient assets.
+// We buffer uploads in memory and re-encode them to webp before streaming
+// to Cloudinary. Sharp keeps the local pipeline (rotation fix, size cap,
+// quality preset) consistent with what we used to produce on disk; we
+// just hand the resulting buffer off to the CDN instead of writing it.
 const storage = multer.memoryStorage();
 
 const fileFilter = (_req, file, cb) => {
@@ -36,18 +36,6 @@ export const uploadImage = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-export const buildPublicUrl = (req, filename) => {
-  const envBase = process.env.PUBLIC_BASE_URL;
-  let base = envBase ? envBase.replace(/\/$/, "") : `${req.protocol}://${req.get("host")}`;
-  // Lighthouse "Best Practices" fails as soon as a single http:// asset loads
-  // on an https page. Upgrade the scheme unconditionally when we're not on a
-  // localhost development host.
-  if (/^http:\/\//i.test(base) && !/localhost|127\.0\.0\.1/.test(base)) {
-    base = base.replace(/^http:\/\//i, "https://");
-  }
-  return `${base}/uploads/${filename}`;
-};
-
 const slugifyBase = (value, fallback = "image") => {
   if (!value || typeof value !== "string") return fallback;
   const out = slugify(value, { lower: true, strict: true, trim: true });
@@ -56,8 +44,8 @@ const slugifyBase = (value, fallback = "image") => {
 
 // Build the slug the client wants for this image. Priority:
 //  - explicit slug passed by the client (already a slug) -> sanitize & use
-//  - productSlug + "image" + index (for gallery images)
 //  - productSlug + "thumbnail" (for thumbnails)
+//  - productSlug + "image" + index (for gallery images)
 //  - random fallback
 const buildImageSlug = ({ explicitSlug, productSlug, role = "image", index }) => {
   if (explicitSlug) return slugifyBase(explicitSlug);
@@ -67,68 +55,79 @@ const buildImageSlug = ({ explicitSlug, productSlug, role = "image", index }) =>
       ? `${slugifyBase(productSlug)}-image-${index}`
       : `${slugifyBase(productSlug)}-image`;
   }
-  return `image-${Date.now()}`;
+  return `image-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
 };
 
-const ensureUniqueFilename = async (baseName) => {
-  let candidate = `${baseName}.webp`;
-  let counter = 1;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const full = path.join(UPLOAD_ROOT, candidate);
-    if (!fs.existsSync(full)) return { filename: candidate, filePath: full };
-    candidate = `${baseName}-${counter}.webp`;
-    counter += 1;
-  }
-};
-
-// Transforms a multer file (buffer) into an optimized webp on disk and returns
-// descriptor data the route handler can echo back to the client.
-export const processImageToWebp = async (file, { slug, productSlug, role, index, metaTitle = "", metaDescription = "", alt = "" } = {}) => {
+// Take a multer file (in-memory buffer), compress to webp, upload to
+// Cloudinary, and return the descriptor the route handler echoes back
+// to the client. URL stored in the DB is Cloudinary's `secure_url` —
+// a CDN-backed https endpoint that survives container redeploys.
+export const processImageToWebp = async (
+  file,
+  { slug, productSlug, role, index, metaTitle = "", metaDescription = "", alt = "" } = {},
+) => {
   if (!file?.buffer) throw new ApiError(400, "Invalid upload buffer");
 
-  const baseSlug = buildImageSlug({ explicitSlug: slug, productSlug, role, index });
-  const { filename, filePath } = await ensureUniqueFilename(baseSlug);
-
-  // Higher quality + max effort → visibly crisper product photos.
-  // chromaSubsampling 4:4:4 keeps colour detail (important for reds/oranges
-  // in fashion/beauty shots). near-lossless smooths flat areas without
-  // ballooning file size.
-  //
-  // We also cap the longest side at 2000 px so a camera-dump upload
-  // (e.g. 6000×4000 / 10 MB JPEG) lands on the storefront at a sensible
-  // 150–350 KB. `withoutEnlargement` makes this a ceiling, not a stretch —
-  // small source images keep their native resolution.
-  await sharp(file.buffer)
+  // 1. Sharp pipeline — rotate (EXIF), cap longest side at 2000px so
+  //    camera-dump uploads (6000×4000) compress down to a sensible
+  //    150–350 KB, and re-encode as webp at quality 85 / effort 6.
+  const webpBuffer = await sharp(file.buffer)
     .rotate()
     .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
     .webp({ quality: 85, effort: 6, smartSubsample: true, alphaQuality: 100 })
-    .toFile(filePath);
+    .toBuffer();
 
-  const { size } = await fsp.stat(filePath);
+  // 2. Cloudinary upload via stream — public_id mirrors our slug
+  //    naming convention so the delivered URL is human-readable.
+  //    `unique_filename` tells Cloudinary to append a short hash if
+  //    the public_id collides, so admins can't accidentally overwrite
+  //    a sibling product's asset.
+  const baseSlug = buildImageSlug({ explicitSlug: slug, productSlug, role, index });
+  const result = await uploadBufferToCloudinary(webpBuffer, {
+    public_id: baseSlug,
+    format: "webp",
+    unique_filename: true,
+    overwrite: false,
+  });
 
   return {
-    filename,
-    filePath,
-    size,
+    filename: result.public_id,
+    publicId: result.public_id,
+    size: result.bytes,
     mimetype: "image/webp",
-    slug: path.basename(filename, ".webp"),
+    width: result.width,
+    height: result.height,
+    slug: baseSlug,
     metaTitle,
     metaDescription,
     alt: alt || metaTitle,
+    url: result.secure_url, // canonical https URL stored in the DB
   };
 };
 
-export const deleteLocalUpload = async (filename) => {
-  if (!filename) return;
-  const safe = path.basename(filename);
-  const full = path.join(UPLOAD_ROOT, safe);
-  try {
-    await fsp.unlink(full);
-  } catch {
-    // ignore – the file may already be gone
-  }
+// Public URL helper. With Cloudinary every uploader already returns a
+// fully-qualified `secure_url`, so this is a no-op pass-through. We keep
+// the export so route handlers don't have to change their call sites.
+// Accepts either a full URL (returned verbatim) or a public_id (built
+// into a Cloudinary delivery URL on the fly).
+export const buildPublicUrl = (_req, urlOrPublicId) => {
+  if (!urlOrPublicId) return "";
+  if (/^https?:\/\//i.test(urlOrPublicId)) return urlOrPublicId;
+  // Fallback: synthesise a delivery URL when only a public_id is known.
+  const cloud = process.env.CLOUDINARY_CLOUD_NAME;
+  if (!cloud) return urlOrPublicId;
+  return `https://res.cloudinary.com/${cloud}/image/upload/${urlOrPublicId}.webp`;
 };
+
+// Best-effort delete by Cloudinary public_id.
+export const deleteUploadedAsset = async (publicId) => {
+  if (!publicId) return;
+  await deleteFromCloudinary(publicId);
+};
+
+// Back-compat alias for older callers that still reference the local
+// disk helper. Routes through Cloudinary now.
+export const deleteLocalUpload = deleteUploadedAsset;
 
 // Legacy random-name generator, kept for non-image uploads if ever needed.
 export const randomName = (originalName) => {
