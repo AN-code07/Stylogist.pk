@@ -109,11 +109,18 @@ export const processImageToWebp = async (
   ].filter((k) => !process.env[k] || !process.env[k].trim());
 
   if (missing.length) {
+    // Platform-aware hint. On Vercel the env vars live in
+    // Settings → Environment Variables (a redeploy is required after
+    // editing). Locally they live in `backend/.env`.
+    const onVercel = !!process.env.VERCEL;
+    const where = onVercel
+      ? "your Vercel project's Settings → Environment Variables (Production/Preview/Development), then redeploy the backend so the new values are picked up"
+      : "backend/.env (no trailing equals sign by itself), then restart the backend server";
     throw new ApiError(
       500,
       `Image storage is not configured. The following backend env var(s) are missing or empty: ${missing.join(
         ", ",
-      )}. Make sure they are filled in inside backend/.env (no trailing equals sign by itself), then restart the backend server.`,
+      )}. Make sure they are filled in inside ${where}.`,
     );
   }
 
