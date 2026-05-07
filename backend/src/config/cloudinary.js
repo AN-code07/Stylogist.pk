@@ -10,12 +10,24 @@ cloudinary.config({
   secure: true,
 });
 
-if (!env.cloudinary.cloudName || !env.cloudinary.apiKey || !env.cloudinary.apiSecret) {
-  // Soft warning rather than process.exit — local dev environments
-  // sometimes spin up without Cloudinary creds, and we still want the
-  // rest of the API to come up. Uploads will fail loudly when invoked.
+// Boot-time status banner. We never print the secret values themselves —
+// just whether each one was found at runtime — so you can spot a missing
+// .env in the dev console without rebooting through the upload flow.
+const ok = (v) => (v && v.toString().trim() ? "ok" : "MISSING");
+const allOk =
+  env.cloudinary.cloudName && env.cloudinary.apiKey && env.cloudinary.apiSecret;
+
+if (allOk) {
+  console.log(
+    `[cloudinary] configured · cloud_name=${env.cloudinary.cloudName} · folder=${env.cloudinary.folder}`,
+  );
+} else {
   console.warn(
-    "[cloudinary] Missing CLOUDINARY_CLOUD_NAME / CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET. Image uploads will fail until these are set.",
+    "[cloudinary] env check failed · " +
+      `CLOUDINARY_CLOUD_NAME=${ok(env.cloudinary.cloudName)} · ` +
+      `CLOUDINARY_API_KEY=${ok(env.cloudinary.apiKey)} · ` +
+      `CLOUDINARY_API_SECRET=${ok(env.cloudinary.apiSecret)} ` +
+      "— image uploads will fail until these are filled into backend/.env and the server is restarted.",
   );
 }
 

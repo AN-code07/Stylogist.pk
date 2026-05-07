@@ -1,4 +1,15 @@
-import 'dotenv/config'; // Load env vars immediately
+// Load env vars immediately. We pin the path to the backend root so the
+// .env is picked up regardless of where `node`/`nodemon` was launched
+// from (e.g. running `npm --prefix backend run dev` from the repo root
+// would otherwise have process.cwd() pointing at the repo root and miss
+// backend/.env entirely).
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+
 import app from './src/app.js';
 import { connectDB } from './src/config/db.js';
 

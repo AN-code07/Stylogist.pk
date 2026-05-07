@@ -11,7 +11,8 @@
       "Bash(node --check src/middlewares/upload.middleware.js)",
       "Bash(node --check src/config/cloudinary.js)",
       "Bash(node --check src/modules/uploads/upload.routes.js)",
-      "Bash(node --check src/middlewares/error.middleware.js)"
+      "Bash(node --check src/middlewares/error.middleware.js)",
+      "Bash(node --check server.js)"
     ],
     "additionalDirectories": [
       "D:\\COMAPNY PORJECTS\\INNOVISTA_DHA\\Stylogist.pk\\backend\\src\\modules"

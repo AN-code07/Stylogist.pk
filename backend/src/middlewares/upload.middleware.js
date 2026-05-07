@@ -98,18 +98,22 @@ export const processImageToWebp = async (
 ) => {
   if (!file?.buffer) throw new ApiError(400, "Invalid upload buffer");
 
-  // Fail-fast with an *operational* error when Cloudinary creds are
-  // missing. Without this the SDK returns an opaque 401 that the global
-  // error handler renders as the generic "Something went very wrong!"
-  // page in production.
-  if (
-    !process.env.CLOUDINARY_CLOUD_NAME ||
-    !process.env.CLOUDINARY_API_KEY ||
-    !process.env.CLOUDINARY_API_SECRET
-  ) {
+  // Fail-fast with an *operational* error when any Cloudinary cred is
+  // missing or blank. Naming the specific keys avoids the back-and-forth
+  // of "I set them but it still fails" — the admin sees exactly which
+  // variable came back empty at runtime.
+  const missing = [
+    "CLOUDINARY_CLOUD_NAME",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
+  ].filter((k) => !process.env[k] || !process.env[k].trim());
+
+  if (missing.length) {
     throw new ApiError(
       500,
-      "Image storage is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in the backend env.",
+      `Image storage is not configured. The following backend env var(s) are missing or empty: ${missing.join(
+        ", ",
+      )}. Make sure they are filled in inside backend/.env (no trailing equals sign by itself), then restart the backend server.`,
     );
   }
 
