@@ -41,9 +41,29 @@ export const searchProducts = async (req, res) => {
 };
 
 export const getProductBySlug = async (req, res) => {
-  const result = await ProductService.getProductBySlug(req.params.slug);
-  res.set("Cache-Control", DETAIL_CACHE_HEADER);
-  res.status(200).json({ status: "success", data: result });
+  try {
+    const result = await ProductService.getProductBySlug(req.params.slug);
+    res.set("Cache-Control", DETAIL_CACHE_HEADER);
+    res.status(200).json({ status: "success", data: result });
+  } catch (err) {
+    // Service surfaces a tagged ApiError when the slug has been renamed.
+    // We respond with the JSON payload `{ redirect: "/product/new-slug" }`
+    // so the SPA can navigate without an extra round trip, AND set the
+    // Location header so non-JS clients / curl users still see the 301.
+    if (err?.statusCode === 301 && err?.redirectTo) {
+      // We can't return a real HTTP 301 here because the API client (axios
+      // / fetch in a browser) would silently follow the Location header
+      // to a SPA route and then GET that as JSON, which 404s. Instead we
+      // hand back a 200 envelope tagged `status: "redirect"` so the SPA
+      // can navigate to the new product URL itself. The full 301 still
+      // works for the dedicated /prerender endpoint that crawlers hit.
+      res.set("Cache-Control", "public, max-age=86400");
+      return res
+        .status(200)
+        .json({ status: "redirect", redirect: err.redirectTo });
+    }
+    throw err;
+  }
 };
 
 export const getProductById = async (req, res) => {

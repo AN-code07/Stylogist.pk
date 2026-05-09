@@ -489,7 +489,7 @@ function buildSeo(type, slug, label, records) {
   }
   return {
     title: 'All Products — Stylogist',
-    description: 'Browse every product on Stylogist.pk. Free shipping nationwide and cash on delivery.',
+    description: 'Browse every product on HarbalMart.pk. Free shipping nationwide and cash on delivery.',
     canonical: `${origin}/products`,
     type: 'website',
   };

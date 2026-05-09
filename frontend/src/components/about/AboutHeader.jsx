@@ -94,7 +94,7 @@ export default function AboutHeader() {
             isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
           }`}
         >
-          At Stylogist.pk, we blend{' '}
+          At HarbalMart.pk, we blend{' '}
           <span className="text-white font-black">Neural Style Intelligence</span>{' '}
           with artisan-grade fashion to curate a shopping experience as unique as your own DNA.
         </p>

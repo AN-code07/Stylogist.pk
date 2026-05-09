@@ -74,10 +74,16 @@ export default function StorefrontProductCard({
   return (
     <div
       className="group flex flex-col relative w-full animate-[slideUp_0.5s_ease-out_forwards]"
-      style={{ animationDelay: `${Math.min(index, 8) * 80}ms` }}
+      style={{ animationDelay: `${index * 100}ms` }}
     >
-      <div className="relative aspect-[6/4] sm:aspect-[3/4] sm:rounded-[1.75rem] bg-white border border-gray-100 p-2 shadow-sm transition-all duration-500 group-hover:shadow-xl group-hover:-translate-y-1 overflow-hidden">
-        <div className="w-full h-full bg-[#F7F3F0] rounded-md sm:rounded-[1.25rem] overflow-hidden relative">
+      {/* Visual spec preserved verbatim from the original FeaturedProducts /
+          TrendingProducts card so the home rails keep the look they shipped
+          with: 2rem outer frame, 1.5rem inner mat, image rendered with
+          `mix-blend-multiply` for the cream-paper effect, and a "Quick Add"
+          slide-up CTA. The data wiring (real product, wishlist store) is
+          new — the visuals are not. */}
+      <div className="relative aspect-[6/4] sm:aspect-[3/4] sm:rounded-4xl bg-white border border-gray-100 p-2 shadow-sm transition-all duration-500 group-hover:shadow-xl group-hover:-translate-y-1 overflow-hidden">
+        <div className="w-full h-full bg-[#F7F3F0] rounded-md sm:rounded-3xl overflow-hidden relative">
           <Link to={to} className="block w-full h-full">
             {product.image ? (
               <img
@@ -87,7 +93,7 @@ export default function StorefrontProductCard({
                 height="300"
                 loading="lazy"
                 decoding="async"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                className="w-full h-full object-cover mix-blend-multiply transition-transform duration-700 group-hover:scale-110"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-slate-300">
@@ -117,7 +123,7 @@ export default function StorefrontProductCard({
               to={to}
               className="w-full bg-[#222]/95 backdrop-blur-md text-white py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] flex items-center justify-center gap-2 hover:bg-[#007074] shadow-xl"
             >
-              <FiShoppingCart size={14} /> Quick View
+              <FiShoppingCart size={14} /> Quick Add
             </Link>
           </div>
         </div>

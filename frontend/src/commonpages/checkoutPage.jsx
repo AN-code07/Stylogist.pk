@@ -12,6 +12,7 @@ import {
   useAddAddress,
 } from '../features/addresses/useAddressHooks';
 import { useCreateOrder } from '../features/orders/useOrderHooks';
+import { trackBeginCheckout, trackPurchase } from '../utils/analytics';
 
 const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
@@ -158,8 +159,18 @@ export default function CheckoutPage() {
       };
     }
 
+    // GA4 begin_checkout — fired right before the request goes out so it
+    // captures intent even if the order errors at the API. The matching
+    // `purchase` event fires on success below.
+    trackBeginCheckout(items, total);
+
     try {
       const order = await createOrderMut.mutateAsync(payload);
+      trackPurchase({
+        orderId: order?._id || order?.orderNumber,
+        total: order?.totalAmount || total,
+        items,
+      });
       toast.success('Order placed — you will pay on delivery.');
       clearCart();
       if (isAuthenticated) {
@@ -181,7 +192,7 @@ export default function CheckoutPage() {
           >
             <FiChevronLeft size={16} /> Back to cart
           </Link>
-          <span className="text-base font-semibold tracking-tight">Stylogist.pk</span>
+          <span className="text-base font-semibold tracking-tight">HarbalMart.pk</span>
           <div className="w-10" />
         </div>
       </header>

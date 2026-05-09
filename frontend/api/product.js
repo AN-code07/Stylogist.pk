@@ -159,7 +159,7 @@ const buildJsonLd = (product, slug, canonical, images, variants) => {
         stripHtml(product.shortDescription) ||
         stripHtml(product.description) ||
         productName).slice(0, 160)
-      : `Shop ${productName} at Stylogist.pk — free shipping & cash on delivery in Pakistan.`,
+      : `Shop ${productName} at HarbalMart.pk — free shipping & cash on delivery in Pakistan.`,
     image: finalImages,
     sku: variants?.[0]?.sku || undefined,
     mpn: variants?.[0]?.sku || undefined,
@@ -403,8 +403,8 @@ export default async function handler(req, res) {
     ? (product.metaDescription?.trim() ||
       stripHtml(product.shortDescription) ||
       stripHtml(product.description) ||
-      `Shop ${product.name} on Stylogist.pk`).slice(0, 160)
-    : `Shop ${titleFromSlug(slug)} on Stylogist.pk — free shipping & cash on delivery in Pakistan.`;
+      `Shop ${product.name} on HarbalMart.pk`).slice(0, 160)
+    : `Shop ${titleFromSlug(slug)} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`;
 
   const { productLd, breadcrumbLd, breadcrumbItems } =
     buildJsonLd(product, slug, canonical, images, variants);

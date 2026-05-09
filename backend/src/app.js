@@ -89,7 +89,7 @@ app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads'), {
 }));
 
 app.get('/health', (_req, res) => {
-    res.status(200).json({ status: 'success', message: 'Stylogist.pk API is running' });
+    res.status(200).json({ status: 'success', message: 'HarbalMart.pk API is running' });
 });
 
 // SEO routes — sitemap.xml and robots.txt at the app root so crawlers find

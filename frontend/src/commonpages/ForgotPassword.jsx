@@ -66,7 +66,7 @@ export default function ForgotPassword() {
                   type="email"
                   required
                   autoFocus
-                  placeholder="name@stylogist.pk"
+                  placeholder="name@HarbalMart.pk"
                   value={email}
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}

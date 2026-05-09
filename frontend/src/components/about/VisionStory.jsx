@@ -87,7 +87,7 @@ const VisionStory = () => {
                   </div>
 
                   <p className="text-gray-500 text-sm md:text-base leading-relaxed font-medium">
-                    At <span className="text-[#222] font-black">Stylogist.pk</span>, our mission is to empower every customer with ultimate style confidence.
+                    At <span className="text-[#222] font-black">HarbalMart.pk</span>, our mission is to empower every customer with ultimate style confidence.
                   </p>
 
                 </div>

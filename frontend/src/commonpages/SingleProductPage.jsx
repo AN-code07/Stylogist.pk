@@ -12,9 +12,16 @@ import useCartStore from '../store/useCartStore';
 import useWishlistStore from '../store/useWishlistStore';
 import Seo from '../components/common/Seo';
 import ReviewsSection from '../components/product/ReviewsSection';
+import MobileBuyBar from '../components/product/MobileBuyBar';
 import StorefrontProductCard from '../components/common/StorefrontProductCard';
 import { resolveImageUrl } from '../utils/imageUrl';
 import { buildWhatsAppUrl } from '../utils/whatsapp';
+import {
+  buildProductTitle,
+  buildProductDescription,
+  buildProductImageAlt,
+} from '../features/products/buildProductSeo';
+import { trackViewItem, trackAddToCart } from '../utils/analytics';
 
 const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
@@ -23,6 +30,16 @@ export default function ProductDetailsPage() {
   const navigate = useNavigate();
 
   const { data, isLoading, isError } = useProduct(slug);
+
+  // Renamed-slug detection. The backend sends `{ __redirect: '/product/X' }`
+  // when the requested slug has been retired. We navigate via an effect so
+  // we don't break the Rules of Hooks (React still has to call every hook
+  // below this line on the redirect render).
+  useEffect(() => {
+    if (data?.__redirect) {
+      navigate(data.__redirect, { replace: true });
+    }
+  }, [data?.__redirect, navigate]);
   const addItem = useCartStore((s) => s.addItem);
   const toggleWishlist = useWishlistStore((s) => s.toggle);
   const wishlistItems = useWishlistStore((s) => s.items);
@@ -40,11 +57,25 @@ export default function ProductDetailsPage() {
   const sizes = useMemo(() => uniq(variants.map((v) => v.size).filter(Boolean)), [variants]);
   const colors = useMemo(() => uniq(variants.map((v) => v.color).filter(Boolean)), [variants]);
   const packSizes = useMemo(() => uniq(variants.map((v) => v.packSize).filter(Boolean)), [variants]);
+  // Distinct potency values across the product's variants. We dedupe via
+  // the same legacy-fallback resolver used elsewhere on the PDP, so old
+  // catalogue rows that still carry text in `ingredients`/`material` show
+  // up as a clickable strength chip instead of disappearing.
+  const potencies = useMemo(
+    () =>
+      uniq(
+        variants
+          .map((v) => v?.potency || v?.ingredients || v?.material || '')
+          .filter(Boolean)
+      ),
+    [variants]
+  );
 
   const [activeImage, setActiveImage] = useState(null);
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedPackSize, setSelectedPackSize] = useState(null);
+  const [selectedPotency, setSelectedPotency] = useState(null);
   const [quantity, setQuantity] = useState(1);
 
   // Hydrate defaults once we know the product + variants.
@@ -53,14 +84,28 @@ export default function ProductDetailsPage() {
     if (sizes.length) setSelectedSize((prev) => prev || sizes[0]);
     if (colors.length) setSelectedColor((prev) => prev || colors[0]);
     if (packSizes.length) setSelectedPackSize((prev) => prev || packSizes[0]);
-  }, [images, sizes, colors, packSizes]);
+    if (potencies.length) setSelectedPotency((prev) => prev || potencies[0]);
+  }, [images, sizes, colors, packSizes, potencies]);
 
-  const seoTitle = product?.metaTitle?.trim() || (product ? `${product.name} | Stylogist` : '');
-  const seoDescription = product
-    ? product.metaDescription?.trim() ||
-    stripHtml(product.shortDescription) ||
-    stripHtml(product.description).slice(0, 160)
-    : '';
+  // GA4 view_item — fires once per product slug load. Keyed on the
+  // product id (not slug) so a rename-redirect doesn't double-fire.
+  useEffect(() => {
+    if (product?._id) trackViewItem(product);
+  }, [product?._id]);
+
+  // Title + description are produced by buildProductSeo() so when the
+  // admin leaves the meta fields blank we still get keyword-shaped,
+  // length-clamped copy ("… Original Imported X in Pakistan", 50–65 chars
+  // / 150–158 chars). Admin-supplied meta wins when present.
+  const seoTitle = product ? buildProductTitle(product) : '';
+  const seoDescription = product ? buildProductDescription(product) : '';
+
+  // Resolve the variant's potency label. New rows persist the value under
+  // `potency`; legacy variants carried the same idea inside the now-retired
+  // `ingredients` / `material` fields, so we fall back through them so old
+  // catalogue data still renders without an admin re-save. Hoisted above
+  // matchedVariant because the matcher reads it.
+  const variantPotency = (v) => v?.potency || v?.ingredients || v?.material || '';
 
   const matchedVariant = useMemo(() => {
     if (!variants.length) return null;
@@ -69,12 +114,13 @@ export default function ProductDetailsPage() {
         const sizeOk = sizes.length ? v.size === selectedSize : true;
         const colorOk = colors.length ? v.color === selectedColor : true;
         const packOk = packSizes.length ? v.packSize === selectedPackSize : true;
-        return sizeOk && colorOk && packOk;
+        // Potency contributes to the match the same way size/color do, so
+        // switching strength chips reprices the buy block immediately.
+        const potencyOk = potencies.length ? variantPotency(v) === selectedPotency : true;
+        return sizeOk && colorOk && packOk && potencyOk;
       }) || variants[0]
     );
-  }, [variants, selectedSize, selectedColor, selectedPackSize, sizes.length, colors.length, packSizes.length]);
-
-  const variantIngredients = (v) => v?.ingredients || v?.material || '';
+  }, [variants, selectedSize, selectedColor, selectedPackSize, selectedPotency, sizes.length, colors.length, packSizes.length, potencies.length]);
 
   const stock = matchedVariant?.stock ?? 0;
   const outOfStock = stock <= 0;
@@ -138,6 +184,12 @@ export default function ProductDetailsPage() {
       sku: matchedVariant?.sku || undefined,
       mpn: matchedVariant?.sku || undefined,
       brand: product.brand?.name ? { '@type': 'Brand', name: product.brand.name } : undefined,
+      // Schema.org models manufacturer as a separate Organization. Google
+      // uses this distinct from `brand` for product knowledge panels and
+      // shopping rich results — surfacing it lifts trust signals.
+      manufacturer: product.manufacturer
+        ? { '@type': 'Organization', name: product.manufacturer }
+        : undefined,
       category: product.category?.name || undefined,
       url: canonicalUrl,
       aggregateRating:
@@ -176,6 +228,68 @@ export default function ProductDetailsPage() {
 
     return json;
   }, [product, variants, images, matchedVariant, seoDescription]);
+
+  // HowTo schema — emitted only when the product has a "How to use"
+  // body. Google can render HowTo as a rich result with step counts.
+  // We split the body on newlines / sentences as a best-effort step
+  // segmentation since the admin field is currently rich-text rather
+  // than structured steps.
+  const howToJsonLd = useMemo(() => {
+    if (!product?.howToUse?.text) return null;
+    const stripped = product.howToUse.text
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!stripped) return null;
+    // Split on sentence terminators or bullet markers; filter empties.
+    const steps = stripped
+      .split(/(?<=[.!?])\s+|\s*[••]\s*|\s*\n\s*/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 4)
+      .slice(0, 8);
+    if (!steps.length) return null;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'HowTo',
+      name: `How to use ${product.name}`,
+      ...(product.howToUse.image
+        ? { image: product.howToUse.image }
+        : {}),
+      step: steps.map((text, idx) => ({
+        '@type': 'HowToStep',
+        position: idx + 1,
+        name: `Step ${idx + 1}`,
+        text,
+        url: origin ? `${origin}/product/${product.slug}#how-to-use` : undefined,
+      })),
+    };
+  }, [product]);
+
+  // NutritionInformation schema — supplement-specific. Surfaces servingSize,
+  // active-ingredient list, and dosage form to Google so SERP rich results
+  // can list the product's nutritional profile alongside the price.
+  const nutritionJsonLd = useMemo(() => {
+    if (!product) return null;
+    const ingredientNames = (product.ingredients || [])
+      .map((i) => i?.name)
+      .filter(Boolean);
+    const dosageForm = product.itemDetails?.dosageForm;
+    const itemForm = product.itemDetails?.itemForm;
+    if (!ingredientNames.length && !dosageForm && !itemForm) return null;
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'NutritionInformation',
+      name: `${product.name} nutritional profile`,
+      ...(dosageForm ? { servingSize: dosageForm } : {}),
+      ...(ingredientNames.length
+        ? {
+            description: `Active ingredients: ${ingredientNames.join(', ')}.`,
+          }
+        : {}),
+    };
+  }, [product]);
 
   const breadcrumbJsonLd = useMemo(() => {
     if (!product) return null;
@@ -235,7 +349,12 @@ export default function ProductDetailsPage() {
       size: matchedVariant.size,
       color: matchedVariant.color,
       packSize: matchedVariant.packSize,
+      potency: variantPotency(matchedVariant),
     });
+    trackAddToCart(
+      { ...product, minPrice: matchedVariant.salePrice },
+      quantity
+    );
     toast.success('Added to cart');
   };
 
@@ -254,6 +373,7 @@ export default function ProductDetailsPage() {
       size: matchedVariant.size,
       color: matchedVariant.color,
       packSize: matchedVariant.packSize,
+      potency: variantPotency(matchedVariant),
     });
     navigate('/checkout');
   };
@@ -270,6 +390,7 @@ export default function ProductDetailsPage() {
     if (matchedVariant?.size) variantBits.push(`Size: ${matchedVariant.size}`);
     if (matchedVariant?.color) variantBits.push(`Color: ${matchedVariant.color}`);
     if (matchedVariant?.packSize) variantBits.push(`Pack size: ${matchedVariant.packSize}`);
+    if (variantPotency(matchedVariant)) variantBits.push(`Potency: ${variantPotency(matchedVariant)}`);
     if (matchedVariant?.sku) variantBits.push(`SKU: ${matchedVariant.sku}`);
 
     const lines = [
@@ -337,7 +458,7 @@ export default function ProductDetailsPage() {
       <>
         <Seo
           title={`${placeholderName} · Stylogist`}
-          description={`Shop ${placeholderName} on Stylogist.pk — free shipping & cash on delivery in Pakistan.`}
+          description={`Shop ${placeholderName} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`}
           type="product"
           image={origin ? `${origin}/logo.png` : undefined}
           canonical={origin ? `${origin}/product/${slug}` : undefined}
@@ -370,6 +491,15 @@ export default function ProductDetailsPage() {
           jsonLd={breadcrumbJsonLd}
           jsonLdId="breadcrumb-jsonld"
         />
+      )}
+      {/* HowTo + NutritionInformation are additive: they only emit when the
+          admin has actually populated the relevant fields, so we never
+          publish empty schema blocks that Google would flag as warnings. */}
+      {howToJsonLd && (
+        <Seo jsonLd={howToJsonLd} jsonLdId="product-howto-jsonld" />
+      )}
+      {nutritionJsonLd && (
+        <Seo jsonLd={nutritionJsonLd} jsonLdId="product-nutrition-jsonld" />
       )}
       {/* Top announcement bar */}
       <div className="bg-[#222] text-white">
@@ -419,8 +549,11 @@ export default function ProductDetailsPage() {
 
       <div className="max-w-7xl mx-auto px-4 md:px-8 pb-16 grid grid-cols-1 lg:grid-cols-12 gap-10">
 
-        {/* LEFT — gallery (ANIMATED) */}
-        <ScrollReveal as="section" className="lg:col-span-5">
+        {/* LEFT — gallery. ABOVE-THE-FOLD, intentionally NOT wrapped in
+             ScrollReveal — opacity gating the LCP element measurably hurts
+             Core Web Vitals (Lighthouse penalises late paint of the largest
+             image). The section animation is reserved for below-the-fold. */}
+        <section className="lg:col-span-5">
           <div className="sticky top-6 flex gap-3">
             {images.length > 1 && (
               <div className="flex flex-col gap-2 w-16 shrink-0">
@@ -438,7 +571,10 @@ export default function ProductDetailsPage() {
                     <div className="w-full h-full bg-[#F7F3F0] rounded-lg overflow-hidden flex items-center justify-center">
                       <img
                         src={src}
-                        alt={`${product.name} thumbnail ${idx + 1}`}
+                        alt={
+                          (media[idx]?.alt && media[idx].alt.trim()) ||
+                          buildProductImageAlt(product, idx)
+                        }
                         width="64"
                         height="64"
                         loading="lazy"
@@ -451,7 +587,7 @@ export default function ProductDetailsPage() {
               </div>
             )}
             <div className="flex-1 relative">
-              <ZoomableImage src={activeImage} alt={product.name} />
+              <ZoomableImage src={activeImage} alt={buildProductImageAlt(product)} />
 
               <div className="absolute top-5 left-5 flex flex-col gap-1.5 z-10">
                 {product.isFeatured && (
@@ -473,10 +609,11 @@ export default function ProductDetailsPage() {
               )}
             </div>
           </div>
-        </ScrollReveal>
+        </section>
 
-        {/* CENTER — info (ANIMATED) */}
-        <ScrollReveal as="section" className="lg:col-span-4 space-y-6" delay={100}>
+        {/* CENTER — info. ABOVE-THE-FOLD: paint immediately, no ScrollReveal.
+             Buy buttons need to be visible for first contentful paint. */}
+        <section className="lg:col-span-4 space-y-6">
           <div>
             <div className="text-[9px] font-black uppercase tracking-[0.25em] text-gray-500 mb-3">
               {product.brand?.name || product.category?.name || '—'}
@@ -484,6 +621,20 @@ export default function ProductDetailsPage() {
             <h1 className="font-serif text-3xl md:text-4xl font-black text-[#222] leading-tight tracking-tight">
               {product.name}
             </h1>
+
+            {/* Manufacturer micro-label. Sits between the H1 and the rating
+                row because that's where buyers' eyes land while they're
+                still validating "is this the real product?". Prefixed with
+                "Manufactured by" so the value is self-explanatory even
+                when no brand is set. Auto-hides when blank. */}
+            {product.manufacturer && (
+              <p className="mt-2 text-[11px] uppercase tracking-[0.18em] text-gray-500 font-semibold inline-flex items-center gap-1.5">
+                <FiAward size={11} className="text-[#007074]" aria-hidden="true" />
+                <span>
+                  Manufactured by <span className="text-[#222]">{product.manufacturer}</span>
+                </span>
+              </p>
+            )}
 
             <div className="flex items-center gap-3 mt-4">
               <div className="flex items-center gap-0.5">
@@ -520,6 +671,27 @@ export default function ProductDetailsPage() {
                 You save <span className="font-black">{fmtPKR(savings)}</span> on this order
               </p>
             )}
+
+            {/* Stock micro-message — quietly affirms availability without
+                manufactured urgency. The exact stock count is intentionally
+                kept off-page; we only differentiate "available" from
+                "unavailable" to support the buy-button state. */}
+            <p
+              className={`text-[11px] mt-2 font-semibold inline-flex items-center gap-1.5 ${
+                outOfStock ? 'text-red-600' : 'text-emerald-700'
+              }`}
+            >
+              {outOfStock ? (
+                <>
+                  <FiAlertCircle size={12} /> Currently unavailable
+                </>
+              ) : (
+                <>
+                  <FiCheck size={12} /> In stock · ships within 24 hours
+                </>
+              )}
+            </p>
+
             <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-[0.15em] font-semibold">
               Inclusive of all taxes
             </p>
@@ -627,6 +799,36 @@ export default function ProductDetailsPage() {
             </div>
           )}
 
+          {/* Potency / strength picker — supplement-specific. Auto-hides
+              when only one variant carries a potency label, so single-
+              strength SKUs don't render an empty chip row. */}
+          {potencies.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Potency</span>
+                <span className="text-[10px] uppercase tracking-[0.15em] text-gray-500 font-semibold">
+                  {selectedPotency || '—'}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Potency">
+                {potencies.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setSelectedPotency(p)}
+                    role="radio"
+                    aria-checked={selectedPotency === p}
+                    className={`min-w-[64px] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${selectedPotency === p
+                      ? 'bg-[#007074] text-white border-[#007074] shadow-sm'
+                      : 'bg-white text-[#222] border-gray-200 hover:border-[#007074]'
+                      }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Quantity. Stock counts intentionally hidden — out-of-stock is
               still surfaced because it gates the buy button, but exact
               numbers / "Only N left" urgency baits are kept off-page. */}
@@ -640,21 +842,23 @@ export default function ProductDetailsPage() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              <div className="inline-flex items-center border border-gray-200 rounded-full bg-white">
+              <div className="inline-flex items-center border border-gray-200 rounded-full bg-white" role="group" aria-label="Quantity selector">
                 <button
                   onClick={() => handleQty(-1)}
                   disabled={quantity <= 1 || outOfStock}
+                  aria-label="Decrease quantity"
                   className="w-10 h-10 inline-flex items-center justify-center text-[#222] hover:text-[#007074] disabled:opacity-30"
                 >
-                  <FiMinus size={14} />
+                  <FiMinus size={14} aria-hidden="true" />
                 </button>
-                <span className="w-9 text-center text-sm font-black tabular-nums text-[#222]">{quantity}</span>
+                <span className="w-9 text-center text-sm font-black tabular-nums text-[#222]" aria-live="polite">{quantity}</span>
                 <button
                   onClick={() => handleQty(1)}
                   disabled={quantity >= stock || outOfStock}
+                  aria-label="Increase quantity"
                   className="w-10 h-10 inline-flex items-center justify-center text-[#222] hover:text-[#007074] disabled:opacity-30"
                 >
-                  <FiPlus size={14} />
+                  <FiPlus size={14} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -700,20 +904,25 @@ export default function ProductDetailsPage() {
               <button
                 onClick={handleShare}
                 title="Share this product"
+                aria-label="Share this product"
                 className="w-12 h-12 rounded-xl border border-gray-200 bg-white text-gray-500 hover:text-[#007074] hover:border-[#007074]/40 inline-flex items-center justify-center transition-all"
               >
-                <FiShare2 size={15} />
+                <FiShare2 size={15} aria-hidden="true" />
               </button>
             </div>
           </div>
 
-          {/* Compact trust strip */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Trust strip — promotes the highest-conversion supplement
+              signals (authenticity + COD + returns) above the fold so
+              the buyer doesn't have to scroll to feel safe. */}
+          <ul className="grid grid-cols-2 gap-2" role="list" aria-label="Trust badges">
+            <TrustPill icon={<FiAward size={14} />} label="Original Imported" />
             <TrustPill icon={<FiShield size={14} />} label="Cash on Delivery" />
+            <TrustPill icon={<FiTruck size={14} />} label="Free Pakistan Delivery" />
             <TrustPill icon={<FiRefreshCw size={14} />} label="7-day returns" />
             <TrustPill icon={<FiLock size={14} />} label="Secure checkout" />
-            <TrustPill icon={<FiCheck size={14} />} label="Verified seller" />
-          </div>
+            <TrustPill icon={<FiCheck size={14} />} label="Lab tested · authentic" />
+          </ul>
 
           {/* SKU */}
           {matchedVariant?.sku && (
@@ -730,15 +939,16 @@ export default function ProductDetailsPage() {
                 }}
                 className="text-gray-500 hover:text-[#007074] transition-colors"
                 title="Copy SKU"
+                aria-label="Copy SKU to clipboard"
               >
-                <FiCopy size={12} />
+                <FiCopy size={12} aria-hidden="true" />
               </button>
             </div>
           )}
-        </ScrollReveal>
+        </section>
 
-        {/* RIGHT — delivery + highlights side panel (ANIMATED) */}
-        <ScrollReveal as="aside" className="lg:col-span-3" delay={200}>
+        {/* RIGHT — sticky order summary. ABOVE-THE-FOLD: skip ScrollReveal. */}
+        <aside className="lg:col-span-3">
           <div className="sticky top-6 space-y-4">
             <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
               <div className="bg-[#F7F3F0] px-5 py-3 border-b border-gray-100">
@@ -774,7 +984,7 @@ export default function ProductDetailsPage() {
               </div>
             </div>
           </div>
-        </ScrollReveal>
+        </aside>
       </div>
 
       {/* Tabs / Bottom Sections */}
@@ -797,17 +1007,41 @@ export default function ProductDetailsPage() {
           )}
         </ScrollReveal>
 
+        {/* WHY CUSTOMERS LOVE IT — outcome-focused icon-card grid.
+             Auto-hides if the admin hasn't supplied any cards. */}
+        {Array.isArray(product.whyLoveIt) && product.whyLoveIt.length > 0 && (
+          <ScrollReveal as="section" aria-labelledby="why-love-heading">
+            <h2 id="why-love-heading" className="text-xl font-bold text-[#222] mb-4">
+              Why customers love it
+            </h2>
+            <ul className="grid grid-cols-2 lg:grid-cols-4 gap-3" role="list">
+              {product.whyLoveIt.map((card, idx) => (
+                <li
+                  key={idx}
+                  className="bg-white border border-gray-100 rounded-2xl p-4 text-center hover:border-[#007074]/30 hover:shadow-md transition-all"
+                >
+                  <div className="text-3xl mb-2" aria-hidden="true">{card.icon || '✨'}</div>
+                  <div className="text-sm font-bold text-[#222] mb-1 leading-tight">{card.title}</div>
+                  {card.body && (
+                    <p className="text-[11px] text-gray-500 leading-relaxed">{card.body}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </ScrollReveal>
+        )}
+
         {/* BENEFITS — semantic <h2> + <ul> for both readers and crawlers. */}
         {Array.isArray(product.benefits) && product.benefits.length > 0 && (
-          <ScrollReveal as="section">
-            <h2 className="text-xl font-bold text-[#222] mb-4">Benefits</h2>
+          <ScrollReveal as="section" aria-labelledby="benefits-heading">
+            <h2 id="benefits-heading" className="text-xl font-bold text-[#222] mb-4">Benefits</h2>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {product.benefits.map((b, idx) => (
                 <li
                   key={idx}
                   className="flex items-start gap-3 bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-700"
                 >
-                  <span className="mt-0.5 text-[#007074]"><FiCheck size={14} /></span>
+                  <span className="mt-0.5 text-[#007074]" aria-hidden="true"><FiCheck size={14} /></span>
                   <span className="leading-relaxed">{b}</span>
                 </li>
               ))}
@@ -868,6 +1102,30 @@ export default function ProductDetailsPage() {
           </ScrollReveal>
         )}
 
+        {/* PRECAUTIONS — supplement YMYL safety block. Visually distinct
+             so the warning isn't overlooked. Auto-hides when empty. */}
+        {Array.isArray(product.precautions) && product.precautions.length > 0 && (
+          <ScrollReveal as="section" aria-labelledby="precautions-heading">
+            <h2 id="precautions-heading" className="text-xl font-bold text-[#222] mb-4">
+              Precautions &amp; safety
+            </h2>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+              <ul className="space-y-2.5">
+                {product.precautions.map((p, idx) => (
+                  <li key={idx} className="flex items-start gap-3 text-sm text-amber-900">
+                    <FiAlertCircle
+                      className="mt-0.5 text-amber-600 shrink-0"
+                      size={14}
+                      aria-hidden="true"
+                    />
+                    <span className="leading-relaxed">{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </ScrollReveal>
+        )}
+
         {/* ITEM DETAILS — structured spec table fed by product.itemDetails. */}
         {product.itemDetails && Object.values(product.itemDetails).some((v) => (v || '').trim()) && (
           <ScrollReveal as="section">
@@ -903,11 +1161,14 @@ export default function ProductDetailsPage() {
           <h2 className="text-xl font-bold text-[#222] mb-4">Specifications</h2>
           <ul className="divide-y divide-gray-100 text-sm">
             <SpecRow label="Brand" value={product.brand?.name || '—'} />
+            {product.manufacturer && (
+              <SpecRow label="Manufacturer" value={product.manufacturer} />
+            )}
             {product.category?.name && (
               <SpecRow label="Category" value={product.category.name} />
             )}
-            {variantIngredients(matchedVariant) && (
-              <SpecRow label="Ingredients" value={variantIngredients(matchedVariant)} />
+            {variantPotency(matchedVariant) && (
+              <SpecRow label="Potency" value={variantPotency(matchedVariant)} />
             )}
             {matchedVariant?.weight && (
               <SpecRow label="Weight" value={`${matchedVariant.weight}g`} />
@@ -917,6 +1178,9 @@ export default function ProductDetailsPage() {
             )}
             {product.itemDetails?.dosageForm && (
               <SpecRow label="Dosage form" value={product.itemDetails.dosageForm} />
+            )}
+            {product.storage && (
+              <SpecRow label="Storage" value={product.storage} />
             )}
             {product.barcode && (
               <SpecRow label="UPC" value={product.barcode} />
@@ -951,7 +1215,7 @@ export default function ProductDetailsPage() {
                     <th className="text-left px-4 py-3">Size</th>
                     <th className="text-left px-4 py-3">Pack</th>
                     <th className="text-left px-4 py-3">Color</th>
-                    <th className="text-left px-4 py-3">Ingredients</th>
+                    <th className="text-left px-4 py-3">Potency</th>
                     <th className="text-right px-4 py-3">Price</th>
                   </tr>
                 </thead>
@@ -962,7 +1226,7 @@ export default function ProductDetailsPage() {
                       <td className="px-4 py-3 capitalize">{v.size || '—'}</td>
                       <td className="px-4 py-3">{v.packSize || '—'}</td>
                       <td className="px-4 py-3 capitalize">{v.color || '—'}</td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{variantIngredients(v) || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{variantPotency(v) || '—'}</td>
                       <td className="px-4 py-3 text-right font-semibold">
                         {fmtPKR(v.salePrice)}
                       </td>
@@ -990,7 +1254,24 @@ export default function ProductDetailsPage() {
              user always sees something new. */}
         <RelatedProducts product={product} />
 
+        {/* INTERNAL LINK CLUSTER — descriptive anchors into brand,
+             category, and ingredient pages. Builds topical authority and
+             distributes PageRank into our own listing pages. */}
+        <InternalLinkCluster product={product} />
+
       </div>
+
+      {/* Sticky mobile buy bar — fixed-bottom CTA for screens < lg. Hides
+          itself once the user scrolls into the footer area to avoid
+          double-CTA noise. Desktop already has the right-rail summary. */}
+      <MobileBuyBar
+        price={price}
+        originalPrice={originalPrice}
+        outOfStock={outOfStock}
+        onAddToCart={handleAddToCart}
+        onBuyNow={handleBuyNow}
+      />
+
     </div>
   );
 }
@@ -1038,29 +1319,117 @@ function ProductFaq({ product }) {
           const open = openIdx === idx;
           return (
             <div key={idx}>
-              <button
-                type="button"
-                onClick={() => setOpenIdx(open ? -1 : idx)}
-                className="w-full text-left px-6 py-5 flex items-center justify-between gap-4 hover:bg-[#F7F3F0]/50 transition-colors"
-                aria-expanded={open}
-              >
-                <span className="text-sm font-bold text-[#222] leading-snug pr-4">{q.question}</span>
-                <span
-                  className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-                    open ? 'bg-[#007074] text-white rotate-180' : 'bg-[#F7F3F0] text-[#007074]'
-                  }`}
+              {/* The question itself is wrapped in <h3> so the page
+                   maintains H1 → H2 → H3 hierarchy without changing the
+                   visual look. The accordion toggle stays a <button>
+                   so it remains keyboard / screen-reader accessible. */}
+              <h3 className="m-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenIdx(open ? -1 : idx)}
+                  className="w-full text-left px-6 py-5 flex items-center justify-between gap-4 hover:bg-[#F7F3F0]/50 transition-colors"
+                  aria-expanded={open}
+                  aria-controls={`faq-answer-${idx}`}
+                  id={`faq-question-${idx}`}
                 >
-                  <FiChevronDown size={14} />
-                </span>
-              </button>
+                  <span className="text-sm font-bold text-[#222] leading-snug pr-4">{q.question}</span>
+                  <span
+                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+                      open ? 'bg-[#007074] text-white rotate-180' : 'bg-[#F7F3F0] text-[#007074]'
+                    }`}
+                  >
+                    <FiChevronDown size={14} />
+                  </span>
+                </button>
+              </h3>
               {open && (
-                <div className="px-6 pb-6 text-sm text-gray-600 leading-relaxed whitespace-pre-line">
+                <div
+                  id={`faq-answer-${idx}`}
+                  role="region"
+                  aria-labelledby={`faq-question-${idx}`}
+                  className="px-6 pb-6 text-sm text-gray-600 leading-relaxed whitespace-pre-line"
+                >
                   {q.answer}
                 </div>
               )}
             </div>
           );
         })}
+      </div>
+    </ScrollReveal>
+  );
+}
+
+// Internal link cluster. Pure presentational footer that distributes
+// crawl budget and link equity into our own brand, category, and
+// ingredient landing pages. Anchor text is descriptive (not "click here")
+// because Google weighs anchor relevance for ranking signals.
+function InternalLinkCluster({ product }) {
+  if (!product) return null;
+  const ingredientSlice = (product.ingredients || []).slice(0, 6);
+  const hasAnything =
+    !!product.brand?.slug ||
+    !!product.category?.slug ||
+    ingredientSlice.length > 0;
+  if (!hasAnything) return null;
+
+  return (
+    <ScrollReveal as="section" aria-labelledby="related-links-heading" className="mt-16">
+      <h2 id="related-links-heading" className="text-xl font-bold text-[#222] mb-4">
+        Explore more
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {product.brand?.slug && (
+          <Link
+            to={`/brand/${product.brand.slug}`}
+            className="block bg-white border border-gray-100 rounded-xl p-4 hover:border-[#007074]/30 hover:shadow-md transition-all"
+          >
+            <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1.5">
+              Brand
+            </span>
+            <span className="block text-sm font-bold text-[#222]">
+              Shop more from {product.brand.name}
+            </span>
+            <span className="block text-[11px] text-gray-500 mt-1">
+              View the full {product.brand.name} catalogue.
+            </span>
+          </Link>
+        )}
+        {product.category?.slug && (
+          <Link
+            to={`/category/${product.category.slug}`}
+            className="block bg-white border border-gray-100 rounded-xl p-4 hover:border-[#007074]/30 hover:shadow-md transition-all"
+          >
+            <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1.5">
+              Category
+            </span>
+            <span className="block text-sm font-bold text-[#222]">
+              More in {product.category.name}
+            </span>
+            <span className="block text-[11px] text-gray-500 mt-1">
+              See every {product.category.name?.toLowerCase()} we stock in Pakistan.
+            </span>
+          </Link>
+        )}
+        {ingredientSlice.length > 0 && (
+          <div className="block bg-white border border-gray-100 rounded-xl p-4">
+            <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-1.5">
+              Key ingredients
+            </span>
+            <ul className="flex flex-wrap gap-1.5 mt-1.5">
+              {ingredientSlice.map((ing) => (
+                <li key={ing._id || ing.slug}>
+                  <Link
+                    to={`/ingredient/${ing.slug}`}
+                    className="inline-block bg-[#F7F3F0] hover:bg-[#007074] hover:text-white text-[#007074] border border-[#007074]/15 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors"
+                  >
+                    {ing.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </ScrollReveal>
   );
@@ -1171,10 +1540,10 @@ function stripHtml(html) {
 // when the parent state (like "quantity" or "selectedSize") updates.
 const TrustPill = memo(function TrustPill({ icon, label }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-xl px-3 py-2.5 flex items-center gap-2 hover:border-[#007074]/30 transition-colors">
-      <span className="text-[#007074] flex-shrink-0">{icon}</span>
+    <li className="bg-white border border-gray-100 rounded-xl px-3 py-2.5 flex items-center gap-2 hover:border-[#007074]/30 transition-colors list-none">
+      <span className="text-[#007074] flex-shrink-0" aria-hidden="true">{icon}</span>
       <span className="text-[10px] font-black uppercase tracking-[0.15em] text-[#222] truncate">{label}</span>
-    </div>
+    </li>
   );
 });
 

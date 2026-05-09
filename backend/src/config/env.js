@@ -17,7 +17,7 @@ const env = {
 
   // Public URL of the storefront, used by the sitemap generator and the
   // robots.txt response. Falls back to a sensible default for dev.
-  siteUrl: (process.env.SITE_URL || 'https://stylogist.pk').replace(/\/$/, ''),
+  siteUrl: (process.env.SITE_URL || 'https://HarbalMart.pk').replace(/\/$/, ''),
 
   // Cloudinary — storage for every uploaded media asset.
   cloudinary: {

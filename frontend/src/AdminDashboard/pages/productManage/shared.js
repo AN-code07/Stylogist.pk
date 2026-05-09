@@ -129,7 +129,10 @@ export const emptyVariant = () => ({
   size: '',
   packSize: '',
   color: '',
-  ingredients: '',
+  // Variant-level strength label (e.g. "1000mg", "5000 IU"). Replaces the
+  // old free-text `ingredients` field — the structured ingredient
+  // taxonomy lives at the product level (`product.ingredients[]`).
+  potency: '',
   originalPrice: '',
   salePrice: '',
   stock: '',
@@ -155,6 +158,14 @@ export const emptyForm = {
   gtinType: '',
   benefits: [],
   uses: [],
+  // Visual benefit cards rendered as an icon-card grid on the PDP. Each
+  // entry is { icon, title, body }. Empty rows are dropped at submit time.
+  whyLoveIt: [],
+  // Safety / precautions bullets. Each entry surfaces in a highlighted
+  // warning block on the storefront product page (YMYL signal for Google).
+  precautions: [],
+  // Storage / shelf-life copy. Plain string surfaced in the spec table.
+  storage: '',
   // Single "How to use" block — short rich-text body + an optional image
   // URL. Stored as `{ text, image }`. Distinct from `uses` (which is a
   // bullet list).
@@ -166,6 +177,10 @@ export const emptyForm = {
   category: '',
   categories: [],
   brand: '',
+  // Manufacturer — free-text, distinct from the structured brand reference.
+  // Surfaces on the PDP as a "Manufactured by" badge + Specifications row
+  // and feeds Schema.org Product.manufacturer for richer search results.
+  manufacturer: '',
   // Many-to-many ingredient tags. Distinct from `Variant.ingredients`
   // (free-text per variant). Ids resolve to Ingredient docs server-side.
   ingredients: [],

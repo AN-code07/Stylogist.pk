@@ -11,6 +11,7 @@ import RouteLoader from './components/common/RouteLoader'
 import PageLoader from './components/common/PageLoader'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import Seo from './components/common/Seo'
+import GlobalSeo from './components/common/GlobalSeo'
 import WhatsAppFab from './components/common/WhatsAppFab'
 
 // Everything below is lazy-loaded. Only the home page ships in the initial
@@ -97,10 +98,14 @@ const MainLayout = () => {
     <div>
       {/* Default site-wide SEO — per-page <Seo /> components override these. */}
       <Seo
-        title="Stylogist.pk — Curated fashion, beauty & lifestyle"
+        title="HarbalMart.pk — Curated fashion, beauty & lifestyle"
         description="Shop hand-picked fashion, beauty and lifestyle essentials with free shipping and cash on delivery across Pakistan."
         type="website"
       />
+      {/* Global structured data: WebSite (sitelinks search box) + OnlineStore
+          (knowledge panel signals). Sits alongside per-page Product / FAQ
+          schemas so search engines see one canonical brand entity. */}
+      <GlobalSeo />
       <RouteLoader />
       <a href="#main-content" className="skip-link">Skip to content</a>
       <Navbar />

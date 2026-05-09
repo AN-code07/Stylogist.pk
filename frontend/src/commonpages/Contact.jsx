@@ -61,7 +61,7 @@ export default function Contact() {
                 </div>
                 <div className="group space-y-2">
                   <label className="text-[12px] font-black uppercase tracking-widest text-gray-700 group-focus-within:text-[#007074] transition-colors">Email Address</label>
-                  <input type="email" placeholder="concierge@stylogist.pk" className="w-full bg-gray-50 border-none rounded-xl py-4 px-6 text-sm focus:ring-2 shadow-lg focus:ring-[#007074]/20 outline-none transition-all" />
+                  <input type="email" placeholder="concierge@HarbalMart.pk" className="w-full bg-gray-50 border-none rounded-xl py-4 px-6 text-sm focus:ring-2 shadow-lg focus:ring-[#007074]/20 outline-none transition-all" />
                 </div>
               </div>
 
@@ -119,7 +119,7 @@ export default function Contact() {
                   </div>
                   <div>
                     <h4 className="text-[12px] font-black uppercase tracking-widest text-[#007074] mb-2">Digital Mail</h4>
-                    <p className="text-sm font-medium text-gray-500 leading-relaxed">concierge@stylogist.pk</p>
+                    <p className="text-sm font-medium text-gray-500 leading-relaxed">concierge@HarbalMart.pk</p>
                   </div>
                 </div>
               </div>

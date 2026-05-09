@@ -79,7 +79,7 @@ export default function AboutStory() {
 
               <div className="space-y-3 lg:space-y-6 text-gray-500 text-sm md:text-base leading-relaxed font-medium">
                 <p>
-                  At <span className="text-[#222] font-black">Stylogist.pk</span>,
+                  At <span className="text-[#222] font-black">HarbalMart.pk</span>,
                   we believe shopping is a curated journey.
                 </p>
                 <p>

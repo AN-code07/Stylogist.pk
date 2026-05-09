@@ -115,7 +115,7 @@ export default function Signup() {
             <header className="mb-6 text-center lg:text-left">
               <h2 className="text-3xl font-black text-slate-900 tracking-tight">Create Account</h2>
               <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mt-1.5">
-                Join Stylogist.pk today
+                Join HarbalMart.pk today
               </p>
             </header>
 

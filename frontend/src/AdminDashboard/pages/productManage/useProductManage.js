@@ -103,6 +103,17 @@ export default function useProductManage() {
         text: product.howToUse?.text || '',
         image: product.howToUse?.image || '',
       },
+      whyLoveIt: Array.isArray(product.whyLoveIt)
+        ? product.whyLoveIt.map((w) => ({
+            icon: w?.icon || '✨',
+            title: w?.title || '',
+            body: w?.body || '',
+          }))
+        : [],
+      precautions: Array.isArray(product.precautions)
+        ? product.precautions.filter((s) => typeof s === 'string')
+        : [],
+      storage: product.storage || '',
       faq: Array.isArray(product.faq)
         ? product.faq.map((q) => ({ question: q?.question || '', answer: q?.answer || '' }))
         : [],
@@ -113,6 +124,7 @@ export default function useProductManage() {
       category: primaryCategory,
       categories: [...new Set(existingCategories)],
       brand: product.brand?._id || product.brand || '',
+      manufacturer: product.manufacturer || '',
       ingredients: Array.isArray(product.ingredients)
         ? product.ingredients.map((i) => i?._id || i).filter(Boolean).map(String)
         : [],
@@ -126,8 +138,12 @@ export default function useProductManage() {
           size: v.size || '',
           packSize: v.packSize || '',
           color: v.color || '',
-          // Read from `ingredients` first, fall back to legacy `material`.
-          ingredients: v.ingredients || v.material || '',
+          // Variant strength label. Brand-new variants ship with `potency`;
+          // legacy variants persisted as `ingredients`/`material` text get
+          // surfaced into the same field so admins don't lose data when
+          // they open an old product for editing. The next save migrates
+          // the row away from the old keys.
+          potency: v.potency || v.ingredients || v.material || '',
           originalPrice: v.originalPrice ?? '',
           salePrice: v.salePrice ?? '',
           stock: v.stock ?? '',
@@ -303,7 +319,10 @@ export default function useProductManage() {
         size: (v.size || '').trim() || undefined,
         packSize: (v.packSize || '').trim() || undefined,
         color: (v.color || '').trim() || undefined,
-        ingredients: (v.ingredients || '').trim() || undefined,
+        // Persist as `potency`. The variant-level `ingredients` string has
+        // been retired; the structured Ingredient[] taxonomy at the product
+        // level is the new source of truth for filtering/search.
+        potency: (v.potency || '').trim() || undefined,
         originalPrice: Number(v.originalPrice),
         salePrice: Number(v.salePrice),
         stock,
@@ -347,6 +366,23 @@ export default function useProductManage() {
       Object.entries(form.itemDetails || {}).map(([k, v]) => [k, (v || '').trim()])
     );
 
+    // "Why customers love it" — drop rows missing a title (the server-side
+    // schema requires it). Defaults applied so partial admin saves are safe.
+    const whyLoveIt = (form.whyLoveIt || [])
+      .map((w) => ({
+        icon: (w?.icon || '✨').trim() || '✨',
+        title: (w?.title || '').trim(),
+        body: (w?.body || '').trim(),
+      }))
+      .filter((w) => w.title);
+
+    // Precautions — bullet list. Trim + drop blanks before submit.
+    const precautions = (form.precautions || [])
+      .map((s) => (s || '').toString().trim())
+      .filter(Boolean);
+
+    const storage = (form.storage || '').trim();
+
     const payload = {
       name: form.name.trim(),
       slug: form.slug.trim() || undefined,
@@ -361,11 +397,15 @@ export default function useProductManage() {
       benefits,
       uses,
       howToUse,
+      whyLoveIt,
+      precautions,
+      storage: storage || undefined,
       faq,
       itemDetails,
       category: form.category || form.categories[0],
       categories: form.categories?.length ? form.categories : undefined,
       brand: form.brand || undefined,
+      manufacturer: (form.manufacturer || '').trim() || undefined,
       ingredients: form.ingredients?.length ? form.ingredients : undefined,
       status: form.status,
       isFeatured: form.isFeatured,

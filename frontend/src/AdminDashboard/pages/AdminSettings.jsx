@@ -513,7 +513,7 @@ function FooterPanel() {
               value={form.copyright}
               onChange={(e) => updateField('copyright', e.target.value)}
               className={plainInput}
-              placeholder="Stylogist.pk. All Rights Reserved."
+              placeholder="HarbalMart.pk. All Rights Reserved."
             />
           </Field>
         </div>

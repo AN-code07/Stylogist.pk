@@ -17,8 +17,9 @@ export default function VariantsEditor({ variants, addVariant, removeVariant, up
         </button>
       </div>
       <p className="text-xs text-slate-400 -mt-2">
-        Use <strong>Pack size</strong> for capsule/bottle counts (e.g. <em>30 capsules</em>).
-        Leave SKU blank to auto-generate one.
+        Use <strong>Pack size</strong> for capsule/bottle counts (e.g. <em>30 capsules</em>) and{' '}
+        <strong>Potency</strong> for the strength/dosage on the label
+        (e.g. <em>1000mg</em>, <em>5000 IU</em>). Leave SKU blank to auto-generate one.
       </p>
 
       <div className="space-y-3">
@@ -75,9 +76,10 @@ function VariantRow({ index, variant: v, onUpdate, onRemove }) {
           className={inputCls}
         />
         <input
-          value={v.ingredients}
-          onChange={(e) => onUpdate({ ingredients: e.target.value })}
-          placeholder="Ingredients"
+          value={v.potency || ''}
+          onChange={(e) => onUpdate({ potency: e.target.value })}
+          placeholder="Potency (1000mg / 5000 IU)"
+          aria-label="Potency"
           className={inputCls}
         />
       </div>

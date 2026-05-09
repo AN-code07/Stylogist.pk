@@ -14,7 +14,7 @@ export const sendEmail = async (options) => {
 
   // 2. Define email options
   const mailOptions = {
-    from: 'Stylogist Admin <support@stylogist.pk>',
+    from: 'Stylogist Admin <support@HarbalMart.pk>',
     to: options.email,
     subject: options.subject,
     html: options.message,

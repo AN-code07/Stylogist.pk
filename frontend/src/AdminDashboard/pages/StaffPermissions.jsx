@@ -435,7 +435,7 @@ function CreateStaffModal({ groups, onClose, onCreated }) {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="aisha@stylogist.pk"
+                placeholder="aisha@HarbalMart.pk"
                 className={inputCls}
               />
             </FormField>

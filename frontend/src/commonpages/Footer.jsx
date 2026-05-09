@@ -116,7 +116,7 @@ const Footer = memo(function Footer() {
             <Link to="/" className="inline-flex items-center group mb-8">
               <img
                 src={logo}
-                alt="Stylogist.pk"
+                alt="HarbalMart.pk"
                 width="200"
                 height="50"
                 className="h-10 w-auto object-contain transition-transform duration-500 group-hover:scale-105"

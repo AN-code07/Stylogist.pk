@@ -11,7 +11,7 @@ export default function TermsPrivacy() {
             Terms of Service & <span className="text-[#007074]">Privacy Policy</span>
           </h1>
           <p className="text-gray-500 mt-3 text-sm md:text-base">
-            Please read our terms carefully before using Stylogist.pk
+            Please read our terms carefully before using HarbalMart.pk
           </p>
         </div>
 
@@ -27,7 +27,7 @@ export default function TermsPrivacy() {
 
           <div className="text-gray-600 space-y-4 leading-relaxed text-sm md:text-base">
             <p>
-              Welcome to Stylogist.pk. By accessing or using our website,
+              Welcome to HarbalMart.pk. By accessing or using our website,
               you agree to comply with and be bound by the following terms
               and conditions.
             </p>
@@ -44,7 +44,7 @@ export default function TermsPrivacy() {
             </p>
 
             <p>
-              Stylogist.pk reserves the right to cancel orders, restrict
+              HarbalMart.pk reserves the right to cancel orders, restrict
               accounts, or refuse service if fraudulent or abusive behavior
               is detected.
             </p>
@@ -68,7 +68,7 @@ export default function TermsPrivacy() {
 
           <div className="text-gray-600 space-y-4 leading-relaxed text-sm md:text-base">
             <p>
-              At Stylogist.pk, protecting your personal information is one
+              At HarbalMart.pk, protecting your personal information is one
               of our top priorities. We are committed to safeguarding your
               privacy while providing a secure shopping experience.
             </p>
@@ -85,7 +85,7 @@ export default function TermsPrivacy() {
             </p>
 
             <p>
-              Stylogist.pk does not sell or share your personal information
+              HarbalMart.pk does not sell or share your personal information
               with third parties except for essential services such as
               payment processing, shipping partners, or legal obligations.
             </p>

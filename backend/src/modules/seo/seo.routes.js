@@ -5,6 +5,7 @@ import { ProductMedia } from "../products/media.model.js";
 import { Category } from "../categories/category.model.js";
 import { Brand } from "../brands/brand.model.js";
 import { Ingredient } from "../ingredients/ingredient.model.js";
+import { SeoRedirect } from "./redirect.model.js";
 import env from "../../config/env.js";
 import { catchAsync } from "../../utils/catchAsync.js";
 
@@ -148,6 +149,15 @@ router.get(
       .lean();
 
     if (!product) {
+      // Slug renamed? Issue a real HTTP 301 so search engines transfer
+      // PageRank from the old URL to the new one. Crawlers care; users
+      // following stale bookmarks are routed cleanly.
+      const redirect = await SeoRedirect.findOne({ fromPath: `/product/${slug}` }).lean();
+      if (redirect?.toPath) {
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.redirect(redirect.statusCode || 301, `${env.siteUrl}${redirect.toPath}`);
+      }
+
       // Soft 404 — still ship the SPA shell so the client can show its own
       // 404 component if a user follows a stale link.
       return res.status(404).type('html').send(buildShellHtml({
@@ -233,6 +243,12 @@ router.get(
       sku: variants[0]?.sku || undefined,
       mpn: variants[0]?.sku || undefined,
       brand: product.brand?.name ? { '@type': 'Brand', name: product.brand.name } : undefined,
+      // Manufacturer surfaces in the prerendered Product schema too, so
+      // structured-data validators that don't execute the SPA still see
+      // the producing entity.
+      manufacturer: product.manufacturer
+        ? { '@type': 'Organization', name: product.manufacturer }
+        : undefined,
       category: product.category?.name || undefined,
       url: canonical,
       ...(gtin12 ? { gtin12 } : {}),
@@ -286,6 +302,21 @@ router.get(
     const usesHtml = (product.uses || []).length
       ? `<section><h2>Uses</h2><ul>${product.uses.map((u) => `<li>${escapeHtml(u)}</li>`).join('')}</ul></section>`
       : '';
+    // "Why customers love it" cards — surface in the static HTML so crawlers
+    // index the outcome-focused copy alongside the bullet list.
+    const whyLoveHtml = (product.whyLoveIt || []).length
+      ? `<section><h2>Why customers love it</h2><ul>${product.whyLoveIt
+          .map((w) => `<li><strong>${escapeHtml(w.title || '')}</strong>${w.body ? ` — ${escapeHtml(w.body)}` : ''}</li>`)
+          .join('')}</ul></section>`
+      : '';
+    const precautionsHtml = (product.precautions || []).length
+      ? `<section><h2>Precautions &amp; safety</h2><ul>${product.precautions
+          .map((p) => `<li>${escapeHtml(p)}</li>`)
+          .join('')}</ul></section>`
+      : '';
+    const storageHtml = product.storage
+      ? `<section><h2>Storage</h2><p>${escapeHtml(product.storage)}</p></section>`
+      : '';
     const shortHtml = product.shortDescription
       ? `<p>${escapeHtml(stripHtml(product.shortDescription))}</p>`
       : '';
@@ -308,14 +339,18 @@ router.get(
         <header>
           <h1>${escapeHtml(product.name)}</h1>
           ${product.brand?.name ? `<p><strong>Brand:</strong> <a href="${escapeAttr(`${env.siteUrl}/brand/${product.brand.slug}`)}">${escapeHtml(product.brand.name)}</a></p>` : ''}
+          ${product.manufacturer ? `<p><strong>Manufacturer:</strong> ${escapeHtml(product.manufacturer)}</p>` : ''}
           ${product.category?.name ? `<p><strong>Category:</strong> <a href="${escapeAttr(`${env.siteUrl}/category/${product.category.slug}`)}">${escapeHtml(product.category.name)}</a></p>` : ''}
           <p><strong>Price:</strong> ${escapeHtml(priceLabel)}</p>
           ${gtin12 ? `<p><strong>UPC:</strong> ${escapeHtml(gtin12)}</p>` : ''}
         </header>
         ${primaryImage ? `<img src="${escapeAttr(primaryImage)}" alt="${escapeAttr(product.name)}" width="800" height="1000" />` : ''}
         ${shortHtml}
+        ${whyLoveHtml}
         ${benefitsHtml}
         ${usesHtml}
+        ${precautionsHtml}
+        ${storageHtml}
       </article>
     `;
 
@@ -334,6 +369,86 @@ router.get(
         jsonLd: [productJsonLd, breadcrumbJsonLd],
       })
     );
+  })
+);
+
+// Open Graph image generator. Returns a lightweight SVG with the brand
+// teal background, the product name, the brand name, and the price overlay
+// — used as og:image when a product hasn't been given a hero photo, or
+// when the photo is portrait and would crop badly on social previews.
+//
+// SVG is intentional: zero binary deps, sub-2KB output, scales perfectly
+// across Twitter / WhatsApp / FB previews. We set Content-Type:
+// image/svg+xml and a long cache so the CDN serves it as a static asset.
+router.get(
+  "/og/product/:slug.svg",
+  catchAsync(async (req, res) => {
+    const { slug } = req.params;
+    const product = await Product.findOne({ slug, status: 'published' })
+      .populate('brand', 'name')
+      .lean();
+    if (!product) return res.status(404).type('text/plain').send('Not found');
+
+    const name = (product.name || '').slice(0, 80);
+    const brand = product.brand?.name || 'Stylogist';
+    const minPrice = product.minPrice ?? 0;
+    const priceLabel = `Rs ${Math.round(minPrice).toLocaleString('en-US')}`;
+
+    // Word-wrap the title across up to 3 lines so long product names render.
+    const wrapWords = (text, perLine = 26, maxLines = 3) => {
+      const words = text.split(/\s+/);
+      const lines = [];
+      let line = '';
+      for (const w of words) {
+        if (lines.length === maxLines) break;
+        const next = line ? `${line} ${w}` : w;
+        if (next.length > perLine) {
+          if (line) lines.push(line);
+          line = w;
+        } else {
+          line = next;
+        }
+      }
+      if (lines.length < maxLines && line) lines.push(line);
+      if (lines.length === maxLines && line && lines[lines.length - 1] !== line) {
+        // ellipsis cut
+        lines[lines.length - 1] = lines[lines.length - 1].replace(/.{0,3}$/, '…');
+      }
+      return lines;
+    };
+    const titleLines = wrapWords(name, 24, 3);
+
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#007074"/>
+      <stop offset="1" stop-color="#0a8c91"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f7f3f0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="980" cy="120" r="240" fill="#7FD4D7" fill-opacity="0.18"/>
+  <circle cx="220" cy="540" r="280" fill="#0a8c91" fill-opacity="0.25"/>
+  <rect x="60" y="60" width="1080" height="510" rx="32" fill="url(#card)"/>
+  <text x="100" y="160" fill="#007074" font-family="-apple-system,Segoe UI,sans-serif" font-size="22" font-weight="700" letter-spacing="6">STYLOGIST · ORIGINAL IMPORTED</text>
+  <text x="100" y="225" fill="#777" font-family="-apple-system,Segoe UI,sans-serif" font-size="26" font-weight="600">${escapeXml(brand)}</text>
+  ${titleLines
+    .map(
+      (l, i) =>
+        `<text x="100" y="${320 + i * 70}" fill="#222" font-family="Georgia,serif" font-size="62" font-weight="900">${escapeXml(l)}</text>`
+    )
+    .join('\n  ')}
+  <text x="100" y="540" fill="#007074" font-family="-apple-system,Segoe UI,sans-serif" font-size="44" font-weight="900">${escapeXml(priceLabel)}</text>
+  <text x="100" y="585" fill="#999" font-family="-apple-system,Segoe UI,sans-serif" font-size="20" font-weight="600">Free delivery · Cash on Delivery in Pakistan</text>
+</svg>`;
+
+    res.set('Content-Type', 'image/svg+xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    res.send(svg);
   })
 );
 

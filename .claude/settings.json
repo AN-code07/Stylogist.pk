@@ -6,7 +6,7 @@
       "Bash(node --check src/modules/ingredients/ingredient.controller.js)",
       "Bash(node --check src/modules/ingredients/ingredient.validation.js)",
       "Bash(node --check src/modules/ingredients/ingredient.routes.js)",
-      "Bash(node --check \"D:/COMAPNY PORJECTS/INNOVISTA_DHA/Stylogist.pk/backend/src/modules/admin/admin.orders.service.js\")",
+      "Bash(node --check \"D:/COMAPNY PORJECTS/INNOVISTA_DHA/HarbalMart.pk/backend/src/modules/admin/admin.orders.service.js\")",
       "Bash(npm install *)",
       "Bash(node --check src/middlewares/upload.middleware.js)",
       "Bash(node --check src/config/cloudinary.js)",
@@ -15,7 +15,7 @@
       "Bash(node --check server.js)"
     ],
     "additionalDirectories": [
-      "D:\\COMAPNY PORJECTS\\INNOVISTA_DHA\\Stylogist.pk\\backend\\src\\modules"
+      "D:\\COMAPNY PORJECTS\\INNOVISTA_DHA\\HarbalMart.pk\\backend\\src\\modules"
     ]
   }
 }

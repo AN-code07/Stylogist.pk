@@ -4,6 +4,7 @@ import { ProductMedia } from "./media.model.js";
 import { Category } from "../categories/category.model.js";
 import { Brand } from "../brands/brand.model.js";
 import { Ingredient } from "../ingredients/ingredient.model.js";
+import { SeoRedirect } from "../seo/redirect.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { isValidObjectId } from "mongoose";
 import { getDescendantCategoryIds } from "../categories/category.service.js";
@@ -26,16 +27,20 @@ const aggregateFromVariants = (variants) => {
   };
 };
 
-// Normalize a variant payload from the admin form. Folds the legacy `material`
-// field into `ingredients` so we can ship the rename without breaking older
-// clients still posting the old key. Stock falls back to 50 when omitted so
-// admins don't have to type it for routine catalogue uploads.
+// Normalize a variant payload from the admin form. The variant-level
+// `ingredients` text field has been retired in favour of `potency`
+// (e.g. "1000mg", "5000 IU") — older clients posting `ingredients` /
+// `material` are tolerated but those values are dropped so the row
+// stays clean. Stock falls back to 50 when omitted.
 const normalizeVariant = (v) => {
-  const { material, ingredients, stock, ...rest } = v;
+  // Pull `ingredients` and `material` out of the spread so they never
+  // reach the persistence layer; potency is the only authoritative
+  // strength label going forward.
+  const { material, ingredients, potency, stock, ...rest } = v;
   const stockNumber = Number(stock);
   return {
     ...rest,
-    ingredients: (ingredients ?? material ?? "").toString().trim(),
+    potency: (potency ?? "").toString().trim(),
     stock: Number.isFinite(stockNumber) && stockNumber >= 0 ? stockNumber : 50,
   };
 };
@@ -298,7 +303,30 @@ export const updateProduct = async (id, payload) => {
   // Slug remains the same on update unless explicitly changed to a different
   // value. Empty string / same value = keep existing slug untouched.
   if (slug && slug.trim() && slug.trim() !== product.slug) {
+    const oldSlug = product.slug;
     product.slug = await generateUniqueSlug(Product, slug.trim(), id);
+    // Drop a 301 redirect for the previous URL so existing backlinks and
+    // search-engine entries survive the rename. We upsert so a chain of
+    // renames stays at one row per old slug, pointing at the latest one.
+    if (oldSlug && oldSlug !== product.slug) {
+      try {
+        await SeoRedirect.findOneAndUpdate(
+          { fromPath: `/product/${oldSlug}` },
+          {
+            fromPath: `/product/${oldSlug}`,
+            toPath: `/product/${product.slug}`,
+            kind: "product",
+            statusCode: 301,
+            sourceProduct: product._id,
+          },
+          { upsert: true, new: true }
+        );
+      } catch (err) {
+        // Don't fail the whole product update on a redirect-write error;
+        // the rename itself is more important than the SEO bookkeeping.
+        console.warn("Failed to persist slug redirect:", err?.message);
+      }
+    }
   }
 
   if (metaTitle !== undefined) product.metaTitle = metaTitle;
@@ -565,8 +593,22 @@ export const getProductBySlug = async (slug) => {
     .populate("brand", "name slug logo")
     .populate("ingredients", "name slug image")
     .lean();
-  if (!product) throw new ApiError(404, "Product not found");
-  return loadProductPayload(product);
+  if (product) return loadProductPayload(product);
+
+  // Slug not found — check the redirect map. If the requested URL has been
+  // renamed, surface the new slug to the controller via a tagged ApiError
+  // so the controller can issue a true 301 redirect instead of a 404.
+  // Chains collapse because every rename rewrites the SAME `fromPath`
+  // row to point at the latest slug.
+  const redirect = await SeoRedirect.findOne({ fromPath: `/product/${slug}` }).lean();
+  if (redirect?.toPath) {
+    const err = new ApiError(301, "Moved permanently");
+    err.redirectTo = redirect.toPath;
+    err.statusCode = redirect.statusCode || 301;
+    throw err;
+  }
+
+  throw new ApiError(404, "Product not found");
 };
 
 // Body-driven search endpoint backing the new ProductsPage. The frontend

@@ -18,7 +18,7 @@ export default function AllCategoriesPage() {
     <div className="bg-[#FDFDFD] min-h-screen">
       <Seo
         title="All Categories — Stylogist"
-        description="Browse every category available on Stylogist.pk. Free shipping nationwide and cash on delivery on every order."
+        description="Browse every category available on HarbalMart.pk. Free shipping nationwide and cash on delivery on every order."
         canonical={`${origin}/categories`}
       />
 

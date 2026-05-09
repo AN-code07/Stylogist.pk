@@ -53,10 +53,18 @@ export const useProductsSearch = (payload = {}, options = {}) => {
 // `queryClient.prefetchQuery(productBySlugQuery(slug))` means by the time
 // the component mounts the data is in cache — no skeleton flash, JSON-LD
 // emits on first paint.
+//
+// When the backend responds with `{ status: 'redirect', redirect: '/...' }`
+// we surface it via a tagged result so the component can `<Navigate>` to
+// the new slug — that path is hit when an admin renames a product and an
+// old URL/bookmark is requested.
 export const productBySlugQuery = (slug) => ({
     queryKey: [...PRODUCTS_KEY, 'slug', slug],
     queryFn: async () => {
         const { data } = await axiosClient.get(`/products/${slug}`);
+        if (data?.status === 'redirect' && data?.redirect) {
+            return { __redirect: data.redirect };
+        }
         return data.data;
     },
     staleTime: PRODUCT_DETAIL_STALE_MS,

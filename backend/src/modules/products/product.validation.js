@@ -7,8 +7,12 @@ const variantSchema = z.object({
   size: z.string().trim().optional(),
   packSize: z.string().trim().optional(),
   color: z.string().trim().optional(),
-  // `material` is accepted for backwards compatibility with old admin clients
-  // but is normalized to `ingredients` in the service layer.
+  // Strength / dosage label per variant (e.g. "1000mg", "5000 IU"). Free-text
+  // because supplements use heterogeneous units. The legacy variant-level
+  // `ingredients` string has been replaced by this field; we still accept
+  // `ingredients` and `material` here so older admin clients that haven't
+  // refreshed don't error out — the service layer drops them.
+  potency: z.string().trim().optional(),
   ingredients: z.string().trim().optional(),
   material: z.string().trim().optional(),
   originalPrice: z.number().nonnegative("Original price cannot be negative"),
@@ -40,6 +44,14 @@ const faqEntrySchema = z.object({
 const howToUseSchema = z.object({
   text: z.string().trim().optional().default(""),
   image: z.string().trim().optional().default(""),
+});
+
+// Visual benefit cards — admin can supply an emoji/icon string + headline +
+// short body. Empty `body` is fine; only the title is required.
+const whyLoveItEntrySchema = z.object({
+  icon: z.string().trim().optional().default("✨"),
+  title: z.string().trim().min(1, "Headline is required"),
+  body: z.string().trim().optional().default(""),
 });
 
 // Per-type GTIN validators. We persist `barcode` as the raw string and
@@ -115,6 +127,9 @@ export const createProductSchema = z.object({
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
     howToUse: howToUseSchema.optional(),
+    whyLoveIt: z.array(whyLoveItEntrySchema).optional(),
+    precautions: z.array(z.string().trim().min(1)).optional(),
+    storage: z.string().trim().optional(),
     faq: z.array(faqEntrySchema).optional(),
     itemDetails: itemDetailsSchema,
     // Many-to-many ingredient tagging. Accepts ObjectIds — frontend resolves
@@ -124,6 +139,10 @@ export const createProductSchema = z.object({
     categories: z.array(z.string().regex(objectId, "Invalid category id")).optional(),
     subCategory: z.string().regex(objectId, "Invalid subCategory id").optional().nullable(),
     brand: z.string().regex(objectId, "Invalid brand id").optional().nullable(),
+    // Manufacturer (free-text). Capped at 120 chars so it stays a clean
+    // single-line label on the storefront — admins who need a longer
+    // legal description should use the description body instead.
+    manufacturer: z.string().trim().max(120, "Manufacturer must be 120 characters or fewer").optional(),
     status: z.enum(["draft", "published"]).optional(),
     dealStart: z.string().datetime().optional(),
     dealEnd: z.string().datetime().optional(),
@@ -152,6 +171,9 @@ export const updateProductSchema = z.object({
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
     howToUse: howToUseSchema.optional(),
+    whyLoveIt: z.array(whyLoveItEntrySchema).optional(),
+    precautions: z.array(z.string().trim().min(1)).optional(),
+    storage: z.string().trim().optional(),
     faq: z.array(faqEntrySchema).optional(),
     itemDetails: itemDetailsSchema,
     ingredients: z.array(z.string().regex(objectId, "Invalid ingredient id")).optional(),
@@ -159,6 +181,7 @@ export const updateProductSchema = z.object({
     categories: z.array(z.string().regex(objectId)).optional(),
     subCategory: z.string().regex(objectId).optional().nullable(),
     brand: z.string().regex(objectId).optional().nullable(),
+    manufacturer: z.string().trim().max(120).optional(),
     status: z.enum(["draft", "published"]).optional(),
     isFeatured: z.boolean().optional(),
     isTrending: z.boolean().optional(),

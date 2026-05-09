@@ -54,7 +54,7 @@ const settingsSchema = new mongoose.Schema(
       },
       address: { type: String, trim: true, default: "Stylogist HQ, Fashion Avenue, Pakistan" },
       phone: { type: String, trim: true, default: "+92 300 123 4567" },
-      email: { type: String, trim: true, default: "support@stylogist.pk" },
+      email: { type: String, trim: true, default: "support@HarbalMart.pk" },
 
       shopLinks: { type: [linkSchema], default: undefined },
       customerCareLinks: { type: [linkSchema], default: undefined },
@@ -73,7 +73,7 @@ const settingsSchema = new mongoose.Schema(
       copyright: {
         type: String,
         trim: true,
-        default: "Stylogist.pk. All Rights Reserved.",
+        default: "HarbalMart.pk. All Rights Reserved.",
       },
     },
 
@@ -101,7 +101,7 @@ export const DEFAULT_FOOTER = {
     "Your ultimate destination for premium fashion, curated by AI and tailored for the modern, sophisticated lifestyle. Elevate your everyday elegance.",
   address: "Stylogist HQ, Fashion Avenue, Pakistan",
   phone: "+92 300 123 4567",
-  email: "support@stylogist.pk",
+  email: "support@HarbalMart.pk",
   shopLinks: [
     { label: "Women's Collection", path: "/category" },
     { label: "Men's Collection", path: "/category" },
@@ -122,8 +122,8 @@ export const DEFAULT_FOOTER = {
     { label: "Terms of Service", path: "/terms" },
   ],
   socials: [
-    { platform: "instagram", url: "https://instagram.com/stylogist.pk", label: "Instagram" },
-    { platform: "facebook", url: "https://facebook.com/stylogist.pk", label: "Facebook" },
+    { platform: "instagram", url: "https://instagram.com/HarbalMart.pk", label: "Instagram" },
+    { platform: "facebook", url: "https://facebook.com/HarbalMart.pk", label: "Facebook" },
     { platform: "twitter", url: "https://twitter.com/stylogist_pk", label: "Twitter / X" },
   ],
   paymentBadges: [
@@ -134,7 +134,7 @@ export const DEFAULT_FOOTER = {
   newsletterHeading: "Join The Insider Club",
   newsletterBlurb:
     "Subscribe to our newsletter and get 10% off your first premium purchase, plus early access to new drops.",
-  copyright: "Stylogist.pk. All Rights Reserved.",
+  copyright: "HarbalMart.pk. All Rights Reserved.",
 };
 
 export const DEFAULT_ABOUT = {

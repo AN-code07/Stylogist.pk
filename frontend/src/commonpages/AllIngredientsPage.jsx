@@ -77,7 +77,7 @@ export default function AllIngredientsPage() {
                     )}
                     <Link
                       to={`/ingredient/${i.slug}`}
-                      className="inline-flex items-center gap-1.5 bg-[#222] text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#007074] transition-colors"
+                      className="inline-flex items-center gap-1.5 bg-[#222] text-white px-3 py-1.5 rounded-lg text-[7px] font-black uppercase tracking-[0.2em] hover:bg-[#007074] transition-colors"
                     >
                       View details
                       <FiArrowRight size={11} />

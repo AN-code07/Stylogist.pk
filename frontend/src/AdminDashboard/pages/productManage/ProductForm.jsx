@@ -21,6 +21,7 @@ import VariantsEditor from './VariantsEditor';
 import BulletListEditor from './BulletListEditor';
 import FaqEditor from './FaqEditor';
 import HowToUseBlockEditor from './HowToUseBlockEditor';
+import WhyLoveItEditor from './WhyLoveItEditor';
 import {
   TIPTAP_EXTENSIONS,
   SHORT_TIPTAP_EXTENSIONS,
@@ -256,6 +257,47 @@ export default function ProductForm({
             />
           </Field>
 
+          {/* "Why customers love it" — visual benefit cards. Each row =
+              icon (emoji) + title + short body. Rendered as an icon-card
+              grid on the product page so the benefits are scannable on
+              mobile instead of buried in a bullet list. */}
+          <Field
+            label="Why customers love it"
+            hint="Icon-card grid above the description — outcome-focused. Leave empty to hide the section."
+          >
+            <WhyLoveItEditor
+              value={form.whyLoveIt}
+              onChange={(next) => setForm((f) => ({ ...f, whyLoveIt: next }))}
+            />
+          </Field>
+
+          {/* Precautions / safety — required by supplement YMYL guidance.
+              Rendered in a visually-distinct warning block on the PDP. */}
+          <Field
+            label="Precautions"
+            hint="Safety warnings (one per line). Rendered as a highlighted bullet block on the product page."
+          >
+            <BulletListEditor
+              value={form.precautions}
+              onChange={(next) => setForm((f) => ({ ...f, precautions: next }))}
+              placeholder="Consult your doctor before use if pregnant or nursing"
+              addLabel="Add precaution"
+            />
+          </Field>
+
+          {/* Storage / shelf-life copy — surfaces in the spec table. */}
+          <Field
+            label="Storage instructions"
+            hint='e.g. "Store in a cool, dry place. Keep out of reach of children."'
+          >
+            <input
+              value={form.storage || ''}
+              onChange={(e) => setForm((f) => ({ ...f, storage: e.target.value }))}
+              placeholder="Store in a cool, dry place. Keep out of reach of children."
+              className={inputCls}
+            />
+          </Field>
+
           {/* FAQ — surfaces as an accordion on the product page and emits
               Schema.org FAQPage JSON-LD for rich-result eligibility.
               Empty rows are dropped before submit. */}
@@ -324,6 +366,19 @@ export default function ProductForm({
                 options={brands.map((b) => ({ value: b._id, label: b.name }))}
                 placeholder="Select brand"
                 onAdd={onOpenBrand}
+              />
+            </Field>
+            <Field
+              label="Manufacturer"
+              hint="Producing entity, e.g. “Nature's Bounty Co. — USA”. Surfaces on the product page and in Product schema."
+            >
+              <input
+                value={form.manufacturer || ''}
+                onChange={(e) => setForm((f) => ({ ...f, manufacturer: e.target.value }))}
+                maxLength={120}
+                placeholder="e.g. Nature's Bounty Co. — USA"
+                aria-label="Manufacturer"
+                className={inputCls}
               />
             </Field>
             <Field

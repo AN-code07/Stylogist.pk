@@ -14,7 +14,7 @@ export default function AllBrandsPage() {
     <div className="bg-[#FDFDFD] min-h-screen">
       <Seo
         title="All Brands — Stylogist"
-        description="Discover every brand available on Stylogist.pk. Authentic products with free shipping and cash on delivery."
+        description="Discover every brand available on HarbalMart.pk. Authentic products with free shipping and cash on delivery."
         canonical={`${origin}/brands`}
       />
 

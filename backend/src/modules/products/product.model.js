@@ -89,6 +89,41 @@ const productSchema = new mongoose.Schema(
       default: [],
     },
 
+    // "Why customers love it" — visual benefit cards. Each entry has an
+    // emoji/icon string + headline + short body so the PDP can render a
+    // grid of icon-cards instead of a wall of text. Optional; if empty
+    // the PDP simply hides the section.
+    whyLoveIt: {
+      type: [
+        new mongoose.Schema(
+          {
+            icon: { type: String, default: "✨", trim: true },
+            title: { type: String, required: true, trim: true },
+            body: { type: String, default: "", trim: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+
+    // Safety / precautions copy. Required by supplement YMYL guidance — when
+    // populated, the PDP renders a visually-distinct warning section with
+    // an explicit heading. Plain string array (one bullet per line).
+    precautions: {
+      type: [String],
+      default: [],
+    },
+
+    // Storage / shelf-life advice (e.g. "Store in a cool, dry place. Keep
+    // out of reach of children."). Free-form string; rendered in Item
+    // Details + Specifications when present.
+    storage: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     // "How to use" block — a short description-style copy + a single
     // optional image. Distinct from `uses` (which is bullets). Renders
     // as a body paragraph + thumbnail on the product page.
@@ -138,6 +173,19 @@ const productSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Brand",
       index: true,
+    },
+
+    // Manufacturer — distinct from `brand`. Schema.org models these as
+    // separate Organizations: a brand owns the product identity, while
+    // the manufacturer is the entity that physically produces it (often
+    // an OEM / contract manufacturer). For supplements this is a strong
+    // authenticity signal — buyers care whether their multivitamin is
+    // made in the US, EU, or a regional facility. Free-form string so
+    // admins can type the full legal name + country if they want.
+    manufacturer: {
+      type: String,
+      trim: true,
+      default: "",
     },
 
     // Many-to-many link to the canonical Ingredient taxonomy. Drives the

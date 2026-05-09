@@ -21,10 +21,13 @@ const variantSchema = new mongoose.Schema(
     packSize: { type: String, trim: true, default: "" },
     color: String,
 
-    // Renamed from `material` to `ingredients` for the supplements/wellness
-    // catalogue. Legacy data is migrated lazily by the virtual below — old
-    // documents with a `material` field still surface via `variant.ingredients`.
-    ingredients: { type: String, trim: true, default: "" },
+    // Per-variant strength / dosage label. Free-form because supplements
+    // express potency in different units (1000mg, 5000 IU, 2.5 billion CFU,
+    // 50% extract). Indexed via the variants table on the storefront PDP
+    // so shoppers can compare strengths at a glance. The product-level
+    // `ingredients` reference list (Ingredient[]) is unchanged — that's the
+    // structured taxonomy used for filtering. Potency is the human label.
+    potency: { type: String, trim: true, default: "" },
 
     originalPrice: {
       type: Number,
@@ -52,17 +55,14 @@ const variantSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    // strict:false kept so legacy documents that still carry `material` /
+    // `ingredients` text fields continue to deserialize without erroring.
+    // Those fields are no longer authored — `potency` replaces them — but
+    // we don't want a hard migration to break older catalogue rows.
     strict: false,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
   }
 );
-
-// Backwards compatibility: existing documents written with `material` should
-// still respond to reads on `ingredients`. The virtual unifies the two so
-// callers can migrate at their own pace.
-variantSchema.virtual("ingredientsResolved").get(function () {
-  return this.ingredients || this.get("material") || "";
-});
 
 export const Variant = mongoose.model("Variant", variantSchema);
