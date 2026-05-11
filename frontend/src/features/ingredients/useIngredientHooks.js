@@ -64,7 +64,10 @@ export const useCreateIngredient = () => {
       return data.data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEY });
+      // `refetchType: 'all'` so list, slug detail, id detail, and the
+      // /ingredient/:slug/products query all refresh on next render —
+      // covers admin CRUD without a manual reload.
+      qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' });
       toast.success('Ingredient created');
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to create ingredient'),
@@ -79,7 +82,10 @@ export const useUpdateIngredient = () => {
       return data.data;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEY });
+      // `refetchType: 'all'` so list, slug detail, id detail, and the
+      // /ingredient/:slug/products query all refresh on next render —
+      // covers admin CRUD without a manual reload.
+      qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' });
       toast.success('Ingredient updated');
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to update ingredient'),
@@ -94,7 +100,10 @@ export const useDeleteIngredient = () => {
       return id;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: KEY });
+      // `refetchType: 'all'` so list, slug detail, id detail, and the
+      // /ingredient/:slug/products query all refresh on next render —
+      // covers admin CRUD without a manual reload.
+      qc.invalidateQueries({ queryKey: KEY, refetchType: 'all' });
       toast.success('Ingredient deleted');
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete ingredient'),

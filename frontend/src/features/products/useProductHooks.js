@@ -91,6 +91,21 @@ export const useProductById = (id) => {
     });
 };
 
+// Invalidates EVERY product-scoped query — lists, detail-by-id,
+// detail-by-slug, body-driven search — so any mutation refreshes the
+// UI without a manual reload. `refetchType: 'active'` (the default)
+// only refetches mounted queries; we also want recently-cached PDP
+// queries to re-pull next time the user lands on them, so we ask for
+// 'all' which marks inactive queries stale + refetches active ones.
+//
+// Accepts a list of additional exact keys (e.g. the just-edited
+// product's detail key) so the caller can guarantee a fresh fetch the
+// instant it needs the new data, not just on next mount.
+const bustProductCache = (qc, extraKeys = []) => {
+    qc.invalidateQueries({ queryKey: PRODUCTS_KEY, refetchType: 'all' });
+    extraKeys.forEach((key) => qc.invalidateQueries({ queryKey: key, refetchType: 'all' }));
+};
+
 export const useCreateProduct = () => {
     const qc = useQueryClient();
     return useMutation({
@@ -99,11 +114,28 @@ export const useCreateProduct = () => {
             return data.data;
         },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
+            bustProductCache(qc);
             toast.success('Product created');
         },
         onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to create product');
+        },
+    });
+};
+
+// Auto-save-draft hook. Distinct from `useCreateProduct` because the
+// success path is intentionally quieter (toast: "Draft saved" instead
+// of "Product created") and there's no validation error surfacing —
+// auto-save is best-effort, the regular create flow handles real errors.
+export const useCreateDraftProduct = () => {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async (payload) => {
+            const { data } = await axiosClient.post('/products/draft', payload);
+            return data.data;
+        },
+        onSuccess: () => {
+            bustProductCache(qc);
         },
     });
 };
@@ -115,8 +147,15 @@ export const useUpdateProduct = () => {
             const { data } = await axiosClient.patch(`/products/${id}`, payload);
             return data.data;
         },
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
+        onSuccess: (updated, variables) => {
+            // Also nuke the exact detail-by-id key so the admin editor
+            // re-pulls when reopened, and any PDP-by-slug cache that may
+            // still hold the pre-edit name/price/etc.
+            const slug = updated?.product?.slug;
+            bustProductCache(qc, [
+                [...PRODUCTS_KEY, 'id', variables.id],
+                ...(slug ? [[...PRODUCTS_KEY, 'slug', slug]] : []),
+            ]);
             toast.success('Product updated');
         },
         onError: (error) => {
@@ -132,8 +171,11 @@ export const useDeleteProduct = () => {
             await axiosClient.delete(`/products/${id}`);
             return id;
         },
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
+        onSuccess: (deletedId) => {
+            // Drop the exact detail cache entries for this product so a
+            // stale PDP visit after delete doesn't render ghost data.
+            qc.removeQueries({ queryKey: [...PRODUCTS_KEY, 'id', deletedId] });
+            bustProductCache(qc);
             toast.success('Product deleted');
         },
         onError: (error) => {

@@ -6,6 +6,7 @@ import { validate } from "../../middlewares/validate.middleware.js";
 import { catchAsync } from "../../utils/catchAsync.js";
 import {
   createProductSchema,
+  createDraftProductSchema,
   updateProductSchema,
   productSlugParamSchema,
   productIdParamSchema,
@@ -28,6 +29,14 @@ router.get("/id/:id", validate(productIdParamSchema), catchAsync(ProductControll
 router.get("/:slug", validate(productSlugParamSchema), catchAsync(ProductController.getProductBySlug));
 
 router.post("/", ...adminWrite, validate(createProductSchema), catchAsync(ProductController.createProduct));
+// Auto-save draft: same admin-only guard, but routes through the
+// permissive draft validator so half-typed payloads persist.
+router.post(
+  "/draft",
+  ...adminWrite,
+  validate(createDraftProductSchema),
+  catchAsync(ProductController.createDraftProduct)
+);
 router.patch("/:id", ...adminWrite, validate(updateProductSchema), catchAsync(ProductController.updateProduct));
 router.delete("/:id", ...adminWrite, validate(productIdParamSchema), catchAsync(ProductController.deleteProduct));
 

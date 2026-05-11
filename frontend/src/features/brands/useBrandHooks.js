@@ -37,7 +37,10 @@ export const useCreateBrand = () => {
             return data.data;
         },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: BRANDS_KEY });
+            // `refetchType: 'all'` re-pulls inactive lists too, so going
+            // back to a previously-mounted brand page after a CRUD shows
+            // fresh data without a manual refresh.
+            qc.invalidateQueries({ queryKey: BRANDS_KEY, refetchType: 'all' });
             toast.success('Brand created');
         },
         onError: (error) => {
@@ -54,7 +57,10 @@ export const useUpdateBrand = () => {
             return data.data;
         },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: BRANDS_KEY });
+            // `refetchType: 'all'` re-pulls inactive lists too, so going
+            // back to a previously-mounted brand page after a CRUD shows
+            // fresh data without a manual refresh.
+            qc.invalidateQueries({ queryKey: BRANDS_KEY, refetchType: 'all' });
             toast.success('Brand updated');
         },
         onError: (error) => {
@@ -71,7 +77,10 @@ export const useDeleteBrand = () => {
             return id;
         },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: BRANDS_KEY });
+            // `refetchType: 'all'` re-pulls inactive lists too, so going
+            // back to a previously-mounted brand page after a CRUD shows
+            // fresh data without a manual refresh.
+            qc.invalidateQueries({ queryKey: BRANDS_KEY, refetchType: 'all' });
             toast.success('Brand deleted');
         },
         onError: (error) => {

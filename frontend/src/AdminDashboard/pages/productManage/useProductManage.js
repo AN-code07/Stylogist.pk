@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useBlocker, useLocation } from 'react-router-dom';
 import {
   useProducts,
   useCreateProduct,
+  useCreateDraftProduct,
   useDeleteProduct,
   useUpdateProduct,
   useProductById,
@@ -40,10 +42,20 @@ export default function useProductManage() {
   const { data: editingProductData } = useProductById(editingId);
 
   const createMut = useCreateProduct();
+  const draftMut = useCreateDraftProduct();
   const updateMut = useUpdateProduct();
   const deleteMut = useDeleteProduct();
   const uploadOne = useUploadImage();
   const uploadMany = useUploadImages();
+
+  // Auto-save-as-draft bookkeeping:
+  // - `submittedRef` flips true after a successful submit/cancel-with-save
+  //   so we don't double-persist the same form on the way out of the view.
+  // - `draftSavingRef` guards against re-entrant saves when the user
+  //   triggers two nav-aways in quick succession.
+  const submittedRef = useRef(false);
+  const draftSavingRef = useRef(false);
+  const location = useLocation();
 
   const products = productsResp?.items ?? [];
 
@@ -177,6 +189,9 @@ export default function useProductManage() {
     setEditingId(null);
     setView('list');
     hydratedFor.current = null;
+    // Clear the submitted flag so the NEXT form open starts fresh —
+    // otherwise the auto-save wouldn't fire on a subsequent abandonment.
+    submittedRef.current = false;
   };
 
   const startEdit = (product) => {
@@ -186,7 +201,169 @@ export default function useProductManage() {
     setForm(emptyForm);
     setEditingId(product._id);
     setView('form');
+    // Edits don't need auto-save (the source row already exists).
+    // Mark as submitted so the abandonment heuristic stays quiet.
+    submittedRef.current = true;
   };
+
+  // Opens a fresh "Add product" form. Resets the submitted flag so the
+  // upcoming abandonment will be saved as a draft.
+  const startCreate = () => {
+    hydratedFor.current = null;
+    setForm(emptyForm);
+    setEditingId(null);
+    setView('form');
+    submittedRef.current = false;
+  };
+
+  // True when the admin is creating a NEW product (not editing) and has
+  // typed enough that losing the work matters. A two-character name is a
+  // low enough bar that "Whey" or "Ω-3" both qualify, but high enough
+  // that an accidental keypress doesn't spawn empty drafts.
+  const isDraftWorthSaving = () =>
+    editingId === null &&
+    view === 'form' &&
+    !submittedRef.current &&
+    (form.name || '').trim().length >= 2;
+
+  // Build the payload sent to /products/draft. Mirrors handleSubmit's
+  // payload shape but every field is optional and we don't enforce
+  // numbers — the backend coerces. Defensive .trim()s keep the row clean.
+  const buildDraftPayload = useCallback(() => {
+    const trimmedVariants = (form.variants || [])
+      .map((v) => ({
+        sku: (v.sku || '').trim() || undefined,
+        size: (v.size || '').trim() || undefined,
+        packSize: (v.packSize || '').trim() || undefined,
+        color: (v.color || '').trim() || undefined,
+        potency: (v.potency || '').trim() || undefined,
+        originalPrice: v.originalPrice === '' ? undefined : Number(v.originalPrice),
+        salePrice: v.salePrice === '' ? undefined : Number(v.salePrice),
+        stock: v.stock === '' ? undefined : Number(v.stock),
+      }))
+      .filter((v) => v.sku || v.size || v.packSize || v.color || v.potency || Number.isFinite(v.salePrice));
+
+    return {
+      name: form.name.trim(),
+      slug: form.slug?.trim() || undefined,
+      description: form.description?.trim() || undefined,
+      shortDescription: form.shortDescription?.trim() || undefined,
+      metaTitle: form.metaTitle?.trim() || undefined,
+      metaDescription: form.metaDescription?.trim() || undefined,
+      barcode: form.barcode?.trim() || undefined,
+      gtinType: form.barcode?.trim() ? (form.gtinType || undefined) : undefined,
+      category: form.category || form.categories?.[0] || undefined,
+      categories: form.categories?.length ? form.categories : undefined,
+      brand: form.brand || undefined,
+      manufacturer: (form.manufacturer || '').trim() || undefined,
+      ingredients: form.ingredients?.length ? form.ingredients : undefined,
+      benefits: (form.benefits || []).filter((s) => s && s.trim()),
+      uses: (form.uses || []).filter((s) => s && s.trim()),
+      precautions: (form.precautions || []).filter((s) => s && s.trim()),
+      storage: (form.storage || '').trim() || undefined,
+      whyLoveIt: (form.whyLoveIt || []).filter((w) => w?.title?.trim()),
+      faq: (form.faq || []).filter((q) => q?.question?.trim() && q?.answer?.trim()),
+      isFeatured: !!form.isFeatured,
+      isTrending: !!form.isTrending,
+      isDeal: !!form.isDeal,
+      variants: trimmedVariants,
+      thumbnail: form.thumbnail || undefined,
+      media: form.media?.length ? form.media : undefined,
+    };
+  }, [form]);
+
+  // Persists the current form as a draft. Returns a promise so callers
+  // can await it before allowing navigation to proceed.
+  const autoSaveDraft = useCallback(async () => {
+    if (!isDraftWorthSaving() || draftSavingRef.current) return null;
+    draftSavingRef.current = true;
+    try {
+      const saved = await draftMut.mutateAsync(buildDraftPayload());
+      submittedRef.current = true;
+      toast.success('Draft saved — find it under Products (status: draft)', {
+        duration: 4000,
+      });
+      return saved;
+    } catch {
+      // Auto-save is best-effort. If it fails (offline, validation
+      // gotcha), we don't block the user's navigation.
+      return null;
+    } finally {
+      draftSavingRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildDraftPayload, draftMut, editingId, view, form.name]);
+
+  // Cancel button — if the user has typed something we persist it as a
+  // draft before discarding the form. Otherwise we silently reset.
+  const handleCancel = useCallback(async () => {
+    if (isDraftWorthSaving()) {
+      await autoSaveDraft();
+    }
+    resetForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSaveDraft, editingId, view, form.name]);
+
+  // Intercepts in-app navigation away from the form: sidebar links,
+  // breadcrumb clicks, browser back/forward inside the SPA. Only blocks
+  // when we have a dirty NEW-product form so editing existing products
+  // (whose data already exists in the catalogue) isn't disturbed.
+  // Requires React Router's data-router mode (createBrowserRouter), which
+  // this app uses.
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (!isDraftWorthSaving()) return false;
+    // Same-URL renders (e.g. query-string updates) aren't real navigation.
+    return currentLocation.pathname !== nextLocation.pathname;
+  });
+
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    // Save in the background, then proceed regardless of save outcome.
+    // We don't want to trap the admin behind a network failure.
+    let cancelled = false;
+    (async () => {
+      try {
+        await autoSaveDraft();
+      } finally {
+        if (!cancelled) blocker.proceed();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [blocker, autoSaveDraft]);
+
+  // Tab close / refresh / external navigation. We can't `await` here
+  // because the page is going away — `fetch` with `keepalive: true`
+  // lets the browser dispatch the POST after the document unloads.
+  // The same payload structure is reused so the server-side handler
+  // doesn't need a special branch.
+  useEffect(() => {
+    if (view !== 'form' || editingId !== null) return;
+
+    const onBeforeUnload = (e) => {
+      if (!isDraftWorthSaving()) return;
+      try {
+        const payload = JSON.stringify(buildDraftPayload());
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        fetch(`${apiBase.replace(/\/$/, '')}/products/draft`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          keepalive: true,
+        });
+      } catch {
+        // ignore — best-effort
+      }
+      // Best UX: don't trigger the browser's confirm dialog. We've
+      // already shipped the save, the user can leave freely.
+    };
+
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, editingId, form.name, buildDraftPayload]);
 
   const handleGenerateSlug = () => {
     if (!form.name.trim()) {
@@ -443,6 +620,10 @@ export default function useProductManage() {
       } else {
         await createMut.mutateAsync(payload);
       }
+      // Mark the form as cleanly submitted BEFORE resetForm so the
+      // router blocker (which fires synchronously on the view change)
+      // doesn't double-persist the same data as a draft.
+      submittedRef.current = true;
       resetForm();
     } catch { /* hook toast */ }
   };
@@ -471,10 +652,11 @@ export default function useProductManage() {
     products: filteredProducts,
     loadingProducts,
 
-    createMut, updateMut, deleteMut,
+    createMut, updateMut, deleteMut, draftMut,
     uploadOne, uploadMany,
 
     resetForm,
+    startCreate,
     startEdit,
     handleGenerateSlug,
     updateVariant,
@@ -486,5 +668,7 @@ export default function useProductManage() {
     removeMedia,
     handleSubmit,
     handleDelete,
+    handleCancel,
+    autoSaveDraft,
   };
 }

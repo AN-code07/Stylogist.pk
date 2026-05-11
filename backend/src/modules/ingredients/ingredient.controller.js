@@ -4,21 +4,38 @@ import * as IngredientService from "./ingredient.service.js";
 // cache cuts the read load drastically.
 const LIST_CACHE = "public, max-age=60, stale-while-revalidate=300";
 const DETAIL_CACHE = "public, max-age=120, stale-while-revalidate=600";
+// Admin-context override: a Bearer token / JWT cookie OR an admin-only
+// status filter forces a no-store so the dashboard reflects mutations
+// without a hard refresh.
+const NO_STORE = "no-store, no-cache, must-revalidate, max-age=0";
+
+const isAdminContext = (req) => {
+  const authHeader = req.headers.authorization || "";
+  if (authHeader.startsWith("Bearer ")) return true;
+  if (req.cookies?.jwt) return true;
+  const active = (req.query?.active || "").toString();
+  return active === "all";
+};
+
+const cacheHeaderFor = (req, publicHeader) =>
+  isAdminContext(req) ? NO_STORE : publicHeader;
 
 export const listIngredients = async (req, res) => {
   const { items, pagination } = await IngredientService.listIngredients(req.query);
-  res.set("Cache-Control", LIST_CACHE);
+  res.set("Cache-Control", cacheHeaderFor(req, LIST_CACHE));
   res.status(200).json({ status: "success", results: items.length, pagination, data: items });
 };
 
 export const getIngredient = async (req, res) => {
   const ingredient = await IngredientService.getIngredientBySlug(req.params.slug);
-  res.set("Cache-Control", DETAIL_CACHE);
+  res.set("Cache-Control", cacheHeaderFor(req, DETAIL_CACHE));
   res.status(200).json({ status: "success", data: ingredient });
 };
 
 export const getIngredientById = async (req, res) => {
   const ingredient = await IngredientService.getIngredientById(req.params.id);
+  // Admin-only path — the storefront fetches by slug. Force fresh.
+  res.set("Cache-Control", NO_STORE);
   res.status(200).json({ status: "success", data: ingredient });
 };
 

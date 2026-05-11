@@ -234,6 +234,129 @@ export const createProduct = async (payload) => {
   return getProductById(product._id);
 };
 
+// Lightweight draft creation. Mirrors `createProduct` but tolerates
+// missing fields: an admin who types a name and then bounces should not
+// lose their work. Variant/media inserts only fire when arrays are non-
+// empty so a bare-name draft still persists. status is forced to 'draft'
+// regardless of payload; promoting to 'published' goes through the
+// regular updateProduct flow (which re-runs the full required-field
+// validation via the Product schema).
+export const createDraftProduct = async (payload = {}) => {
+  const {
+    variants = [],
+    media = [],
+    thumbnail,
+    category,
+    categories,
+    brand,
+    subCategory,
+    name,
+    slug,
+    metaTitle = "",
+    metaDescription = "",
+    ...rest
+  } = payload;
+
+  if (!name || !name.trim()) {
+    throw new ApiError(400, "Name is required to save a draft");
+  }
+
+  // Resolve optional references defensively — invalid ids on a draft are
+  // dropped rather than erroring out, since the admin will fix them at
+  // publish time anyway.
+  let categoryDoc = null;
+  if (category && isValidObjectId(category)) {
+    categoryDoc = await Category.findById(category);
+  }
+  let brandDoc = null;
+  if (brand && isValidObjectId(brand)) {
+    brandDoc = await Brand.findById(brand);
+  }
+
+  const productSlug = slug?.trim()
+    ? await generateUniqueSlug(Product, slug.trim())
+    : await generateUniqueSlug(Product, `${name.trim()}-draft-${Date.now()}`);
+
+  // Only emit aggregates when we have priced variants; otherwise leave the
+  // denormalized columns at their defaults so the draft doesn't pretend
+  // to be sellable.
+  const pricedVariants = Array.isArray(variants)
+    ? variants.filter((v) => Number.isFinite(Number(v.salePrice)))
+    : [];
+  const aggregates = pricedVariants.length
+    ? aggregateFromVariants(pricedVariants.map(normalizeVariant))
+    : { minPrice: 0, maxPrice: 0, totalStock: 0, discountPercentage: 0 };
+
+  // Multi-category list mirrors the regular create path — first selected
+  // is the primary so existing queries keep matching after publish.
+  const categoryList = Array.isArray(categories)
+    ? [...new Set(categories.filter(Boolean).map(String))]
+    : [];
+  if (categoryDoc && !categoryList.includes(String(categoryDoc._id))) {
+    categoryList.unshift(String(categoryDoc._id));
+  }
+
+  const product = await Product.create({
+    ...rest,
+    name: name.trim(),
+    slug: productSlug,
+    metaTitle,
+    metaDescription,
+    category: categoryDoc ? categoryDoc._id : undefined,
+    categories: categoryList,
+    subCategory: subCategory && isValidObjectId(subCategory) ? subCategory : undefined,
+    brand: brandDoc ? brandDoc._id : undefined,
+    status: "draft",
+    ...aggregates,
+  });
+
+  // Variants only get persisted when at least one carries a salePrice —
+  // half-typed variant rows are dropped rather than failing the save.
+  if (pricedVariants.length) {
+    const variantDocs = pricedVariants.map((v) => {
+      const normalized = normalizeVariant(v);
+      const sku =
+        normalized.sku?.trim() ||
+        generateVariantSku({
+          brandName: brandDoc?.name,
+          categoryName: categoryDoc?.name,
+          productSlug,
+          attrs: [normalized.color, normalized.size].filter(Boolean),
+        });
+      return { ...normalized, sku, product: product._id };
+    });
+    try {
+      await Variant.insertMany(variantDocs, { ordered: true });
+    } catch (err) {
+      // Don't roll back the product — a draft with no variants is still
+      // a valid recovery point. Log and continue.
+      if (err?.code !== 11000) {
+        // 11000 = duplicate SKU; swallow on drafts since user will retry
+        // with a real SKU at publish time.
+        console.warn("Draft variant insertMany warning:", err?.message);
+      }
+    }
+  }
+
+  const mediaDocs = buildMediaDocs({
+    thumbnail,
+    media,
+    productId: product._id,
+    productSlug,
+    metaTitle,
+    metaDescription,
+  });
+  if (mediaDocs.length) {
+    try {
+      await ProductMedia.insertMany(mediaDocs);
+    } catch (err) {
+      console.warn("Draft media insertMany warning:", err?.message);
+    }
+  }
+
+  return getProductById(product._id);
+};
+
 export const updateProduct = async (id, payload) => {
   if (!isValidObjectId(id)) throw new ApiError(400, "Invalid product id");
 

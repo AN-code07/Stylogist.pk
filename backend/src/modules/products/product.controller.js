@@ -6,10 +6,39 @@ import * as ProductService from "./product.service.js";
 // keeps the shop snappy without letting stock/prices drift for long.
 const LIST_CACHE_HEADER = "public, max-age=30, stale-while-revalidate=120";
 const DETAIL_CACHE_HEADER = "public, max-age=60, stale-while-revalidate=300";
+// Admin requests must never be served from the browser's HTTP cache —
+// otherwise, after a delete/update, React Query's refetch hits the disk
+// cache and the admin sees stale data until they hard-refresh. We detect
+// the admin context by either a Bearer token on the request, a JWT cookie,
+// or a status filter that only admin code ever passes ('all' / 'draft').
+const NO_STORE = "no-store, no-cache, must-revalidate, max-age=0";
+
+const isAdminContext = (req) => {
+  const authHeader = req.headers.authorization || "";
+  if (authHeader.startsWith("Bearer ")) return true;
+  if (req.cookies?.jwt) return true;
+  const status = (req.query?.status || "").toString();
+  return status === "all" || status === "draft";
+};
+
+// Picks the right cache-control. Admins get a no-store header so their
+// dashboard always reflects the latest mutation; anonymous storefront
+// traffic keeps the aggressive cache that powers Lighthouse perf.
+const cacheHeaderFor = (req, publicHeader) =>
+  isAdminContext(req) ? NO_STORE : publicHeader;
 
 export const createProduct = async (req, res) => {
   const result = await ProductService.createProduct(req.validated.body);
   res.status(201).json({ status: "success", message: "Product created", data: result });
+};
+
+// Auto-save endpoint: persists whatever the admin had typed into the
+// "Add product" form so an accidental navigation away doesn't lose
+// their work. Forces status='draft' regardless of payload; the regular
+// `PATCH /products/:id` flow handles promotion to published.
+export const createDraftProduct = async (req, res) => {
+  const result = await ProductService.createDraftProduct(req.validated.body);
+  res.status(201).json({ status: "success", message: "Draft saved", data: result });
 };
 
 export const updateProduct = async (req, res) => {
@@ -19,7 +48,7 @@ export const updateProduct = async (req, res) => {
 
 export const getAllProducts = async (req, res) => {
   const { items, pagination } = await ProductService.getAllProducts(req.query);
-  res.set("Cache-Control", LIST_CACHE_HEADER);
+  res.set("Cache-Control", cacheHeaderFor(req, LIST_CACHE_HEADER));
   res.status(200).json({ status: "success", results: items.length, pagination, data: items });
 };
 
@@ -30,7 +59,7 @@ export const getAllProducts = async (req, res) => {
 // frontend if you need finer-grained control.
 export const searchProducts = async (req, res) => {
   const result = await ProductService.searchProducts(req.validated.body);
-  res.set("Cache-Control", LIST_CACHE_HEADER);
+  res.set("Cache-Control", cacheHeaderFor(req, LIST_CACHE_HEADER));
   res.status(200).json({
     status: "success",
     results: result.items.length,
@@ -43,7 +72,7 @@ export const searchProducts = async (req, res) => {
 export const getProductBySlug = async (req, res) => {
   try {
     const result = await ProductService.getProductBySlug(req.params.slug);
-    res.set("Cache-Control", DETAIL_CACHE_HEADER);
+    res.set("Cache-Control", cacheHeaderFor(req, DETAIL_CACHE_HEADER));
     res.status(200).json({ status: "success", data: result });
   } catch (err) {
     // Service surfaces a tagged ApiError when the slug has been renamed.
@@ -68,6 +97,10 @@ export const getProductBySlug = async (req, res) => {
 
 export const getProductById = async (req, res) => {
   const result = await ProductService.getProductById(req.params.id);
+  // Admin-only path (the storefront fetches by slug, not id). Force a
+  // no-store so the admin product editor always loads the latest server
+  // state after a mutation — no stale React Query / browser cache races.
+  res.set("Cache-Control", NO_STORE);
   res.status(200).json({ status: "success", data: result });
 };
 

@@ -40,7 +40,14 @@ const productSchema = new mongoose.Schema(
 
     description: {
       type: String,
-      required: true,
+      // Drafts can be saved with an empty description (auto-save fires the
+      // moment an admin leaves the form, so we can't require copy that
+      // hasn't been written yet). Publishing still demands a description
+      // — see product.service.publishGuard for the runtime check.
+      required: function () {
+        return this.status === 'published';
+      },
+      default: '',
     },
 
     shortDescription: String,
@@ -154,7 +161,11 @@ const productSchema = new mongoose.Schema(
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
-      required: true,
+      // Same draft-vs-published split as `description`: drafts can be
+      // parked without a category so we don't lose half-typed work.
+      required: function () {
+        return this.status === 'published';
+      },
       index: true,
     },
 

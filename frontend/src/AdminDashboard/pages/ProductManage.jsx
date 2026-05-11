@@ -15,7 +15,13 @@ export default function ProductManage() {
       <Header
         view={ctl.view}
         editingId={ctl.editingId}
-        onToggle={() => (ctl.view === 'list' ? ctl.setView('form') : ctl.resetForm())}
+        // Header toggle behaves contextually:
+        //  - From the list: open a fresh "Add product" form (resets the
+        //    auto-save flag so a partially-filled new product persists
+        //    as a draft if abandoned).
+        //  - From the form: treat the toggle as a Cancel, which auto-
+        //    saves the draft if there's anything worth saving.
+        onToggle={() => (ctl.view === 'list' ? ctl.startCreate() : ctl.handleCancel())}
       />
 
       {ctl.view === 'list' ? (
@@ -46,7 +52,9 @@ export default function ProductManage() {
           removeVariant={ctl.removeVariant}
           updateVariant={ctl.updateVariant}
           onSubmit={ctl.handleSubmit}
-          onCancel={ctl.resetForm}
+          // Cancel auto-saves a draft when the user has typed enough to
+          // make losing it costly — see useProductManage.handleCancel.
+          onCancel={ctl.handleCancel}
           submitting={ctl.createMut.isPending || ctl.updateMut.isPending}
           uploadingOne={ctl.uploadOne.isPending}
           uploadingMany={ctl.uploadMany.isPending}

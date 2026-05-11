@@ -50,7 +50,10 @@ export const useCreateCategory = () => {
             return data.data;
         },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
+            // `refetchType: 'all'` so the category tree, slug lookup,
+            // and any active list re-pull on next render — admin CRUD
+            // is reflected without a manual refresh.
+            qc.invalidateQueries({ queryKey: CATEGORIES_KEY, refetchType: 'all' });
             toast.success('Category created');
         },
         onError: (error) => {
@@ -67,7 +70,10 @@ export const useUpdateCategory = () => {
             return data.data;
         },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
+            // `refetchType: 'all'` so the category tree, slug lookup,
+            // and any active list re-pull on next render — admin CRUD
+            // is reflected without a manual refresh.
+            qc.invalidateQueries({ queryKey: CATEGORIES_KEY, refetchType: 'all' });
             toast.success('Category updated');
         },
         onError: (error) => {
@@ -84,7 +90,10 @@ export const useDeleteCategory = () => {
             return id;
         },
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
+            // `refetchType: 'all'` so the category tree, slug lookup,
+            // and any active list re-pull on next render — admin CRUD
+            // is reflected without a manual refresh.
+            qc.invalidateQueries({ queryKey: CATEGORIES_KEY, refetchType: 'all' });
             toast.success('Category deleted');
         },
         onError: (error) => {

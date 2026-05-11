@@ -12,8 +12,10 @@ export const createIngredientSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters").trim(),
     slug: z.string().trim().min(1).optional(),
     description: z.string().trim().optional(),
-    metaTitle: z.string().trim().max(60, "Meta title must be 60 characters or fewer").optional(),
-    metaDescription: z.string().trim().max(160, "Meta description must be 160 characters or fewer").optional(),
+    // Meta length is advisory only — UI counter signals the SERP budget
+    // but never blocks the save.
+    metaTitle: z.string().trim().optional(),
+    metaDescription: z.string().trim().optional(),
     image: z.string().url().optional().or(z.literal("")).nullable(),
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),
@@ -31,8 +33,8 @@ export const updateIngredientSchema = z.object({
     name: z.string().min(2).trim().optional(),
     slug: z.string().trim().min(1).optional(),
     description: z.string().trim().optional(),
-    metaTitle: z.string().trim().max(60).optional(),
-    metaDescription: z.string().trim().max(160).optional(),
+    metaTitle: z.string().trim().optional(),
+    metaDescription: z.string().trim().optional(),
     image: z.string().url().optional().or(z.literal("")).nullable(),
     benefits: z.array(z.string().trim().min(1)).optional(),
     uses: z.array(z.string().trim().min(1)).optional(),

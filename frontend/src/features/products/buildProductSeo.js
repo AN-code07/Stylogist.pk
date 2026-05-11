@@ -45,12 +45,18 @@ const niceCategory = (product) => {
 
 export const buildProductTitle = (product, opts = {}) => {
   if (!product?.name) return SITE;
+  // Admin-supplied meta is sacred: pass through verbatim, no clamping.
+  // Google may visually truncate longer copy in the SERP, but the stored
+  // and emitted <title> stays exactly as the admin wrote it.
   if (product.metaTitle?.trim() && opts.respectAdmin !== false) {
-    return clamp(product.metaTitle.trim(), TITLE_MAX);
+    return product.metaTitle.trim();
   }
   const category = niceCategory(product);
 
-  // Try increasingly compact variants until one fits in TITLE_MAX.
+  // Auto-generated fallback only — when the admin leaves meta blank we
+  // pick a candidate that fits Google's ~65-char SERP budget so the
+  // synthesized title reads naturally. The admin can always override
+  // with longer copy and that copy is preserved as-is above.
   const candidates = [
     `${product.name} – Original Imported ${category} in ${COUNTRY}`,
     `${product.name} – Original ${category} in ${COUNTRY}`,
@@ -66,8 +72,9 @@ export const buildProductTitle = (product, opts = {}) => {
 
 export const buildProductDescription = (product, opts = {}) => {
   if (!product) return '';
+  // Admin-supplied meta wins verbatim — no truncation regardless of length.
   if (product.metaDescription?.trim() && opts.respectAdmin !== false) {
-    return clamp(product.metaDescription.trim(), DESC_MAX);
+    return product.metaDescription.trim();
   }
 
   const brand = product.brand?.name?.trim();
@@ -88,6 +95,8 @@ export const buildProductDescription = (product, opts = {}) => {
       ? `Supports ${firstBenefit.toLowerCase()}.`
       : `Premium ${category}${brand ? ` by ${brand}` : ''}.`);
 
+  // Auto-generated fallback: clamp to keep the synthesized copy inside
+  // the SERP budget. Admin overrides above are NOT clamped.
   const trustTrail = `Original imported ${category}, free delivery & cash on delivery across ${COUNTRY}.`;
   return clamp(`${lead} ${trustTrail}`, DESC_MAX);
 };

@@ -119,8 +119,12 @@ export const createProductSchema = z.object({
     slug: z.string().trim().optional(),
     description: z.string().min(5, "Description is required").trim(),
     shortDescription: z.string().trim().optional(),
-    metaTitle: z.string().trim().max(60, "Meta title must be 60 characters or fewer").optional(),
-    metaDescription: z.string().trim().max(160, "Meta description must be 160 characters or fewer").optional(),
+    // Meta length is intentionally unbounded. Google truncates at ~60/160
+    // chars in the SERP but admins are free to write longer copy — the
+    // admin UI shows a soft "used / max" counter and turns red over budget,
+    // but never blocks the save. Persist verbatim.
+    metaTitle: z.string().trim().optional(),
+    metaDescription: z.string().trim().optional(),
     // Raw identifier; format is enforced via the cross-field refine below.
     barcode: z.string().trim().optional().or(z.literal("")),
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
@@ -164,8 +168,8 @@ export const updateProductSchema = z.object({
     slug: z.string().trim().optional(),
     description: z.string().min(5).trim().optional(),
     shortDescription: z.string().trim().optional(),
-    metaTitle: z.string().trim().max(60).optional(),
-    metaDescription: z.string().trim().max(160).optional(),
+    metaTitle: z.string().trim().optional(),
+    metaDescription: z.string().trim().optional(),
     barcode: z.string().trim().optional().or(z.literal("")),
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
     benefits: z.array(z.string().trim().min(1)).optional(),
@@ -190,6 +194,67 @@ export const updateProductSchema = z.object({
     media: z.array(mediaSchema).optional(),
     thumbnail: mediaSchema.nullable().optional(),
   }).superRefine(refineBarcode),
+});
+
+// Draft-create schema. Mirrors the regular create body but with almost
+// every required field relaxed: a name is the only hard floor. The service
+// layer handles defensive fallbacks so half-typed admin sessions can be
+// persisted without losing data.
+export const createDraftProductSchema = z.object({
+  body: z.object({
+    name: z.string().min(1, "Name is required").trim(),
+    slug: z.string().trim().optional(),
+    description: z.string().trim().optional(),
+    shortDescription: z.string().trim().optional(),
+    metaTitle: z.string().trim().optional(),
+    metaDescription: z.string().trim().optional(),
+    barcode: z.string().trim().optional().or(z.literal("")),
+    gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
+    benefits: z.array(z.string().trim().min(1)).optional(),
+    uses: z.array(z.string().trim().min(1)).optional(),
+    howToUse: howToUseSchema.optional(),
+    whyLoveIt: z.array(whyLoveItEntrySchema).optional(),
+    precautions: z.array(z.string().trim().min(1)).optional(),
+    storage: z.string().trim().optional(),
+    faq: z.array(faqEntrySchema).optional(),
+    itemDetails: itemDetailsSchema.optional(),
+    ingredients: z.array(z.string().regex(objectId, "Invalid ingredient id")).optional(),
+    // Both category fields are optional on a draft. The model defers its
+    // required check to status==='published' so we can persist without one.
+    category: z.string().regex(objectId).optional(),
+    categories: z.array(z.string().regex(objectId)).optional(),
+    subCategory: z.string().regex(objectId).optional().nullable(),
+    brand: z.string().regex(objectId).optional().nullable(),
+    manufacturer: z.string().trim().max(120).optional(),
+    isFeatured: z.boolean().optional(),
+    isTrending: z.boolean().optional(),
+    isDeal: z.boolean().optional(),
+    // Variants on a draft are entirely optional and individual fields are
+    // permissive — half-filled rows are dropped by the service. We keep
+    // type coercion via .optional()/`coerce` so a numeric input that the
+    // browser serialized as a string doesn't trip validation.
+    variants: z
+      .array(
+        z.object({
+          sku: z.string().trim().optional(),
+          size: z.string().trim().optional(),
+          packSize: z.string().trim().optional(),
+          color: z.string().trim().optional(),
+          potency: z.string().trim().optional(),
+          ingredients: z.string().trim().optional(),
+          material: z.string().trim().optional(),
+          originalPrice: z.coerce.number().nonnegative().optional(),
+          salePrice: z.coerce.number().nonnegative().optional(),
+          discountPercentage: z.coerce.number().min(0).max(100).optional(),
+          stock: z.coerce.number().int().nonnegative().optional(),
+          weight: z.coerce.number().nonnegative().optional(),
+          isActive: z.boolean().optional(),
+        })
+      )
+      .optional(),
+    media: z.array(mediaSchema).optional(),
+    thumbnail: mediaSchema.optional(),
+  }),
 });
 
 export const productIdParamSchema = z.object({
