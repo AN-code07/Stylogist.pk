@@ -12,7 +12,8 @@ import { generateUniqueSlug } from "../../utils/slug.js";
 import { generateVariantSku } from "../../utils/sku.js";
 
 // Derive aggregate pricing/stock fields from the variant list in one pass.
-const aggregateFromVariants = (variants) => {
+// Exported for unit tests; in the service flow it's called inline below.
+export const aggregateFromVariants = (variants) => {
   if (!variants?.length) {
     return { minPrice: 0, maxPrice: 0, totalStock: 0, discountPercentage: 0 };
   }
@@ -32,7 +33,9 @@ const aggregateFromVariants = (variants) => {
 // (e.g. "1000mg", "5000 IU") — older clients posting `ingredients` /
 // `material` are tolerated but those values are dropped so the row
 // stays clean. Stock falls back to 50 when omitted.
-const normalizeVariant = (v) => {
+// Exported for unit tests — the rest of the service treats this as an
+// internal helper.
+export const normalizeVariant = (v) => {
   // Pull `ingredients` and `material` out of the spread so they never
   // reach the persistence layer; potency is the only authoritative
   // strength label going forward.
@@ -58,6 +61,44 @@ const normalizeHowToUse = (raw) => {
     text: (raw.text ?? "").toString().trim(),
     image: (raw.image ?? "").toString().trim(),
   };
+};
+
+// `ingredientHighlight` is the same shape — reuse the same normalizer
+// so future schema changes only touch one place.
+const normalizeIngredientHighlight = normalizeHowToUse;
+
+// Benefits + uses moved from string[] to {text, image}[] so each bullet
+// can carry an optional banner image. Older payloads (plain strings,
+// legacy `[{text, image?}]`) all flow through this normalizer.
+const normalizeContentList = (raw) => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row) => {
+      if (typeof row === "string") {
+        const t = row.trim();
+        return t ? { text: t, image: "" } : null;
+      }
+      if (row && typeof row === "object") {
+        const text = (row.text ?? "").toString().trim();
+        const image = (row.image ?? "").toString().trim();
+        return text ? { text, image } : null;
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
+
+// Why-love-it is now a single-input list. We accept anything with a
+// `title` and ignore the legacy `icon` / `body` fields entirely so the
+// stored shape stays clean.
+const normalizeWhyLoveIt = (raw) => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row) => {
+      const title = (row?.title ?? "").toString().trim();
+      return title ? { title } : null;
+    })
+    .filter(Boolean);
 };
 
 // Build SEO defaults from the product. We only fill these in when the admin
@@ -122,6 +163,8 @@ export const createProduct = async (payload) => {
     benefits = [],
     uses = [],
     howToUse,
+    ingredientHighlight,
+    whyLoveIt = [],
     faq = [],
     itemDetails = {},
     ingredients: ingredientIds = [],
@@ -179,9 +222,11 @@ export const createProduct = async (payload) => {
     // Persist the discriminator only when there's an actual code; an empty
     // gtinType keeps the index entry tidy.
     gtinType: barcode && gtinType ? gtinType : "",
-    benefits: Array.isArray(benefits) ? benefits.filter(Boolean) : [],
-    uses: Array.isArray(uses) ? uses.map((s) => s.toString().trim()).filter(Boolean) : [],
+    benefits: normalizeContentList(benefits),
+    uses: normalizeContentList(uses),
+    whyLoveIt: normalizeWhyLoveIt(whyLoveIt),
     howToUse: normalizeHowToUse(howToUse),
+    ingredientHighlight: normalizeIngredientHighlight(ingredientHighlight),
     faq: Array.isArray(faq)
       ? faq
           .map((q) => ({
@@ -254,6 +299,11 @@ export const createDraftProduct = async (payload = {}) => {
     slug,
     metaTitle = "",
     metaDescription = "",
+    benefits,
+    uses,
+    whyLoveIt,
+    howToUse,
+    ingredientHighlight,
     ...rest
   } = payload;
 
@@ -306,6 +356,11 @@ export const createDraftProduct = async (payload = {}) => {
     categories: categoryList,
     subCategory: subCategory && isValidObjectId(subCategory) ? subCategory : undefined,
     brand: brandDoc ? brandDoc._id : undefined,
+    benefits: normalizeContentList(benefits),
+    uses: normalizeContentList(uses),
+    whyLoveIt: normalizeWhyLoveIt(whyLoveIt),
+    howToUse: normalizeHowToUse(howToUse),
+    ingredientHighlight: normalizeIngredientHighlight(ingredientHighlight),
     status: "draft",
     ...aggregates,
   });
@@ -380,7 +435,9 @@ export const updateProduct = async (id, payload) => {
     gtinType: nextGtinType,
     benefits,
     uses,
+    whyLoveIt: whyLoveItPatch,
     howToUse: howToUsePatch,
+    ingredientHighlight: ingredientHighlightPatch,
     faq,
     itemDetails,
     ingredients: ingredientIds,
@@ -460,14 +517,18 @@ export const updateProduct = async (id, payload) => {
     // end up with `gtinType=ean, barcode=""` orphan rows.
     product.gtinType = product.barcode && nextGtinType ? nextGtinType : "";
   }
-  if (Array.isArray(benefits)) product.benefits = benefits.filter(Boolean);
-  if (Array.isArray(uses)) {
-    product.uses = uses.map((s) => s.toString().trim()).filter(Boolean);
+  if (Array.isArray(benefits)) product.benefits = normalizeContentList(benefits);
+  if (Array.isArray(uses)) product.uses = normalizeContentList(uses);
+  if (Array.isArray(whyLoveItPatch)) {
+    product.whyLoveIt = normalizeWhyLoveIt(whyLoveItPatch);
   }
   if (howToUsePatch !== undefined) {
     // Authoritative replace — sending {} clears the block. Empty fields
     // tell the storefront to hide the section.
     product.howToUse = normalizeHowToUse(howToUsePatch);
+  }
+  if (ingredientHighlightPatch !== undefined) {
+    product.ingredientHighlight = normalizeIngredientHighlight(ingredientHighlightPatch);
   }
   if (Array.isArray(faq)) {
     // Authoritative replace + sanity trim. Empty rows get dropped so

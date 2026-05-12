@@ -2,19 +2,16 @@ import React from 'react';
 import { FiPlus, FiX } from 'react-icons/fi';
 import { inputCls } from './shared';
 
-// Repeater editor for "Why customers love it" benefit cards. Each row is
-// `{ icon, title, body }` — the icon is a free-form string so admins can
-// paste any emoji (😴 💪 ⚡ 🧠 etc.) without committing to an icon library.
-// Empty rows (no title) are dropped at submit time by useProductManage.
+// Simplified "Why customers love it" editor. The icon + body inputs were
+// removed per product spec — each row is just a headline now. The PDP
+// renders them as a clean text grid.
 export default function WhyLoveItEditor({ value = [], onChange }) {
-  const items = value.length ? value : [emptyRow()];
+  const items = value.length ? value : [{ title: '' }];
 
-  const setAt = (idx, patch) => {
-    const next = items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
-    onChange(next);
-  };
+  const setAt = (idx, patch) =>
+    onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
 
-  const addRow = () => onChange([...items, emptyRow()]);
+  const addRow = () => onChange([...items, { title: '' }]);
 
   const removeRow = (idx) => {
     if (items.length === 1) {
@@ -25,42 +22,27 @@ export default function WhyLoveItEditor({ value = [], onChange }) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {items.map((item, idx) => (
-        <div key={idx} className="border border-slate-200 rounded-lg p-3 bg-slate-50/40 space-y-2">
-          <div className="flex items-start gap-2">
-            <input
-              value={item.icon || ''}
-              onChange={(e) => setAt(idx, { icon: e.target.value })}
-              placeholder="😴"
-              maxLength={4}
-              aria-label="Icon (emoji)"
-              className={`${inputCls} w-14 text-center text-lg`}
-            />
-            <input
-              value={item.title || ''}
-              onChange={(e) => setAt(idx, { title: e.target.value })}
-              placeholder="Better sleep"
-              aria-label="Headline"
-              className={`${inputCls} flex-1`}
-            />
-            <button
-              type="button"
-              onClick={() => removeRow(idx)}
-              className="text-slate-400 hover:text-red-600 p-1.5"
-              aria-label="Remove benefit"
-            >
-              <FiX size={14} />
-            </button>
-          </div>
-          <textarea
-            value={item.body || ''}
-            onChange={(e) => setAt(idx, { body: e.target.value })}
-            placeholder="One short sentence about the outcome (optional)."
-            rows={2}
-            aria-label="Short body"
-            className={`${inputCls} resize-y`}
+        <div key={idx} className="flex items-center gap-2">
+          <span className="w-5 h-5 rounded-full bg-[#007074]/10 text-[#007074] text-[10px] font-semibold flex items-center justify-center shrink-0">
+            {idx + 1}
+          </span>
+          <input
+            value={item.title || ''}
+            onChange={(e) => setAt(idx, { title: e.target.value })}
+            placeholder="Better sleep"
+            aria-label="Headline"
+            className={`${inputCls} flex-1`}
           />
+          <button
+            type="button"
+            onClick={() => removeRow(idx)}
+            className="text-slate-400 hover:text-red-600 p-1.5"
+            aria-label="Remove benefit"
+          >
+            <FiX size={14} />
+          </button>
         </div>
       ))}
       <button
@@ -68,10 +50,8 @@ export default function WhyLoveItEditor({ value = [], onChange }) {
         onClick={addRow}
         className="text-xs font-medium text-[#007074] hover:underline flex items-center gap-1"
       >
-        <FiPlus size={12} /> Add benefit card
+        <FiPlus size={12} /> Add benefit
       </button>
     </div>
   );
 }
-
-const emptyRow = () => ({ icon: '✨', title: '', body: '' });

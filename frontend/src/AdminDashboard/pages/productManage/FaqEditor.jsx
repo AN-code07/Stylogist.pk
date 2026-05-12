@@ -37,11 +37,11 @@ export default function FaqEditor({ value = [], onChange }) {
             </span>
             <button
               type="button"
-              onClick={() => removeRow(idx)}
+              
               className="text-slate-400 hover:text-red-600 p-1"
               aria-label="Remove FAQ"
             >
-              <FiX size={14} />
+              <FiX onClick={() => removeRow(idx)} size={14} />
             </button>
           </div>
           <input

@@ -89,7 +89,7 @@ export const updateReviewStatus = async (id, status) => {
 // because the admin is authoring on behalf of someone (e.g. a paper survey,
 // a marketplace import, or seeding the catalogue).
 export const adminCreateReview = async (adminId, payload) => {
-  const { product, user, displayName, rating, comment, status } = payload;
+  const { product, user, displayName, rating, comment, image, status } = payload;
 
   const productDoc = await Product.findById(product).select("_id").lean();
   if (!productDoc) throw new ApiError(404, "Product not found");
@@ -105,19 +105,17 @@ export const adminCreateReview = async (adminId, payload) => {
     authorId = adminId;
   }
 
-  const existing = await Review.findOne({ user: authorId, product });
-  if (existing) {
-    throw new ApiError(
-      409,
-      "A review already exists for this product/user combination. Edit the existing one instead."
-    );
-  }
+  // Multiple admin reviews per product/user are now allowed — the previous
+  // 409 duplicate guard has been removed so an admin can seed several
+  // testimonials against the same staff account. (The unique index on
+  // review.model has been dropped to match.)
 
   const review = await Review.create({
     user: authorId,
     product,
     rating,
     comment: comment || "",
+    image: image || "",
     status: status || "approved",
     displayName: displayName || undefined,
   });
@@ -143,6 +141,7 @@ export const adminUpdateReview = async (id, payload) => {
 
   if (payload.rating !== undefined) review.rating = payload.rating;
   if (payload.comment !== undefined) review.comment = payload.comment;
+  if (payload.image !== undefined) review.image = payload.image;
   if (payload.status !== undefined) review.status = payload.status;
   if (payload.displayName !== undefined) review.displayName = payload.displayName;
 
@@ -185,15 +184,16 @@ export const listProductReviews = async (productSlugOrId) => {
 };
 
 export const createReview = async (userId, payload) => {
-  const { product, rating, comment, order } = payload;
+  const { product, rating, comment, image, order } = payload;
 
   const productDoc = await Product.findById(product).select("_id").lean();
   if (!productDoc) throw new ApiError(404, "Product not found");
 
-  // Only buyers with a *delivered* order for this product may review. If the
-  // client didn't supply an order id we resolve one automatically — pick any
-  // delivered order from the user that contains the product.
-  let orderDoc;
+  // Best-effort link to a delivered order. The verified-buyer badge on
+  // the storefront keys off `order` being set — when the user has no
+  // delivered order we still accept the review (per the new spec that
+  // removed the eligibility gate), the badge just doesn't render.
+  let orderDoc = null;
   if (order) {
     orderDoc = await Order.findOne({
       _id: order,
@@ -210,24 +210,18 @@ export const createReview = async (userId, payload) => {
       .sort({ updatedAt: -1 })
       .lean();
   }
-  if (!orderDoc) {
-    throw new ApiError(
-      403,
-      "Only customers with a delivered order for this product can leave a review."
-    );
-  }
 
-  const existing = await Review.findOne({ user: userId, product });
-  if (existing) {
-    throw new ApiError(409, "You have already reviewed this product. Edit or delete the previous one to re-review.");
-  }
+  // The unique (user, product) index has been removed — multiple reviews
+  // per product/user pair are now allowed so admins (and the seeding
+  // flow) can stack social proof. The duplicate-guard query is gone.
 
   const review = await Review.create({
     user: userId,
     product,
-    order: orderDoc._id,
+    order: orderDoc?._id || null,
     rating,
     comment: comment || "",
+    image: image || "",
   });
 
   // New reviews start `pending`, so they don't touch product stats until moderated.

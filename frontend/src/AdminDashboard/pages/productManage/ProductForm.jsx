@@ -22,6 +22,7 @@ import BulletListEditor from './BulletListEditor';
 import FaqEditor from './FaqEditor';
 import HowToUseBlockEditor from './HowToUseBlockEditor';
 import WhyLoveItEditor from './WhyLoveItEditor';
+import ContentRowsEditor from './ContentRowsEditor';
 import {
   TIPTAP_EXTENSIONS,
   SHORT_TIPTAP_EXTENSIONS,
@@ -151,7 +152,7 @@ export default function ProductForm({
               label="Meta title"
               hint="≤ 60 chars for Google snippets"
               value={form.metaTitle}
-              max={60}
+              max={65}
               onChange={(v) => setForm((f) => ({ ...f, metaTitle: v }))}
               placeholder="Silk Satin Slip Dress | Stylogist"
             />
@@ -216,43 +217,67 @@ export default function ProductForm({
             </div>
           </Field>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field
-              label="Benefits"
-              hint="Rendered as <ul> under an H2 heading on the product page."
-            >
-              <BulletListEditor
-                value={form.benefits}
-                onChange={(next) => setForm((f) => ({ ...f, benefits: next }))}
-                placeholder="Strengthens nails and hair"
-                addLabel="Add benefit"
-              />
-            </Field>
-            <Field
-              label="Uses"
-              hint="Rendered as <ul> under an H2 heading on the product page."
-            >
-              <BulletListEditor
-                value={form.uses}
-                onChange={(next) => setForm((f) => ({ ...f, uses: next }))}
-                placeholder="Take 1 capsule daily after meals"
-                addLabel="Add use case"
-              />
-            </Field>
-          </div>
+          {/* Benefits + uses now accept CSV bulk input plus an optional
+              banner image per row — see ContentRowsEditor. Each row renders
+              on the PDP as a bullet with its banner image (when set)
+              displayed above. */}
+          <Field
+            as="div"
+            label="Benefits"
+            hint="Paste a CSV/newline list, or add rows individually. Each row supports an optional banner image."
+          >
+            <ContentRowsEditor
+              value={form.benefits}
+              onChange={(next) => setForm((f) => ({ ...f, benefits: next }))}
+              placeholder="Strengthens nails and hair"
+              addLabel="Add benefit"
+              uploadRole="benefit-banner"
+            />
+          </Field>
+          <Field
+            as="div"
+            label="Uses"
+            hint="Paste a CSV/newline list, or add rows individually. Each row supports an optional banner image."
+          >
+            <ContentRowsEditor
+              value={form.uses}
+              onChange={(next) => setForm((f) => ({ ...f, uses: next }))}
+              placeholder="Take 1 capsule daily after meals"
+              addLabel="Add use case"
+              uploadRole="use-banner"
+            />
+          </Field>
 
           {/* Standalone "How to use" block — short rich-text body + a
-              single optional image. Distinct from the Uses bullet list:
-              this is the long-form how-to copy that surfaces under its
-              own H2 on the product page. */}
+              single optional banner image. Distinct from the Uses bullet
+              list: this is the long-form how-to copy that surfaces under
+              its own H2 on the product page. */}
           <Field
             as="div"
             label="How to use"
-            hint="Short rich-text instructions shown on the product page. Add an optional image below."
+            hint="Short rich-text instructions shown on the product page. The image renders as a full-width banner above the copy."
           >
             <HowToUseBlockEditor
               value={form.howToUse}
               onChange={(next) => setForm((f) => ({ ...f, howToUse: next }))}
+              productSlug={form.slug || form.name}
+            />
+          </Field>
+
+          {/* Ingredient highlight — same shape as howToUse. Use this to
+              showcase a hero ingredient with a banner image + short copy.
+              The PDP renders it between the description and the howToUse
+              block when populated. */}
+          <Field
+            as="div"
+            label="Ingredient highlight"
+            hint="Optional. Banner image + short rich-text copy that calls out a hero ingredient or formulation note."
+          >
+            <HowToUseBlockEditor
+              value={form.ingredientHighlight}
+              onChange={(next) =>
+                setForm((f) => ({ ...f, ingredientHighlight: next }))
+              }
               productSlug={form.slug || form.name}
             />
           </Field>
@@ -296,6 +321,31 @@ export default function ProductForm({
               placeholder="Store in a cool, dry place. Keep out of reach of children."
               className={inputCls}
             />
+          </Field>
+
+          {/* Tax / GST — applied on top of the sale price in the PDP order
+              summary. 0 hides the line entirely (tax-inclusive products). */}
+          <Field
+            label="Tax / GST percentage"
+            hint="Surfaces as a separate line in the order summary on the product page. Set 0 for tax-inclusive prices."
+          >
+            <div className="flex items-center gap-2 max-w-50">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={form.taxPercent ?? 0}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    taxPercent: e.target.value === '' ? 0 : Number(e.target.value),
+                  }))
+                }
+                className={inputCls}
+              />
+              <span className="text-sm text-slate-500 font-medium">%</span>
+            </div>
           </Field>
 
           {/* FAQ — surfaces as an accordion on the product page and emits

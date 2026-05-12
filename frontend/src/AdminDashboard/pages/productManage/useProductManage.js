@@ -99,33 +99,47 @@ export default function useProductManage() {
       metaDescription: product.metaDescription || '',
       barcode: product.barcode || '',
       gtinType: product.gtinType || '',
-      benefits: Array.isArray(product.benefits) ? [...product.benefits] : [],
-      // Bullet list (string[]). Legacy `[{text, image}]` rows from the
-      // brief experiment with structured uses are flattened back to
-      // their text so existing data still loads cleanly.
+      // Benefits + uses are now {text, image}[]. Hydration tolerates plain
+      // strings AND objects so older catalogue rows still load cleanly.
+      benefits: Array.isArray(product.benefits)
+        ? product.benefits
+            .map((b) =>
+              typeof b === 'string'
+                ? { text: b, image: '' }
+                : { text: b?.text || '', image: b?.image || '' }
+            )
+            .filter((b) => b.text)
+        : [],
       uses: Array.isArray(product.uses)
         ? product.uses
             .map((u) =>
-              typeof u === 'string' ? u : (u?.text || ''),
+              typeof u === 'string'
+                ? { text: u, image: '' }
+                : { text: u?.text || '', image: u?.image || '' }
             )
-            .filter(Boolean)
+            .filter((u) => u.text)
         : [],
-      // "How to use" block — short rich-text + a single image URL.
+      // "How to use" + ingredient highlight blocks — both shaped {text, image}.
       howToUse: {
         text: product.howToUse?.text || '',
         image: product.howToUse?.image || '',
       },
+      ingredientHighlight: {
+        text: product.ingredientHighlight?.text || '',
+        image: product.ingredientHighlight?.image || '',
+      },
+      // Why-love-it is now a title-only list. Legacy rows with icon/body
+      // are flattened to their title.
       whyLoveIt: Array.isArray(product.whyLoveIt)
-        ? product.whyLoveIt.map((w) => ({
-            icon: w?.icon || '✨',
-            title: w?.title || '',
-            body: w?.body || '',
-          }))
+        ? product.whyLoveIt
+            .map((w) => ({ title: w?.title || '' }))
+            .filter((w) => w.title)
         : [],
       precautions: Array.isArray(product.precautions)
         ? product.precautions.filter((s) => typeof s === 'string')
         : [],
       storage: product.storage || '',
+      taxPercent: Number.isFinite(product.taxPercent) ? product.taxPercent : 0,
       faq: Array.isArray(product.faq)
         ? product.faq.map((q) => ({ question: q?.question || '', answer: q?.answer || '' }))
         : [],
@@ -257,11 +271,36 @@ export default function useProductManage() {
       brand: form.brand || undefined,
       manufacturer: (form.manufacturer || '').trim() || undefined,
       ingredients: form.ingredients?.length ? form.ingredients : undefined,
-      benefits: (form.benefits || []).filter((s) => s && s.trim()),
-      uses: (form.uses || []).filter((s) => s && s.trim()),
+      // Benefits + uses are {text, image}[]. Auto-save tolerates both
+      // shapes (the new structured object AND legacy plain strings).
+      benefits: (form.benefits || [])
+        .map((b) =>
+          typeof b === 'string'
+            ? { text: b.trim(), image: '' }
+            : { text: (b?.text || '').trim(), image: (b?.image || '').trim() }
+        )
+        .filter((b) => b.text),
+      uses: (form.uses || [])
+        .map((u) =>
+          typeof u === 'string'
+            ? { text: u.trim(), image: '' }
+            : { text: (u?.text || '').trim(), image: (u?.image || '').trim() }
+        )
+        .filter((u) => u.text),
       precautions: (form.precautions || []).filter((s) => s && s.trim()),
       storage: (form.storage || '').trim() || undefined,
-      whyLoveIt: (form.whyLoveIt || []).filter((w) => w?.title?.trim()),
+      taxPercent: Number.isFinite(Number(form.taxPercent)) ? Number(form.taxPercent) : 0,
+      whyLoveIt: (form.whyLoveIt || [])
+        .map((w) => ({ title: (w?.title || '').trim() }))
+        .filter((w) => w.title),
+      howToUse: {
+        text: (form.howToUse?.text || '').trim(),
+        image: (form.howToUse?.image || '').trim(),
+      },
+      ingredientHighlight: {
+        text: (form.ingredientHighlight?.text || '').trim(),
+        image: (form.ingredientHighlight?.image || '').trim(),
+      },
       faq: (form.faq || []).filter((q) => q?.question?.trim() && q?.answer?.trim()),
       isFeatured: !!form.isFeatured,
       isTrending: !!form.isTrending,
@@ -512,22 +551,30 @@ export default function useProductManage() {
       }
     }
 
-    // Drop empty bullets so the server-side schema (which requires min(1))
-    // doesn't reject the whole array because of trailing blank rows.
-    const benefits = (form.benefits || []).map((s) => (s || '').trim()).filter(Boolean);
-    // Uses is back to a plain string bullet list. Trim + drop blanks so
-    // the backend's `min(1)` schema doesn't reject the array because of
-    // a trailing empty row.
-    const uses = (form.uses || [])
-      .map((u) => (u || '').toString().trim())
-      .filter(Boolean);
+    // Benefits + uses serialise as {text, image}[]. Empty `text` rows
+    // are dropped so the server-side schema doesn't reject the array.
+    const normalizeRow = (row) => {
+      if (typeof row === 'string') {
+        const t = row.trim();
+        return t ? { text: t, image: '' } : null;
+      }
+      const text = (row?.text || '').toString().trim();
+      const image = (row?.image || '').toString().trim();
+      return text ? { text, image } : null;
+    };
+    const benefits = (form.benefits || []).map(normalizeRow).filter(Boolean);
+    const uses = (form.uses || []).map(normalizeRow).filter(Boolean);
 
-    // How-to-use block — rich-text + single image. Empty `text` AND empty
-    // `image` together signal the storefront should hide the section,
-    // but we still send them so the server-side replace clears stale data.
+    // How-to-use + ingredient highlight blocks — rich-text + single image.
+    // Empty text+image means "hide the section"; we still emit them so the
+    // server-side replace clears stale values.
     const howToUse = {
       text: (form.howToUse?.text || '').trim(),
       image: (form.howToUse?.image || '').trim(),
+    };
+    const ingredientHighlight = {
+      text: (form.ingredientHighlight?.text || '').trim(),
+      image: (form.ingredientHighlight?.image || '').trim(),
     };
 
     // Same defensiveness for FAQ — both fields are required server-side,
@@ -543,14 +590,10 @@ export default function useProductManage() {
       Object.entries(form.itemDetails || {}).map(([k, v]) => [k, (v || '').trim()])
     );
 
-    // "Why customers love it" — drop rows missing a title (the server-side
-    // schema requires it). Defaults applied so partial admin saves are safe.
+    // "Why customers love it" — title-only list. The previous icon + body
+    // fields were retired; the server normalizer strips any legacy keys.
     const whyLoveIt = (form.whyLoveIt || [])
-      .map((w) => ({
-        icon: (w?.icon || '✨').trim() || '✨',
-        title: (w?.title || '').trim(),
-        body: (w?.body || '').trim(),
-      }))
+      .map((w) => ({ title: (w?.title || '').trim() }))
       .filter((w) => w.title);
 
     // Precautions — bullet list. Trim + drop blanks before submit.
@@ -574,9 +617,13 @@ export default function useProductManage() {
       benefits,
       uses,
       howToUse,
+      ingredientHighlight,
       whyLoveIt,
       precautions,
       storage: storage || undefined,
+      // Tax percent. 0 is a meaningful value (tax-inclusive / no tax) so
+      // we always send it rather than omitting on 0.
+      taxPercent: Number.isFinite(Number(form.taxPercent)) ? Number(form.taxPercent) : 0,
       faq,
       itemDetails,
       category: form.category || form.categories[0],

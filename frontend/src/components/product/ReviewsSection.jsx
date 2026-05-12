@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiStar, FiSend, FiLoader, FiCheck } from 'react-icons/fi';
+import { FiStar, FiSend, FiLoader, FiCheck, FiCamera, FiX } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/useAuthStore';
 import {
@@ -8,6 +8,7 @@ import {
   useReviewEligibility,
   useCreateReview,
 } from '../../features/reviews/useReviewHooks';
+import { useUploadImage } from '../../features/uploads/useUploadHooks';
 import Seo from '../common/Seo';
 
 const fmtDate = (iso) => {
@@ -104,31 +105,63 @@ export default function ReviewsSection({ product }) {
         <p className="text-sm text-gray-400">No reviews yet. Be the first to share your experience.</p>
       ) : (
         <ul className="space-y-5">
-          {reviews.map((r) => (
-            <li key={r._id} className="border-b border-gray-100 pb-5 last:border-b-0">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#F7F3F0] flex items-center justify-center text-[10px] font-black uppercase text-[#007074]">
-                    {(r.user?.name || 'U').slice(0, 1)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-[#222]">{r.user?.name || 'Customer'}</span>
-                      {/* Backend gates review creation by a delivered order
-                          for the same user/product, so every approved review
-                          is implicitly a verified buyer. Surface that. */}
-                      <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
-                        <FiCheck size={9} /> Verified buyer
-                      </span>
+          {reviews.map((r) => {
+            // displayName (admin override) wins over the registered user's
+            // name so admin-seeded reviews can hide internal accounts behind
+            // a public-facing identity.
+            const authorName = (r.displayName || r.user?.name || 'Customer').trim();
+            // Verified-buyer badge is only meaningful when the review was
+            // tied to a delivered order. When admin seeds a review (no
+            // order link) we suppress the badge so it isn't misleading.
+            const verified = !!r.order;
+            return (
+              <li key={r._id} className="border-b border-gray-100 pb-5 last:border-b-0">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-[#F7F3F0] flex items-center justify-center text-[10px] font-black uppercase text-[#007074]">
+                      {authorName.slice(0, 1)}
                     </div>
-                    <div className="text-[10px] uppercase tracking-[0.15em] text-gray-400">{fmtDate(r.createdAt)}</div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-[#222]">{authorName}</span>
+                        {verified && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.15em] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                            <FiCheck size={9} /> Verified buyer
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-[0.15em] text-gray-400">
+                        {fmtDate(r.createdAt)}
+                      </div>
+                    </div>
                   </div>
+                  <Stars value={r.rating} />
                 </div>
-                <Stars value={r.rating} />
-              </div>
-              {r.comment && <p className="text-sm text-gray-600 mt-3 leading-relaxed">{r.comment}</p>}
-            </li>
-          ))}
+                {r.comment && (
+                  <p className="text-sm text-gray-600 mt-3 leading-relaxed">{r.comment}</p>
+                )}
+                {/* Reviewer-uploaded photo. Rendered as a constrained
+                    thumbnail to keep the review row compact; clicking
+                    opens the full image in a new tab. */}
+                {r.image && (
+                  <a
+                    href={r.image}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-block"
+                  >
+                    <img
+                      src={r.image}
+                      alt={`${authorName}'s review photo`}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-32 h-32 object-cover rounded-lg border border-gray-100 hover:border-[#007074]/40 transition-colors"
+                    />
+                  </a>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -187,12 +220,15 @@ function ReviewStats({ stats }) {
 function ReviewForm({ product, isAuthed, eligibility }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [image, setImage] = useState('');
+  const [uploading, setUploading] = useState(false);
   const createReview = useCreateReview(product._id);
+  const uploadOne = useUploadImage();
 
   if (!isAuthed) {
     return (
       <div className="bg-[#F7F3F0] border border-[#007074]/10 rounded-xl p-4 text-sm text-gray-600 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <span>Sign in to leave a review for customers who've already ordered.</span>
+        <span>Sign in to leave a review for this product.</span>
         <Link
           to="/login"
           className="inline-flex items-center justify-center px-4 py-2 bg-[#222] text-white rounded-lg text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#007074]"
@@ -203,21 +239,23 @@ function ReviewForm({ product, isAuthed, eligibility }) {
     );
   }
 
-  if (eligibility?.hasReviewed) {
-    return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-700">
-        You already reviewed this product — thanks for the feedback!
-      </div>
-    );
-  }
+  // The one-review-per-user gate has been removed per product spec —
+  // shoppers can leave multiple reviews. The eligibility hook still
+  // surfaces the orderId so we can attach it for the verified-buyer
+  // badge when the user actually has a delivered order.
 
-  if (eligibility && !eligibility.canReview) {
-    return (
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-600">
-        You can write a review once your order for this product is marked as delivered.
-      </div>
-    );
-  }
+  const handleImage = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const res = await uploadOne.mutateAsync({ file, role: 'review' });
+      setImage(res.url);
+    } catch {
+      toast.error('Image upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -227,10 +265,12 @@ function ReviewForm({ product, isAuthed, eligibility }) {
         product: product._id,
         rating,
         comment: comment.trim() || undefined,
+        image: image || undefined,
         order: eligibility?.orderId || undefined,
       });
       setRating(5);
       setComment('');
+      setImage('');
     } catch {
       /* toast already surfaced by hook */
     }
@@ -250,6 +290,42 @@ function ReviewForm({ product, isAuthed, eligibility }) {
         placeholder="What did you love? Anything to improve?"
         className="w-full text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#007074]/20 focus:border-[#007074] resize-none"
       />
+
+      {/* Reviewer photo upload — optional. The thumbnail preview gives
+          the reviewer a chance to confirm or replace before submit. */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {image ? (
+          <div className="relative">
+            <img
+              src={image}
+              alt="Your review photo"
+              className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+            />
+            <button
+              type="button"
+              onClick={() => setImage('')}
+              aria-label="Remove photo"
+              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-gray-200 text-gray-600 hover:text-red-600 flex items-center justify-center shadow-sm"
+            >
+              <FiX size={12} />
+            </button>
+          </div>
+        ) : null}
+        <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 rounded-lg text-[11px] font-semibold text-gray-600 hover:border-[#007074] cursor-pointer">
+          {uploading ? (
+            <FiLoader className="animate-spin" size={12} />
+          ) : (
+            <FiCamera size={12} />
+          )}
+          {image ? 'Replace photo' : 'Add photo (optional)'}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => handleImage(e.target.files?.[0])}
+          />
+        </label>
+      </div>
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-semibold">
           Reviews are moderated before going live

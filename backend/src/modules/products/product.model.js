@@ -84,34 +84,65 @@ const productSchema = new mongoose.Schema(
       default: "",
     },
 
-    // Bullet-style copy rendered as <ul> on the storefront under H2 sections.
+    // Benefit + use rows now carry an optional banner image alongside the
+    // text. The admin form accepts CSV input + per-row banner upload, the
+    // PDP renders the banner above the bullet. Legacy plain-string rows
+    // still deserialize fine — see normalizeContentList in product.service.
     benefits: {
-      type: [String],
-      default: [],
-    },
-
-    // Short bullet list rendered as <ul> on the product page.
-    uses: {
-      type: [String],
-      default: [],
-    },
-
-    // "Why customers love it" — visual benefit cards. Each entry has an
-    // emoji/icon string + headline + short body so the PDP can render a
-    // grid of icon-cards instead of a wall of text. Optional; if empty
-    // the PDP simply hides the section.
-    whyLoveIt: {
       type: [
         new mongoose.Schema(
           {
-            icon: { type: String, default: "✨", trim: true },
-            title: { type: String, required: true, trim: true },
-            body: { type: String, default: "", trim: true },
+            text: { type: String, required: true, trim: true },
+            image: { type: String, default: "", trim: true },
           },
           { _id: false }
         ),
       ],
       default: [],
+    },
+
+    uses: {
+      type: [
+        new mongoose.Schema(
+          {
+            text: { type: String, required: true, trim: true },
+            image: { type: String, default: "", trim: true },
+          },
+          { _id: false }
+        ),
+      ],
+      default: [],
+    },
+
+    // "Why customers love it" — simplified to a single-input headline list.
+    // The previous icon + body fields were removed per product spec — keep
+    // the row deserialization permissive so older docs with icon/body
+    // still load (they're just ignored at render time).
+    whyLoveIt: {
+      type: [
+        new mongoose.Schema(
+          {
+            title: { type: String, required: true, trim: true },
+          },
+          { _id: false, strict: false }
+        ),
+      ],
+      default: [],
+    },
+
+    // "Ingredient highlight" block — same shape as howToUse (rich text +
+    // optional banner image). Used to call out a hero ingredient or
+    // formulation note on the PDP, sitting between the description and
+    // the howToUse block when populated.
+    ingredientHighlight: {
+      type: new mongoose.Schema(
+        {
+          text: { type: String, default: "", trim: true },
+          image: { type: String, default: "", trim: true },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
     },
 
     // Safety / precautions copy. Required by supplement YMYL guidance — when
@@ -265,6 +296,18 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       index: true,
+    },
+
+    // Per-product sales tax / GST percentage. Applied on top of the sale
+    // price at checkout time and surfaced as a discrete line in the PDP
+    // order summary. Stored as a percentage (e.g. 17 for 17%) so the
+    // admin form can edit it directly without scaling. 0 = tax-included
+    // or tax-exempt; the PDP hides the tax row when this is 0.
+    taxPercent: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
     },
 
     isDealActive: {

@@ -8,6 +8,8 @@ export const createReviewSchema = z.object({
     order: z.string().regex(objectId).optional(),
     rating: z.number().int().min(1).max(5),
     comment: z.string().trim().max(2000).optional(),
+    // Optional reviewer-supplied photo URL (returned by /uploads/image).
+    image: z.string().trim().optional(),
   }),
 });
 
@@ -36,6 +38,7 @@ export const adminCreateReviewSchema = z.object({
     displayName: z.string().trim().min(1).max(80).optional(),
     rating: z.number().int().min(1).max(5),
     comment: z.string().trim().max(2000).optional(),
+    image: z.string().trim().optional(),
     status: z.enum(["pending", "approved", "flagged"]).optional(),
   }),
 });
@@ -47,6 +50,7 @@ export const adminUpdateReviewSchema = z.object({
   body: z.object({
     rating: z.number().int().min(1).max(5).optional(),
     comment: z.string().trim().max(2000).optional(),
+    image: z.string().trim().optional(),
     status: z.enum(["pending", "approved", "flagged"]).optional(),
     displayName: z.string().trim().min(1).max(80).optional(),
   }),

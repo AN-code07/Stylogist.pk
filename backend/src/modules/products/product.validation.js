@@ -46,13 +46,27 @@ const howToUseSchema = z.object({
   image: z.string().trim().optional().default(""),
 });
 
-// Visual benefit cards — admin can supply an emoji/icon string + headline +
-// short body. Empty `body` is fine; only the title is required.
-const whyLoveItEntrySchema = z.object({
-  icon: z.string().trim().optional().default("✨"),
-  title: z.string().trim().min(1, "Headline is required"),
-  body: z.string().trim().optional().default(""),
+// Same shape as howToUse, used by the new ingredientHighlight block.
+const ingredientHighlightSchema = howToUseSchema;
+
+// Why-love-it entries are now a single-input list — just a title. Older
+// clients still posting icon/body are tolerated via .passthrough(); the
+// service-layer normalizer strips the extras so persistence stays clean.
+const whyLoveItEntrySchema = z
+  .object({ title: z.string().trim().min(1, "Headline is required") })
+  .passthrough();
+
+// Benefits and uses are now {text, image}[]. The admin form accepts CSV
+// input + a banner upload per row; legacy plain-string posts are coerced
+// to {text} in the service so older clients still write cleanly.
+const contentRowSchema = z.object({
+  text: z.string().trim().min(1, "Text is required"),
+  image: z.string().trim().optional().default(""),
 });
+
+// Accept BOTH the new {text,image} shape AND legacy string rows in the
+// same array. The service normalizer flattens to the canonical shape.
+const contentRowOrStringSchema = z.union([contentRowSchema, z.string().trim().min(1)]);
 
 // Per-type GTIN validators. We persist `barcode` as the raw string and
 // `gtinType` as a discriminator so the frontend can mask the input and
@@ -128,9 +142,11 @@ export const createProductSchema = z.object({
     // Raw identifier; format is enforced via the cross-field refine below.
     barcode: z.string().trim().optional().or(z.literal("")),
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
-    benefits: z.array(z.string().trim().min(1)).optional(),
-    uses: z.array(z.string().trim().min(1)).optional(),
+    benefits: z.array(contentRowOrStringSchema).optional(),
+    uses: z.array(contentRowOrStringSchema).optional(),
     howToUse: howToUseSchema.optional(),
+    ingredientHighlight: ingredientHighlightSchema.optional(),
+    taxPercent: z.coerce.number().min(0).max(100).optional(),
     whyLoveIt: z.array(whyLoveItEntrySchema).optional(),
     precautions: z.array(z.string().trim().min(1)).optional(),
     storage: z.string().trim().optional(),
@@ -172,9 +188,11 @@ export const updateProductSchema = z.object({
     metaDescription: z.string().trim().optional(),
     barcode: z.string().trim().optional().or(z.literal("")),
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
-    benefits: z.array(z.string().trim().min(1)).optional(),
-    uses: z.array(z.string().trim().min(1)).optional(),
+    benefits: z.array(contentRowOrStringSchema).optional(),
+    uses: z.array(contentRowOrStringSchema).optional(),
     howToUse: howToUseSchema.optional(),
+    ingredientHighlight: ingredientHighlightSchema.optional(),
+    taxPercent: z.coerce.number().min(0).max(100).optional(),
     whyLoveIt: z.array(whyLoveItEntrySchema).optional(),
     precautions: z.array(z.string().trim().min(1)).optional(),
     storage: z.string().trim().optional(),
@@ -210,9 +228,11 @@ export const createDraftProductSchema = z.object({
     metaDescription: z.string().trim().optional(),
     barcode: z.string().trim().optional().or(z.literal("")),
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
-    benefits: z.array(z.string().trim().min(1)).optional(),
-    uses: z.array(z.string().trim().min(1)).optional(),
+    benefits: z.array(contentRowOrStringSchema).optional(),
+    uses: z.array(contentRowOrStringSchema).optional(),
     howToUse: howToUseSchema.optional(),
+    ingredientHighlight: ingredientHighlightSchema.optional(),
+    taxPercent: z.coerce.number().min(0).max(100).optional(),
     whyLoveIt: z.array(whyLoveItEntrySchema).optional(),
     precautions: z.array(z.string().trim().min(1)).optional(),
     storage: z.string().trim().optional(),

@@ -955,13 +955,45 @@ export default function ProductDetailsPage() {
                 <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-[#222]">Order summary</h2>
               </div>
               <div className="p-5 space-y-3 text-sm">
-                <SummaryRow label="Item price" value={fmtPKR(price)} />
-                <SummaryRow label="Quantity" value={`× ${quantity}`} />
-                <SummaryRow label="Shipping" value={<span className="text-[#007074] font-black uppercase text-[10px] tracking-[0.2em]">Free</span>} />
-                <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Total</span>
-                  <span className="text-xl font-black text-[#007074]">{fmtPKR(price * quantity)}</span>
-                </div>
+                {/* Subtotal-then-tax breakdown. taxPercent of 0 (the
+                    default) means tax-inclusive / tax-exempt — we hide
+                    the tax row entirely in that case so the summary
+                    matches the existing single-line behaviour. */}
+                {(() => {
+                  const taxPct = Number(product?.taxPercent) || 0;
+                  const lineSubtotal = price * quantity;
+                  const taxAmount = Math.round((lineSubtotal * taxPct) / 100);
+                  const grandTotal = lineSubtotal + taxAmount;
+                  return (
+                    <>
+                      <SummaryRow label="Item price" value={fmtPKR(price)} />
+                      <SummaryRow label="Quantity" value={`× ${quantity}`} />
+                      <SummaryRow label="Subtotal" value={fmtPKR(lineSubtotal)} />
+                      <SummaryRow
+                        label="Shipping"
+                        value={
+                          <span className="text-[#007074] font-black uppercase text-[10px] tracking-[0.2em]">
+                            Free
+                          </span>
+                        }
+                      />
+                      {taxPct > 0 && (
+                        <SummaryRow
+                          label={`Tax · ${taxPct}%`}
+                          value={fmtPKR(taxAmount)}
+                        />
+                      )}
+                      <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                          Total
+                        </span>
+                        <span className="text-xl font-black text-[#007074]">
+                          {fmtPKR(grandTotal)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
                 {savings > 0 && (
                   <p className="text-[10px] text-[#007074] bg-[#F7F3F0] border border-[#007074]/15 rounded-lg px-3 py-2 font-semibold text-center">
                     You save {fmtPKR(savings * quantity)} on this order
@@ -1007,68 +1039,99 @@ export default function ProductDetailsPage() {
           )}
         </ScrollReveal>
 
-        {/* WHY CUSTOMERS LOVE IT — outcome-focused icon-card grid.
-             Auto-hides if the admin hasn't supplied any cards. */}
+        {/* WHY CUSTOMERS LOVE IT — simplified to a title-only grid. The
+             old icon + body fields were removed per product spec. */}
         {Array.isArray(product.whyLoveIt) && product.whyLoveIt.length > 0 && (
           <ScrollReveal as="section" aria-labelledby="why-love-heading">
             <h2 id="why-love-heading" className="text-xl font-bold text-[#222] mb-4">
               Why customers love it
             </h2>
-            <ul className="grid grid-cols-2 lg:grid-cols-4 gap-3" role="list">
+            <ul className="grid grid-cols-2 lg:grid-cols-3 gap-3" role="list">
               {product.whyLoveIt.map((card, idx) => (
                 <li
                   key={idx}
-                  className="bg-white border border-gray-100 rounded-2xl p-4 text-center hover:border-[#007074]/30 hover:shadow-md transition-all"
+                  className="bg-white border border-gray-100 rounded-xl p-4 text-center hover:border-[#007074]/30 hover:shadow-md transition-all"
                 >
-                  <div className="text-3xl mb-2" aria-hidden="true">{card.icon || '✨'}</div>
-                  <div className="text-sm font-bold text-[#222] mb-1 leading-tight">{card.title}</div>
-                  {card.body && (
-                    <p className="text-[11px] text-gray-500 leading-relaxed">{card.body}</p>
-                  )}
+                  <div className="text-sm font-bold text-[#222] leading-tight">{card.title}</div>
                 </li>
               ))}
             </ul>
           </ScrollReveal>
         )}
 
-        {/* BENEFITS — semantic <h2> + <ul> for both readers and crawlers. */}
+        {/* BENEFITS — each row is {text, image}; the banner (when set)
+             renders as a full-width image above the bullet copy. Legacy
+             plain-string rows are tolerated for unmigrated catalogue data. */}
         {Array.isArray(product.benefits) && product.benefits.length > 0 && (
           <ScrollReveal as="section" aria-labelledby="benefits-heading">
             <h2 id="benefits-heading" className="text-xl font-bold text-[#222] mb-4">Benefits</h2>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {product.benefits.map((b, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-start gap-3 bg-white border border-gray-100 rounded-xl px-4 py-3 text-sm text-gray-700"
-                >
-                  <span className="mt-0.5 text-[#007074]" aria-hidden="true"><FiCheck size={14} /></span>
-                  <span className="leading-relaxed">{b}</span>
-                </li>
-              ))}
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {product.benefits.map((b, idx) => {
+                const text = typeof b === 'string' ? b : (b?.text || '');
+                const image = typeof b === 'string' ? '' : (b?.image || '');
+                if (!text) return null;
+                return (
+                  <li
+                    key={idx}
+                    className="bg-white border border-gray-100 rounded-xl overflow-hidden text-sm text-gray-700"
+                  >
+                    {image && (
+                      <img
+                        src={image}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full aspect-[16/9] object-cover bg-[#F7F3F0]"
+                      />
+                    )}
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <span className="mt-0.5 text-[#007074]" aria-hidden="true">
+                        <FiCheck size={14} />
+                      </span>
+                      <span className="leading-relaxed">{text}</span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </ScrollReveal>
         )}
 
-        {/* USES — plain bullet list. Tolerates legacy {text, image}
-             entries by reading their `text` so older docs render. */}
+        {/* USES — same {text, image} shape as Benefits, rendered as a
+             numbered list with optional per-row banner. */}
         {Array.isArray(product.uses) && product.uses.length > 0 && (() => {
-          const bullets = product.uses
-            .map((u) => (typeof u === 'string' ? u : (u?.text || '')))
-            .filter(Boolean);
-          if (!bullets.length) return null;
+          const rows = product.uses
+            .map((u) =>
+              typeof u === 'string'
+                ? { text: u, image: '' }
+                : { text: u?.text || '', image: u?.image || '' }
+            )
+            .filter((u) => u.text);
+          if (!rows.length) return null;
           return (
             <ScrollReveal as="section">
               <h2 className="text-xl font-bold text-[#222] mb-4">Uses</h2>
-              <ul className="space-y-2">
-                {bullets.map((u, idx) => (
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {rows.map((u, idx) => (
                   <li
                     key={idx}
-                    className="flex items-start gap-3 text-sm text-gray-700"
+                    className="bg-white border border-gray-100 rounded-xl overflow-hidden text-sm text-gray-700"
                   >
-                    <span className="mt-1 w-5 h-5 rounded-full bg-[#007074]/10 text-[#007074] text-[10px] font-bold flex items-center justify-center shrink-0">
-                      {idx + 1}
-                    </span>
-                    <span className="leading-relaxed">{u}</span>
+                    {u.image && (
+                      <img
+                        src={u.image}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full aspect-[16/9] object-cover bg-[#F7F3F0]"
+                      />
+                    )}
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <span className="mt-1 w-5 h-5 rounded-full bg-[#007074]/10 text-[#007074] text-[10px] font-bold flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="leading-relaxed">{u.text}</span>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -1076,25 +1139,54 @@ export default function ProductDetailsPage() {
           );
         })()}
 
-        {/* HOW TO USE — short rich-text body + an optional image. We
-             only render the section when at least one of the two is
-             populated; otherwise the heading would float over nothing. */}
+        {/* INGREDIENT HIGHLIGHT — same shape as howToUse. Banner-first
+             section that calls out a hero ingredient or formulation note. */}
+        {(product.ingredientHighlight?.text || product.ingredientHighlight?.image) && (
+          <ScrollReveal as="section" aria-labelledby="ingredient-highlight-heading">
+            <h2
+              id="ingredient-highlight-heading"
+              className="text-xl font-bold text-[#222] mb-4"
+            >
+              Ingredient highlight
+            </h2>
+            <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+              {product.ingredientHighlight.image && (
+                <img
+                  src={product.ingredientHighlight.image}
+                  alt="Ingredient highlight"
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full aspect-[21/9] object-cover bg-[#F7F3F0]"
+                />
+              )}
+              {product.ingredientHighlight.text && (
+                <div
+                  className="product-rich tiptap text-sm text-gray-700 leading-relaxed p-5"
+                  dangerouslySetInnerHTML={{ __html: product.ingredientHighlight.text }}
+                />
+              )}
+            </div>
+          </ScrollReveal>
+        )}
+
+        {/* HOW TO USE — image now renders as a full-width banner above the
+             copy instead of a square thumbnail beside it. */}
         {(product.howToUse?.text || product.howToUse?.image) && (
           <ScrollReveal as="section">
             <h2 className="text-xl font-bold text-[#222] mb-4">How to use</h2>
-            <div className="bg-white border border-gray-100 rounded-xl p-5 grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5 items-start">
+            <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
               {product.howToUse.image && (
                 <img
                   src={product.howToUse.image}
                   alt="How to use"
                   loading="lazy"
                   decoding="async"
-                  className="w-full md:w-44 aspect-square object-cover rounded-lg bg-[#F7F3F0]"
+                  className="w-full aspect-[21/9] object-cover bg-[#F7F3F0]"
                 />
               )}
               {product.howToUse.text && (
                 <div
-                  className="product-rich tiptap text-sm text-gray-700 leading-relaxed"
+                  className="product-rich tiptap text-sm text-gray-700 leading-relaxed p-5"
                   dangerouslySetInnerHTML={{ __html: product.howToUse.text }}
                 />
               )}
@@ -1435,39 +1527,55 @@ function InternalLinkCluster({ product }) {
   );
 }
 
-// Related products rail. Lives inside SingleProductPage so it can read
-// the active product without prop drilling and so it shares the same
-// React Query cache as the rest of the page. Hits the body-driven
-// `/products/search` endpoint with the current category as scope.
+// Related products rail. Now keyed off the SHARED INGREDIENT set rather
+// than the category — supplement buyers who land on a "Vitamin C 1000mg"
+// product are far better served by other Vitamin-C-containing products
+// than by every random item in the Vitamins category. Falls back to the
+// category scope only when the product has no ingredient tags (so the
+// rail still populates on a brand-new catalogue).
 function RelatedProducts({ product }) {
+  const ingredientSlugs = (product?.ingredients || [])
+    .map((ing) => ing?.slug)
+    .filter(Boolean);
   const categorySlug = product?.category?.slug;
-  const { data, isLoading } = useProductsSearch(
-    categorySlug
+  const scope =
+    ingredientSlugs.length > 0
+      ? { ingredients: ingredientSlugs, sort: 'bestSelling', page: 1, limit: 8 }
+      : categorySlug
       ? { categorySlug, sort: 'bestSelling', page: 1, limit: 8 }
-      : { sort: 'bestSelling', page: 1, limit: 8 },
-    { enabled: !!product },
-  );
+      : { sort: 'bestSelling', page: 1, limit: 8 };
+  const { data, isLoading } = useProductsSearch(scope, { enabled: !!product });
 
   const items = (data?.items ?? []).filter((p) => p._id !== product?._id).slice(0, 8);
   if (!items.length && !isLoading) return null;
+
+  // Pick a single ingredient name for the "View all in {X}" link. First
+  // tagged ingredient wins; falls back to the category when none exists.
+  const primaryIngredient = product?.ingredients?.[0];
+  const viewAllHref = primaryIngredient?.slug
+    ? `/ingredient/${primaryIngredient.slug}`
+    : categorySlug
+    ? `/category/${categorySlug}`
+    : null;
+  const viewAllLabel = primaryIngredient?.name || product?.category?.name;
 
   return (
     <ScrollReveal as="section" className="mt-16">
       <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
         <div>
           <span className="inline-block bg-[#F7F3F0] text-[#007074] text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[0.25em] mb-3">
-            You may also like
+            {primaryIngredient ? 'Same ingredient' : 'You may also like'}
           </span>
           <h2 className="font-serif text-2xl md:text-3xl font-black text-[#222] tracking-tight">
             Related products
           </h2>
         </div>
-        {product?.category?.slug && (
+        {viewAllHref && (
           <Link
-            to={`/category/${product.category.slug}`}
+            to={viewAllHref}
             className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.25em] text-[#222] hover:text-[#007074] transition-colors group self-start md:self-auto"
           >
-            View all in {product.category.name}
+            View all in {viewAllLabel}
             <FiChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         )}

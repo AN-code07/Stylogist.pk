@@ -7,7 +7,10 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
     "dev": "nodemon server.js",
     "start": "node server.js"
   },
@@ -29,6 +32,9 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "mongodb-memory-server": "^10.1.4",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.0.0",
+    "vitest": "^4.1.6"
   }
 }

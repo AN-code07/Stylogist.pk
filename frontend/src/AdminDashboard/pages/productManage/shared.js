@@ -156,20 +156,30 @@ export const emptyForm = {
   // Identifier type for `barcode`. Drives the input mask + the schema.org
   // property the storefront emits (gtin12 / gtin13 / isbn).
   gtinType: '',
+  // Benefits + uses are now {text, image}[] — the admin form accepts CSV
+  // input and a per-row banner upload; the PDP renders the banner above
+  // each bullet.
   benefits: [],
   uses: [],
-  // Visual benefit cards rendered as an icon-card grid on the PDP. Each
-  // entry is { icon, title, body }. Empty rows are dropped at submit time.
+  // Why-love-it is now a simple title list (the icon + body fields were
+  // removed per product spec). Each row is { title }.
   whyLoveIt: [],
   // Safety / precautions bullets. Each entry surfaces in a highlighted
   // warning block on the storefront product page (YMYL signal for Google).
   precautions: [],
   // Storage / shelf-life copy. Plain string surfaced in the spec table.
   storage: '',
+  // Sales tax / GST percentage applied at checkout time and surfaced in
+  // the PDP order summary. 0 = tax-included / tax-exempt (PDP hides the
+  // line).
+  taxPercent: 0,
   // Single "How to use" block — short rich-text body + an optional image
   // URL. Stored as `{ text, image }`. Distinct from `uses` (which is a
   // bullet list).
   howToUse: { text: '', image: '' },
+  // Ingredient highlight block — same shape as howToUse, distinct
+  // surface on the PDP for calling out a hero ingredient.
+  ingredientHighlight: { text: '', image: '' },
   // Per-product FAQ. Stored as [{ question, answer }] in form state and
   // POSTed verbatim — service layer drops empty rows.
   faq: [],
