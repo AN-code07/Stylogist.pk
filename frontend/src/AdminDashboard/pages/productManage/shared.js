@@ -156,11 +156,11 @@ export const emptyForm = {
   // Identifier type for `barcode`. Drives the input mask + the schema.org
   // property the storefront emits (gtin12 / gtin13 / isbn).
   gtinType: '',
-  // Benefits + uses are now {text, image}[] — the admin form accepts CSV
-  // input and a per-row banner upload; the PDP renders the banner above
-  // each bullet.
-  benefits: [],
-  uses: [],
+  // Benefits + uses now share the same single-banner shape as howToUse /
+  // ingredientHighlight: ONE optional banner image for the whole section
+  // plus a plain bullet list. Stored as { image, items: string[] }.
+  benefits: { image: '', items: [] },
+  uses: { image: '', items: [] },
   // Why-love-it is now a simple title list (the icon + body fields were
   // removed per product spec). Each row is { title }.
   whyLoveIt: [],

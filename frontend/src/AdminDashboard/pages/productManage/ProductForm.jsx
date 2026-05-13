@@ -22,7 +22,7 @@ import BulletListEditor from './BulletListEditor';
 import FaqEditor from './FaqEditor';
 import HowToUseBlockEditor from './HowToUseBlockEditor';
 import WhyLoveItEditor from './WhyLoveItEditor';
-import ContentRowsEditor from './ContentRowsEditor';
+import SectionBlockEditor from './SectionBlockEditor';
 import {
   TIPTAP_EXTENSIONS,
   SHORT_TIPTAP_EXTENSIONS,
@@ -217,34 +217,35 @@ export default function ProductForm({
             </div>
           </Field>
 
-          {/* Benefits + uses now accept CSV bulk input plus an optional
-              banner image per row — see ContentRowsEditor. Each row renders
-              on the PDP as a bullet with its banner image (when set)
-              displayed above. */}
+          {/* Benefits + uses each have a SINGLE banner image for the whole
+              section (same pattern as How-to-use / Ingredient highlight) plus
+              a plain bullet list below. Stored as { image, items: string[] }. */}
           <Field
             as="div"
             label="Benefits"
-            hint="Paste a CSV/newline list, or add rows individually. Each row supports an optional banner image."
+            hint="Optional banner image for the whole section, plus a bullet list."
           >
-            <ContentRowsEditor
+            <SectionBlockEditor
               value={form.benefits}
               onChange={(next) => setForm((f) => ({ ...f, benefits: next }))}
+              productSlug={form.slug || form.name}
+              uploadRole="benefits-banner"
               placeholder="Strengthens nails and hair"
               addLabel="Add benefit"
-              uploadRole="benefit-banner"
             />
           </Field>
           <Field
             as="div"
             label="Uses"
-            hint="Paste a CSV/newline list, or add rows individually. Each row supports an optional banner image."
+            hint="Optional banner image for the whole section, plus a bullet list."
           >
-            <ContentRowsEditor
+            <SectionBlockEditor
               value={form.uses}
               onChange={(next) => setForm((f) => ({ ...f, uses: next }))}
+              productSlug={form.slug || form.name}
+              uploadRole="uses-banner"
               placeholder="Take 1 capsule daily after meals"
               addLabel="Add use case"
-              uploadRole="use-banner"
             />
           </Field>
 

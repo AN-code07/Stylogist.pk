@@ -22,10 +22,10 @@ export const sampleProduct = {
   image: "/uploads/whey.jpg",
   brand: { _id: "b1", name: "Optimum Nutrition", slug: "optimum-nutrition" },
   category: { _id: "c1", name: "Protein", slug: "protein" },
-  // New content shapes: benefits/uses are {text, image}[], whyLoveIt is
-  // title-only, ingredientHighlight mirrors howToUse.
-  benefits: [{ text: "Better sleep", image: "" }],
-  uses: [{ text: "Take 1 daily", image: "" }],
+  // Benefits + uses now share the howToUse shape: one optional section
+  // banner + a flat bullet list. whyLoveIt remains title-only.
+  benefits: { image: "", items: ["Better sleep"] },
+  uses: { image: "", items: ["Take 1 daily"] },
   whyLoveIt: [{ title: "Doctor recommended" }],
   howToUse: { text: "", image: "" },
   ingredientHighlight: { text: "", image: "" },

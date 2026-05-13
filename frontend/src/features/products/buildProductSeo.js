@@ -79,12 +79,21 @@ export const buildProductDescription = (product, opts = {}) => {
 
   const brand = product.brand?.name?.trim();
   const category = niceCategory(product).toLowerCase();
-  const firstBenefit =
-    Array.isArray(product.benefits) && product.benefits.length
-      ? typeof product.benefits[0] === 'string'
-        ? product.benefits[0]
-        : product.benefits[0]?.title || ''
-      : '';
+  // Benefits is now { image, items: string[] }; older docs may still carry
+  // the legacy [{text, image}] array or plain string[]. Pull the first
+  // bullet from whichever shape arrived.
+  const firstBenefit = (() => {
+    const raw = product.benefits;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      return Array.isArray(raw.items) ? (raw.items[0] || '') : '';
+    }
+    if (Array.isArray(raw) && raw.length) {
+      const head = raw[0];
+      if (typeof head === 'string') return head;
+      return head?.text || head?.title || '';
+    }
+    return '';
+  })();
 
   // Prefer admin-authored shortDescription as the lead. Fallback to a
   // benefit + brand-aware sentence so the SERP entry still reads naturally.

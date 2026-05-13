@@ -67,25 +67,42 @@ const normalizeHowToUse = (raw) => {
 // so future schema changes only touch one place.
 const normalizeIngredientHighlight = normalizeHowToUse;
 
-// Benefits + uses moved from string[] to {text, image}[] so each bullet
-// can carry an optional banner image. Older payloads (plain strings,
-// legacy `[{text, image?}]`) all flow through this normalizer.
-const normalizeContentList = (raw) => {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((row) => {
+// Benefits + uses moved from {text,image}[] to { image, items: string[] } —
+// one section banner plus a flat bullet list (same shape as howToUse /
+// ingredientHighlight, just with a list body instead of rich text). This
+// normalizer accepts:
+//   • the new object shape — used directly
+//   • the legacy [{text, image}] array — first non-empty image is
+//     promoted to the section banner; texts become bullets
+//   • plain string[] (very old draft payloads) — banner is empty,
+//     strings become bullets
+const normalizeSectionBlock = (raw) => {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const image = typeof raw.image === "string" ? raw.image.trim() : "";
+    const items = Array.isArray(raw.items)
+      ? raw.items.map((s) => (s ?? "").toString().trim()).filter(Boolean)
+      : [];
+    return { image, items };
+  }
+  if (Array.isArray(raw)) {
+    let firstImage = "";
+    const items = [];
+    for (const row of raw) {
       if (typeof row === "string") {
         const t = row.trim();
-        return t ? { text: t, image: "" } : null;
+        if (t) items.push(t);
+      } else if (row && typeof row === "object") {
+        const t = (row.text ?? "").toString().trim();
+        if (t) items.push(t);
+        if (!firstImage) {
+          const img = (row.image ?? "").toString().trim();
+          if (img) firstImage = img;
+        }
       }
-      if (row && typeof row === "object") {
-        const text = (row.text ?? "").toString().trim();
-        const image = (row.image ?? "").toString().trim();
-        return text ? { text, image } : null;
-      }
-      return null;
-    })
-    .filter(Boolean);
+    }
+    return { image: firstImage, items };
+  }
+  return { image: "", items: [] };
 };
 
 // Why-love-it is now a single-input list. We accept anything with a
@@ -222,8 +239,8 @@ export const createProduct = async (payload) => {
     // Persist the discriminator only when there's an actual code; an empty
     // gtinType keeps the index entry tidy.
     gtinType: barcode && gtinType ? gtinType : "",
-    benefits: normalizeContentList(benefits),
-    uses: normalizeContentList(uses),
+    benefits: normalizeSectionBlock(benefits),
+    uses: normalizeSectionBlock(uses),
     whyLoveIt: normalizeWhyLoveIt(whyLoveIt),
     howToUse: normalizeHowToUse(howToUse),
     ingredientHighlight: normalizeIngredientHighlight(ingredientHighlight),
@@ -356,8 +373,8 @@ export const createDraftProduct = async (payload = {}) => {
     categories: categoryList,
     subCategory: subCategory && isValidObjectId(subCategory) ? subCategory : undefined,
     brand: brandDoc ? brandDoc._id : undefined,
-    benefits: normalizeContentList(benefits),
-    uses: normalizeContentList(uses),
+    benefits: normalizeSectionBlock(benefits),
+    uses: normalizeSectionBlock(uses),
     whyLoveIt: normalizeWhyLoveIt(whyLoveIt),
     howToUse: normalizeHowToUse(howToUse),
     ingredientHighlight: normalizeIngredientHighlight(ingredientHighlight),
@@ -517,8 +534,12 @@ export const updateProduct = async (id, payload) => {
     // end up with `gtinType=ean, barcode=""` orphan rows.
     product.gtinType = product.barcode && nextGtinType ? nextGtinType : "";
   }
-  if (Array.isArray(benefits)) product.benefits = normalizeContentList(benefits);
-  if (Array.isArray(uses)) product.uses = normalizeContentList(uses);
+  // Benefits + uses can arrive as the new { image, items } object OR a
+  // legacy array — normalizeSectionBlock handles both. The guard is now
+  // a simple `defined` check (was `Array.isArray` when the value was
+  // always an array). Sending an empty object clears the section.
+  if (benefits !== undefined) product.benefits = normalizeSectionBlock(benefits);
+  if (uses !== undefined) product.uses = normalizeSectionBlock(uses);
   if (Array.isArray(whyLoveItPatch)) {
     product.whyLoveIt = normalizeWhyLoveIt(whyLoveItPatch);
   }

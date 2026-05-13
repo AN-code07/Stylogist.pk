@@ -56,17 +56,27 @@ const whyLoveItEntrySchema = z
   .object({ title: z.string().trim().min(1, "Headline is required") })
   .passthrough();
 
-// Benefits and uses are now {text, image}[]. The admin form accepts CSV
-// input + a banner upload per row; legacy plain-string posts are coerced
-// to {text} in the service so older clients still write cleanly.
+// Benefits and uses are now { image, items: string[] } — one optional
+// section banner plus a flat bullet list. We still accept the legacy
+// [{text, image}] array (and plain string[]) for any client that hasn't
+// shipped the new admin form yet; the service-layer normalizer coerces
+// every write to the canonical object shape.
 const contentRowSchema = z.object({
   text: z.string().trim().min(1, "Text is required"),
   image: z.string().trim().optional().default(""),
 });
-
-// Accept BOTH the new {text,image} shape AND legacy string rows in the
-// same array. The service normalizer flattens to the canonical shape.
 const contentRowOrStringSchema = z.union([contentRowSchema, z.string().trim().min(1)]);
+
+const sectionBlockObjectSchema = z.object({
+  image: z.string().trim().optional().default(""),
+  items: z.array(z.string().trim().min(1)).optional().default([]),
+});
+
+// Accept new object shape OR legacy array. Normalizer flattens on write.
+const sectionBlockSchema = z.union([
+  sectionBlockObjectSchema,
+  z.array(contentRowOrStringSchema),
+]);
 
 // Per-type GTIN validators. We persist `barcode` as the raw string and
 // `gtinType` as a discriminator so the frontend can mask the input and
@@ -142,8 +152,8 @@ export const createProductSchema = z.object({
     // Raw identifier; format is enforced via the cross-field refine below.
     barcode: z.string().trim().optional().or(z.literal("")),
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
-    benefits: z.array(contentRowOrStringSchema).optional(),
-    uses: z.array(contentRowOrStringSchema).optional(),
+    benefits: sectionBlockSchema.optional(),
+    uses: sectionBlockSchema.optional(),
     howToUse: howToUseSchema.optional(),
     ingredientHighlight: ingredientHighlightSchema.optional(),
     taxPercent: z.coerce.number().min(0).max(100).optional(),
@@ -188,8 +198,8 @@ export const updateProductSchema = z.object({
     metaDescription: z.string().trim().optional(),
     barcode: z.string().trim().optional().or(z.literal("")),
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
-    benefits: z.array(contentRowOrStringSchema).optional(),
-    uses: z.array(contentRowOrStringSchema).optional(),
+    benefits: sectionBlockSchema.optional(),
+    uses: sectionBlockSchema.optional(),
     howToUse: howToUseSchema.optional(),
     ingredientHighlight: ingredientHighlightSchema.optional(),
     taxPercent: z.coerce.number().min(0).max(100).optional(),
@@ -228,8 +238,8 @@ export const createDraftProductSchema = z.object({
     metaDescription: z.string().trim().optional(),
     barcode: z.string().trim().optional().or(z.literal("")),
     gtinType: z.enum(["", "upc", "ean", "isbn"]).optional(),
-    benefits: z.array(contentRowOrStringSchema).optional(),
-    uses: z.array(contentRowOrStringSchema).optional(),
+    benefits: sectionBlockSchema.optional(),
+    uses: sectionBlockSchema.optional(),
     howToUse: howToUseSchema.optional(),
     ingredientHighlight: ingredientHighlightSchema.optional(),
     taxPercent: z.coerce.number().min(0).max(100).optional(),

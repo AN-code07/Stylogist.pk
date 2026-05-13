@@ -41,9 +41,13 @@ export default function Seo({ title, description, image, type = 'website', canon
     }
 
     // JSON-LD HYDRATION LOGIC
-    let script = document.head.querySelector(`script[data-seo="${jsonLdId}"]`);
-    
+    // Non-destructive on purpose: only overwrite/create when we have real
+    // jsonLd. Never remove an existing script — it may have been emitted by
+    // the Vercel prerender (api/product.js) and the crawler needs it to
+    // stay put. Removing it during loading/error states is what caused
+    // Google Rich Results to report "Product not found".
     if (jsonLd) {
+      let script = document.head.querySelector(`script[data-seo="${jsonLdId}"]`);
       if (!script) {
         script = document.createElement('script');
         script.type = 'application/ld+json';
@@ -51,16 +55,7 @@ export default function Seo({ title, description, image, type = 'website', canon
         document.head.appendChild(script);
       }
       script.textContent = JSON.stringify(jsonLd);
-    } else if (script) {
-      // If jsonLd becomes null, remove the script tag
-      script.parentNode.removeChild(script);
     }
-
-    // Cleanup on unmount
-    return () => {
-      const activeScript = document.head.querySelector(`script[data-seo="${jsonLdId}"]`);
-      if (activeScript) activeScript.parentNode.removeChild(activeScript);
-    };
   }, [title, description, image, type, canonical, jsonLd, jsonLdId]);
 
   return null;

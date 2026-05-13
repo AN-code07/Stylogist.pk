@@ -84,34 +84,23 @@ const productSchema = new mongoose.Schema(
       default: "",
     },
 
-    // Benefit + use rows now carry an optional banner image alongside the
-    // text. The admin form accepts CSV input + per-row banner upload, the
-    // PDP renders the banner above the bullet. Legacy plain-string rows
-    // still deserialize fine — see normalizeContentList in product.service.
+    // Benefits + uses now share the same shape as howToUse / ingredientHighlight:
+    // ONE optional section banner plus a flat list of bullets. Stored as
+    // { image: String, items: [String] }.
+    //
+    // The field type is Mixed so existing docs still deserialize when
+    // they carry the legacy [{text, image}] array. normalizeSectionBlock
+    // in product.service coerces every write to the new shape, so reads
+    // converge over time. The storefront and the admin form both tolerate
+    // both shapes (see readSectionBlock / hydrateSectionBlock).
     benefits: {
-      type: [
-        new mongoose.Schema(
-          {
-            text: { type: String, required: true, trim: true },
-            image: { type: String, default: "", trim: true },
-          },
-          { _id: false }
-        ),
-      ],
-      default: [],
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({ image: "", items: [] }),
     },
 
     uses: {
-      type: [
-        new mongoose.Schema(
-          {
-            text: { type: String, required: true, trim: true },
-            image: { type: String, default: "", trim: true },
-          },
-          { _id: false }
-        ),
-      ],
-      default: [],
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({ image: "", items: [] }),
     },
 
     // "Why customers love it" — simplified to a single-input headline list.

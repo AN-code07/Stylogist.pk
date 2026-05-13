@@ -218,11 +218,41 @@ const buildJsonLd = (product, slug, canonical, images, variants) => {
 // fallback when not. Either way the validator sees actual `<h1>` / `<p>` tags.
 const buildVisibleBody = (product, slug, breadcrumbItems, primaryImage) => {
   const productName = product?.name || titleFromSlug(slug) || 'Product';
-  const benefitsHtml = (product?.benefits || []).length
-    ? `<section><h2>Benefits</h2><ul>${product.benefits.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul></section>`
+  // Benefits + uses now arrive as { image, items: string[] }. Old API
+  // responses may still serve the legacy [{text, image}] array or plain
+  // string[] — flatten whichever shape we get into an items list for the
+  // prerendered <ul>/<ol>.
+  const sectionItems = (raw) => {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      return Array.isArray(raw.items) ? raw.items.filter(Boolean) : [];
+    }
+    if (Array.isArray(raw)) {
+      return raw
+        .map((row) => (typeof row === 'string' ? row : row?.text || ''))
+        .filter(Boolean);
+    }
+    return [];
+  };
+  const sectionImage = (raw) => {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      return typeof raw.image === 'string' ? raw.image : '';
+    }
+    if (Array.isArray(raw)) {
+      for (const row of raw) {
+        if (row && typeof row === 'object' && row.image) return String(row.image);
+      }
+    }
+    return '';
+  };
+  const benefitsItems = sectionItems(product?.benefits);
+  const benefitsImage = sectionImage(product?.benefits);
+  const usesItems = sectionItems(product?.uses);
+  const usesImage = sectionImage(product?.uses);
+  const benefitsHtml = benefitsItems.length
+    ? `<section><h2>Benefits</h2>${benefitsImage ? `<img src="${escapeAttr(benefitsImage)}" alt="" />` : ''}<ul>${benefitsItems.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul></section>`
     : '';
-  const usesHtml = (product?.uses || []).length
-    ? `<section><h2>Uses</h2><ul>${product.uses.map((u) => `<li>${escapeHtml(u)}</li>`).join('')}</ul></section>`
+  const usesHtml = usesItems.length
+    ? `<section><h2>Uses</h2>${usesImage ? `<img src="${escapeAttr(usesImage)}" alt="" />` : ''}<ul>${usesItems.map((u) => `<li>${escapeHtml(u)}</li>`).join('')}</ul></section>`
     : '';
   const shortHtml = product?.shortDescription
     ? `<p>${escapeHtml(stripHtml(product.shortDescription))}</p>`

@@ -15,6 +15,49 @@ import { useIngredients } from '../../../features/ingredients/useIngredientHooks
 import { useUploadImage, useUploadImages } from '../../../features/uploads/useUploadHooks';
 import { emptyForm, emptyItemDetails, emptyVariant, slugify } from './shared';
 
+// Coerce whatever the server returns for benefits/uses into the new
+// { image, items: string[] } shape. Tolerates:
+//   • the new shape (object) — used directly
+//   • legacy [{text, image}] arrays — first non-empty image becomes the
+//     section banner; texts become the bullet list
+//   • legacy plain string[] — banner is empty, strings become bullets
+const hydrateSectionBlock = (raw) => {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return {
+      image: typeof raw.image === 'string' ? raw.image : '',
+      items: Array.isArray(raw.items)
+        ? raw.items.map((s) => (s || '').toString()).filter((s) => s.trim())
+        : [],
+    };
+  }
+  if (Array.isArray(raw)) {
+    let firstImage = '';
+    const items = [];
+    for (const row of raw) {
+      if (typeof row === 'string') {
+        const t = row.trim();
+        if (t) items.push(t);
+      } else if (row && typeof row === 'object') {
+        const t = (row.text || '').toString().trim();
+        if (t) items.push(t);
+        if (!firstImage && row.image) firstImage = String(row.image);
+      }
+    }
+    return { image: firstImage, items };
+  }
+  return { image: '', items: [] };
+};
+
+// Trim + drop blank rows on submit; preserve the section banner verbatim
+// (already a single Cloudinary URL set by SectionBlockEditor).
+const serializeSectionBlock = (block) => {
+  const image = typeof block?.image === 'string' ? block.image.trim() : '';
+  const items = Array.isArray(block?.items)
+    ? block.items.map((s) => (s || '').toString().trim()).filter(Boolean)
+    : [];
+  return { image, items };
+};
+
 // All the controller-level state + handlers for the Product Manage page.
 // Keeps the top-level component presentational and lean.
 export default function useProductManage() {
@@ -99,26 +142,12 @@ export default function useProductManage() {
       metaDescription: product.metaDescription || '',
       barcode: product.barcode || '',
       gtinType: product.gtinType || '',
-      // Benefits + uses are now {text, image}[]. Hydration tolerates plain
-      // strings AND objects so older catalogue rows still load cleanly.
-      benefits: Array.isArray(product.benefits)
-        ? product.benefits
-            .map((b) =>
-              typeof b === 'string'
-                ? { text: b, image: '' }
-                : { text: b?.text || '', image: b?.image || '' }
-            )
-            .filter((b) => b.text)
-        : [],
-      uses: Array.isArray(product.uses)
-        ? product.uses
-            .map((u) =>
-              typeof u === 'string'
-                ? { text: u, image: '' }
-                : { text: u?.text || '', image: u?.image || '' }
-            )
-            .filter((u) => u.text)
-        : [],
+      // Benefits + uses are now { image, items: string[] }. Hydration also
+      // accepts the legacy [{text, image}] and plain string[] shapes so
+      // existing catalogue rows load cleanly — the first non-empty per-row
+      // image is promoted to the section banner on read.
+      benefits: hydrateSectionBlock(product.benefits),
+      uses: hydrateSectionBlock(product.uses),
       // "How to use" + ingredient highlight blocks — both shaped {text, image}.
       howToUse: {
         text: product.howToUse?.text || '',
@@ -271,22 +300,12 @@ export default function useProductManage() {
       brand: form.brand || undefined,
       manufacturer: (form.manufacturer || '').trim() || undefined,
       ingredients: form.ingredients?.length ? form.ingredients : undefined,
-      // Benefits + uses are {text, image}[]. Auto-save tolerates both
-      // shapes (the new structured object AND legacy plain strings).
-      benefits: (form.benefits || [])
-        .map((b) =>
-          typeof b === 'string'
-            ? { text: b.trim(), image: '' }
-            : { text: (b?.text || '').trim(), image: (b?.image || '').trim() }
-        )
-        .filter((b) => b.text),
-      uses: (form.uses || [])
-        .map((u) =>
-          typeof u === 'string'
-            ? { text: u.trim(), image: '' }
-            : { text: (u?.text || '').trim(), image: (u?.image || '').trim() }
-        )
-        .filter((u) => u.text),
+      // Benefits + uses are now { image, items: string[] } — one optional
+      // section banner plus a flat bullet list. The serializer trims +
+      // drops blank bullets but keeps an empty section so server-side
+      // replace clears stale values.
+      benefits: serializeSectionBlock(form.benefits),
+      uses: serializeSectionBlock(form.uses),
       precautions: (form.precautions || []).filter((s) => s && s.trim()),
       storage: (form.storage || '').trim() || undefined,
       taxPercent: Number.isFinite(Number(form.taxPercent)) ? Number(form.taxPercent) : 0,
@@ -551,19 +570,10 @@ export default function useProductManage() {
       }
     }
 
-    // Benefits + uses serialise as {text, image}[]. Empty `text` rows
-    // are dropped so the server-side schema doesn't reject the array.
-    const normalizeRow = (row) => {
-      if (typeof row === 'string') {
-        const t = row.trim();
-        return t ? { text: t, image: '' } : null;
-      }
-      const text = (row?.text || '').toString().trim();
-      const image = (row?.image || '').toString().trim();
-      return text ? { text, image } : null;
-    };
-    const benefits = (form.benefits || []).map(normalizeRow).filter(Boolean);
-    const uses = (form.uses || []).map(normalizeRow).filter(Boolean);
+    // Benefits + uses serialise as { image, items: string[] }. The
+    // serializer drops blank bullets and trims the section banner.
+    const benefits = serializeSectionBlock(form.benefits);
+    const uses = serializeSectionBlock(form.uses);
 
     // How-to-use + ingredient highlight blocks — rich-text + single image.
     // Empty text+image means "hide the section"; we still emit them so the

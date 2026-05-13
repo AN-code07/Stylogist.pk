@@ -104,7 +104,7 @@ describe("POST /api/v1/products", () => {
     expect(res.body.data.variants[0].salePrice).toBe(4999);
   });
 
-  it("persists the new content shapes: tax, banner-image benefits, simplified whyLoveIt, ingredientHighlight", async () => {
+  it("persists the new content shapes: tax, section-banner benefits, simplified whyLoveIt, ingredientHighlight", async () => {
     const category = await seedCategory();
     const brand = await seedBrand();
     const { authHeader } = await seedAdminAuth();
@@ -118,15 +118,17 @@ describe("POST /api/v1/products", () => {
           brand,
           // Tax percent — 17% (Pakistan GST baseline).
           taxPercent: 17,
-          // Mixed input: a {text, image} object AND a plain legacy string.
-          // The service normalizer coerces both to {text, image}.
-          benefits: [
-            { text: "Better sleep", image: "https://cdn.example.com/b1.jpg" },
-            "Improved focus",
-          ],
-          uses: [
-            { text: "Take 1 capsule before bed", image: "" },
-          ],
+          // New shape: single section banner + bullet list. The legacy
+          // [{text, image}] / string[] arrays are still accepted by the
+          // normalizer for older clients — covered by the second test below.
+          benefits: {
+            image: "https://cdn.example.com/benefits-banner.jpg",
+            items: ["Better sleep", "Improved focus"],
+          },
+          uses: {
+            image: "",
+            items: ["Take 1 capsule before bed"],
+          },
           // WhyLoveIt is now title-only. Any legacy icon/body fields the
           // client sends are dropped by the normalizer.
           whyLoveIt: [
@@ -143,17 +145,45 @@ describe("POST /api/v1/products", () => {
     expect(res.status).toBe(201);
     const saved = res.body.data.product;
     expect(saved.taxPercent).toBe(17);
-    expect(saved.benefits).toHaveLength(2);
-    expect(saved.benefits[0]).toMatchObject({
-      text: "Better sleep",
-      image: "https://cdn.example.com/b1.jpg",
-    });
-    // Legacy string was coerced to {text, image:""}.
-    expect(saved.benefits[1]).toMatchObject({ text: "Improved focus", image: "" });
-    expect(saved.uses).toHaveLength(1);
+    expect(saved.benefits.image).toBe("https://cdn.example.com/benefits-banner.jpg");
+    expect(saved.benefits.items).toEqual(["Better sleep", "Improved focus"]);
+    expect(saved.uses.image).toBe("");
+    expect(saved.uses.items).toEqual(["Take 1 capsule before bed"]);
     expect(saved.whyLoveIt).toEqual([{ title: "Doctor recommended" }, { title: "Lab tested" }]);
     expect(saved.ingredientHighlight.text).toContain("KSM-66");
     expect(saved.ingredientHighlight.image).toBe("https://cdn.example.com/hero.jpg");
+  });
+
+  it("coerces legacy benefits/uses array payloads into the new section-block shape", async () => {
+    const category = await seedCategory();
+    const brand = await seedBrand();
+    const { authHeader } = await seedAdminAuth();
+
+    const res = await request(app)
+      .post("/api/v1/products")
+      .set(authHeader)
+      .send(
+        buildProductPayload({
+          category,
+          brand,
+          // Legacy: per-row [{text, image}] mixed with plain strings. The
+          // normalizer promotes the first non-empty image to the section
+          // banner and flattens texts into items.
+          benefits: [
+            { text: "Better sleep", image: "https://cdn.example.com/legacy.jpg" },
+            "Improved focus",
+            { text: "Calmer mornings", image: "https://cdn.example.com/ignored.jpg" },
+          ],
+          uses: ["Take 1 capsule before bed"],
+        })
+      );
+
+    expect(res.status).toBe(201);
+    const saved = res.body.data.product;
+    expect(saved.benefits.image).toBe("https://cdn.example.com/legacy.jpg");
+    expect(saved.benefits.items).toEqual(["Better sleep", "Improved focus", "Calmer mornings"]);
+    expect(saved.uses.image).toBe("");
+    expect(saved.uses.items).toEqual(["Take 1 capsule before bed"]);
   });
 
   it("rejects an unauthenticated create with 401", async () => {

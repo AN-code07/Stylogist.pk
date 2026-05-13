@@ -25,6 +25,39 @@ import { trackViewItem, trackAddToCart } from '../utils/analytics';
 
 const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
+// Benefits + uses now serialise as { image, items: string[] } — one section
+// banner plus a flat bullet list. Older docs in the catalogue still carry
+// the legacy [{text, image}] array (or even plain string[]) shape, so this
+// helper accepts all three and produces the canonical render shape.
+// The first non-empty per-row image on a legacy array is promoted to the
+// section banner.
+const readSectionBlock = (raw) => {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return {
+      image: typeof raw.image === 'string' ? raw.image : '',
+      items: Array.isArray(raw.items)
+        ? raw.items.map((s) => (s || '').toString()).filter((s) => s.trim())
+        : [],
+    };
+  }
+  if (Array.isArray(raw)) {
+    let firstImage = '';
+    const items = [];
+    for (const row of raw) {
+      if (typeof row === 'string') {
+        const t = row.trim();
+        if (t) items.push(t);
+      } else if (row && typeof row === 'object') {
+        const t = (row.text || '').toString().trim();
+        if (t) items.push(t);
+        if (!firstImage && row.image) firstImage = String(row.image);
+      }
+    }
+    return { image: firstImage, items };
+  }
+  return { image: '', items: [] };
+};
+
 export default function ProductDetailsPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -447,25 +480,32 @@ export default function ProductDetailsPage() {
   };
 
   // While the API is still resolving (cold-start, slow network) emit a
-  // minimal Product JSON-LD seeded from the slug + canonical URL. Validators
-  // and crawlers that capture the DOM mid-fetch then still see *some*
-  // schema, instead of bailing with "Product not found". The full schema
-  // overrides this once the product data lands.
+  // minimal Product JSON-LD seeded from the slug. Validators and crawlers
+  // that capture the DOM mid-fetch then still see a Product schema even on
+  // client-side SPA navigations where the Vercel prerender doesn't run.
+  // The full schema overrides this once the product data lands.
   if (isLoading) {
     const placeholderName = (slug || '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const canonical = origin ? `${origin}/product/${slug}` : undefined;
+    const placeholderJsonLd = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: placeholderName || 'Product',
+      description: `Shop ${placeholderName} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`,
+      image: origin ? [`${origin}/logo.png`] : undefined,
+      brand: { '@type': 'Brand', name: 'Stylogist' },
+      url: canonical,
+    };
     return (
       <>
         <Seo
-          title={`${placeholderName} · Stylogist`}
+          title={`${placeholderName} | Stylogist`}
           description={`Shop ${placeholderName} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`}
           type="product"
           image={origin ? `${origin}/logo.png` : undefined}
-          canonical={origin ? `${origin}/product/${slug}` : undefined}
-          // CHANGE: We pass null for jsonLd here. 
-          // The Breadcrumb will still exist from the Vercel Prerender.
-          // This avoids the "Product Incomplete" error during the cold start.
-          jsonLd={null}
+          canonical={canonical}
+          jsonLd={placeholderJsonLd}
           jsonLdId="product-jsonld"
         />
         <SkeletonPage />
@@ -1059,82 +1099,70 @@ export default function ProductDetailsPage() {
           </ScrollReveal>
         )}
 
-        {/* BENEFITS — each row is {text, image}; the banner (when set)
-             renders as a full-width image above the bullet copy. Legacy
-             plain-string rows are tolerated for unmigrated catalogue data. */}
-        {Array.isArray(product.benefits) && product.benefits.length > 0 && (
-          <ScrollReveal as="section" aria-labelledby="benefits-heading">
-            <h2 id="benefits-heading" className="text-xl font-bold text-[#222] mb-4">Benefits</h2>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {product.benefits.map((b, idx) => {
-                const text = typeof b === 'string' ? b : (b?.text || '');
-                const image = typeof b === 'string' ? '' : (b?.image || '');
-                if (!text) return null;
-                return (
-                  <li
-                    key={idx}
-                    className="bg-white border border-gray-100 rounded-xl overflow-hidden text-sm text-gray-700"
-                  >
-                    {image && (
-                      <img
-                        src={image}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full aspect-[16/9] object-cover bg-[#F7F3F0]"
-                      />
-                    )}
-                    <div className="flex items-start gap-3 px-4 py-3">
+        {/* BENEFITS — single section banner + bullet list. New shape is
+             { image, items: string[] }; legacy [{text, image}] and string[]
+             rows are still tolerated (first non-empty image is promoted to
+             the section banner). */}
+        {(() => {
+          const block = readSectionBlock(product.benefits);
+          if (!block.items.length) return null;
+          return (
+            <ScrollReveal as="section" aria-labelledby="benefits-heading">
+              <h2 id="benefits-heading" className="text-xl font-bold text-[#222] mb-4">Benefits</h2>
+              <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                {block.image && (
+                  <img
+                    src={block.image}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full aspect-[21/9] object-cover bg-[#F7F3F0]"
+                  />
+                )}
+                <ul className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                  {block.items.map((text, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-sm text-gray-700">
                       <span className="mt-0.5 text-[#007074]" aria-hidden="true">
                         <FiCheck size={14} />
                       </span>
                       <span className="leading-relaxed">{text}</span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </ScrollReveal>
-        )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </ScrollReveal>
+          );
+        })()}
 
-        {/* USES — same {text, image} shape as Benefits, rendered as a
-             numbered list with optional per-row banner. */}
-        {Array.isArray(product.uses) && product.uses.length > 0 && (() => {
-          const rows = product.uses
-            .map((u) =>
-              typeof u === 'string'
-                ? { text: u, image: '' }
-                : { text: u?.text || '', image: u?.image || '' }
-            )
-            .filter((u) => u.text);
-          if (!rows.length) return null;
+        {/* USES — same {image, items} shape as Benefits, rendered as a
+             numbered list under one section banner. */}
+        {(() => {
+          const block = readSectionBlock(product.uses);
+          if (!block.items.length) return null;
           return (
             <ScrollReveal as="section">
               <h2 className="text-xl font-bold text-[#222] mb-4">Uses</h2>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {rows.map((u, idx) => (
-                  <li
-                    key={idx}
-                    className="bg-white border border-gray-100 rounded-xl overflow-hidden text-sm text-gray-700"
-                  >
-                    {u.image && (
-                      <img
-                        src={u.image}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full aspect-[16/9] object-cover bg-[#F7F3F0]"
-                      />
-                    )}
-                    <div className="flex items-start gap-3 px-4 py-3">
+              <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
+                {block.image && (
+                  <img
+                    src={block.image}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full aspect-[21/9] object-cover bg-[#F7F3F0]"
+                  />
+                )}
+                <ol className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                  {block.items.map((text, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-sm text-gray-700">
                       <span className="mt-1 w-5 h-5 rounded-full bg-[#007074]/10 text-[#007074] text-[10px] font-bold flex items-center justify-center shrink-0">
                         {idx + 1}
                       </span>
-                      <span className="leading-relaxed">{u.text}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      <span className="leading-relaxed">{text}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </ScrollReveal>
           );
         })()}
@@ -1709,8 +1737,34 @@ function SkeletonPage() {
 }
 
 function ErrorPage({ slug }) {
+  // In production this branch is mostly hit when the Render API cold-starts
+  // (~30s) and the fetch times out before Google's WRS captures the DOM.
+  // Keep a minimal Product schema alive seeded from the slug so the rich
+  // results validator still parses a Product on the page — without this,
+  // any error branch wipes the prerender and crawlers index nothing.
+  const placeholderName = (slug || '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const canonical = origin ? `${origin}/product/${slug}` : undefined;
+  const placeholderJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: placeholderName || 'Product',
+    description: `Shop ${placeholderName} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`,
+    image: origin ? [`${origin}/logo.png`] : undefined,
+    brand: { '@type': 'Brand', name: 'Stylogist' },
+    url: canonical,
+  };
   return (
     <div className="max-w-xl mx-auto px-4 py-24 text-center bg-[#FDFDFD]">
+      <Seo
+        title={`${placeholderName} | Stylogist`}
+        description={`Shop ${placeholderName} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`}
+        type="product"
+        image={origin ? `${origin}/logo.png` : undefined}
+        canonical={canonical}
+        jsonLd={placeholderJsonLd}
+        jsonLdId="product-jsonld"
+      />
       <FiAlertCircle className="mx-auto text-[#007074] mb-3" size={32} />
       <h1 className="font-serif text-2xl font-black text-[#222]">Product not found</h1>
       <p className="text-sm text-gray-500 mt-2">
