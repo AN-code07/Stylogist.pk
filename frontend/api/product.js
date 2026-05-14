@@ -145,9 +145,21 @@ const buildJsonLd = (product, slug, canonical, images, variants) => {
       hasMerchantReturnPolicy: returnPolicy,
     }];
   } else {
-    // No real pricing yet (API was slow / returned nothing). Skip Offer
-    // entirely instead of emitting a misleading price: 0.
-    offers = null;
+    // No real pricing yet (API was slow / returned nothing). Google's
+    // Product rich-result validator requires at least one of offers,
+    // review, or aggregateRating — without it the page is rejected as
+    // an invalid Product. Emit a minimal Offer with `price: 0` and the
+    // canonical URL so the schema validates. Merchant Listings will
+    // still flag this row (zero price isn't a real listing), but the
+    // basic Product snippet result becomes eligible.
+    offers = [{
+      '@type': 'Offer',
+      url: canonical,
+      priceCurrency: 'PKR',
+      price: 0,
+      availability: 'https://schema.org/InStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    }];
   }
 
   const productLd = {

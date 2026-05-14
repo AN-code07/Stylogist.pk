@@ -25,6 +25,33 @@ import { trackViewItem, trackAddToCart } from '../utils/analytics';
 
 const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
+// Placeholder Product JSON-LD used during loading + error states. Crawlers
+// (Googlebot, Bing, Twitter) often capture the DOM mid-fetch or while the
+// Render API is cold-starting; without a stub Product schema they index
+// nothing. We emit a minimal Product with an Offer because Google's Product
+// rich-result validator requires at least one of `offers`, `review`, or
+// `aggregateRating`. The price is intentionally `0` with `availability:
+// InStock` so the page is valid Product schema without claiming a real
+// merchant price — when the API responds the real schema overwrites this
+// via the `product-jsonld` data-seo id.
+const buildPlaceholderProductJsonLd = ({ name, origin, canonical }) => ({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: name || 'Product',
+  description: `Shop ${name || 'this product'} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`,
+  image: origin ? [`${origin}/logo.png`] : undefined,
+  brand: { '@type': 'Brand', name: 'Stylogist' },
+  url: canonical,
+  offers: {
+    '@type': 'Offer',
+    url: canonical,
+    priceCurrency: 'PKR',
+    price: 0,
+    availability: 'https://schema.org/InStock',
+    itemCondition: 'https://schema.org/NewCondition',
+  },
+});
+
 // Benefits + uses now serialise as { image, items: string[] } — one section
 // banner plus a flat bullet list. Older docs in the catalogue still carry
 // the legacy [{text, image}] array (or even plain string[]) shape, so this
@@ -488,15 +515,11 @@ export default function ProductDetailsPage() {
     const placeholderName = (slug || '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const canonical = origin ? `${origin}/product/${slug}` : undefined;
-    const placeholderJsonLd = {
-      '@context': 'https://schema.org',
-      '@type': 'Product',
+    const placeholderJsonLd = buildPlaceholderProductJsonLd({
       name: placeholderName || 'Product',
-      description: `Shop ${placeholderName} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`,
-      image: origin ? [`${origin}/logo.png`] : undefined,
-      brand: { '@type': 'Brand', name: 'Stylogist' },
-      url: canonical,
-    };
+      origin,
+      canonical,
+    });
     return (
       <>
         <Seo
@@ -1745,15 +1768,11 @@ function ErrorPage({ slug }) {
   const placeholderName = (slug || '').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const canonical = origin ? `${origin}/product/${slug}` : undefined;
-  const placeholderJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
+  const placeholderJsonLd = buildPlaceholderProductJsonLd({
     name: placeholderName || 'Product',
-    description: `Shop ${placeholderName} on HarbalMart.pk — free shipping & cash on delivery in Pakistan.`,
-    image: origin ? [`${origin}/logo.png`] : undefined,
-    brand: { '@type': 'Brand', name: 'Stylogist' },
-    url: canonical,
-  };
+    origin,
+    canonical,
+  });
   return (
     <div className="max-w-xl mx-auto px-4 py-24 text-center bg-[#FDFDFD]">
       <Seo
