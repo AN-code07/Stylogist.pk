@@ -15,7 +15,7 @@
 //     the user's browser hydrates the real page seamlessly. The validator
 //     still sees a Product schema.
 
-const API_BASE = (process.env.API_BASE_URL || 'https://stylogist-pk-api.onrender.com/api/v1').replace(/\/$/, '');
+const API_BASE = (process.env.API_BASE_URL || 'https://stylogist-pk-2.onrender.com/api/v1').replace(/\/$/, '');
 const SITE_URL = (process.env.SITE_URL || 'https://stylogist-pk.vercel.app').replace(/\/$/, '');
 
 // Brand logo served from /public — used as the schema-required `image`
@@ -159,6 +159,8 @@ const buildJsonLd = (product, slug, canonical, images, variants) => {
       price: 0,
       availability: 'https://schema.org/InStock',
       itemCondition: 'https://schema.org/NewCondition',
+      shippingDetails,
+      hasMerchantReturnPolicy: returnPolicy,
     }];
   }
 

@@ -25,6 +25,29 @@ import { trackViewItem, trackAddToCart } from '../utils/analytics';
 
 const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 
+// Store-wide shipping + return defaults — a Pakistan-only COD storefront
+// with free nationwide delivery and a 7-day return window. These are the
+// same constants the Vercel prerender (api/product.js) emits, mirrored
+// here so the client-side placeholder schema matches.
+const STORE_SHIPPING_DETAILS = {
+  '@type': 'OfferShippingDetails',
+  shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'PKR' },
+  shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'PK' },
+  deliveryTime: {
+    '@type': 'ShippingDeliveryTime',
+    handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 1, unitCode: 'DAY' },
+    transitTime: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 5, unitCode: 'DAY' },
+  },
+};
+const STORE_RETURN_POLICY = {
+  '@type': 'MerchantReturnPolicy',
+  applicableCountry: 'PK',
+  returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+  merchantReturnDays: 7,
+  returnMethod: 'https://schema.org/ReturnByMail',
+  returnFees: 'https://schema.org/FreeReturn',
+};
+
 // Placeholder Product JSON-LD used during loading + error states. Crawlers
 // (Googlebot, Bing, Twitter) often capture the DOM mid-fetch or while the
 // Render API is cold-starting; without a stub Product schema they index
@@ -33,7 +56,9 @@ const fmtPKR = (n) => `Rs ${Math.round(n || 0).toLocaleString()}`;
 // `aggregateRating`. The price is intentionally `0` with `availability:
 // InStock` so the page is valid Product schema without claiming a real
 // merchant price — when the API responds the real schema overwrites this
-// via the `product-jsonld` data-seo id.
+// via the `product-jsonld` data-seo id. `review` / `aggregateRating` are
+// deliberately omitted: they require real review data and must never be
+// faked.
 const buildPlaceholderProductJsonLd = ({ name, origin, canonical }) => ({
   '@context': 'https://schema.org',
   '@type': 'Product',
@@ -49,6 +74,8 @@ const buildPlaceholderProductJsonLd = ({ name, origin, canonical }) => ({
     price: 0,
     availability: 'https://schema.org/InStock',
     itemCondition: 'https://schema.org/NewCondition',
+    shippingDetails: STORE_SHIPPING_DETAILS,
+    hasMerchantReturnPolicy: STORE_RETURN_POLICY,
   },
 });
 

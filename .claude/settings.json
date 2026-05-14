@@ -12,7 +12,11 @@
       "Bash(node --check src/config/cloudinary.js)",
       "Bash(node --check src/modules/uploads/upload.routes.js)",
       "Bash(node --check src/middlewares/error.middleware.js)",
-      "Bash(node --check server.js)"
+      "Bash(node --check server.js)",
+      "Bash(echo \"=== exit: $? ===\")",
+      "Bash(curl -s -m 40 -w \"\\\\n[HTTP %{http_code}, %{time_total}s]\\\\n\" https://stylogist-pk-api.onrender.com/health)",
+      "Bash(curl -s -m 40 -w \"\\\\n[HTTP %{http_code}, %{time_total}s]\\\\n\" https://stylogist-pk-2.onrender.com/health)",
+      "Bash(curl -s -m 40 -w \"\\\\n[HTTP %{http_code}, %{time_total}s]\\\\n\" \"https://stylogist-pk-2.onrender.com/api/v1/products/forest-leaf-advanced-magnesium-complex-500-mg-120-vegetable-capsules\")"
     ],
     "additionalDirectories": [
       "D:\\COMAPNY PORJECTS\\INNOVISTA_DHA\\HarbalMart.pk\\backend\\src\\modules"
